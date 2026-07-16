@@ -1,4 +1,5 @@
-const CACHE_NAME = 'visitas-pwa-v1';
+// 🔴 CAMBIAMOS LA VERSIÓN A v2 PARA FORZAR LA ACTUALIZACIÓN
+const CACHE_NAME = 'visitas-pwa-v2';
 const ASSETS = [
     './',
     './index.html',
@@ -14,6 +15,8 @@ self.addEventListener('install', (e) => {
             return cache.addAll(ASSETS);
         })
     );
+    // Forzar al SW a tomar el control inmediatamente
+    self.skipWaiting(); 
 });
 
 // Activar y limpiar cachés antiguas
@@ -29,13 +32,23 @@ self.addEventListener('activate', (e) => {
             );
         })
     );
+    self.clients.claim();
 });
 
-// Responder desde el caché si no hay internet
+// Interceptar peticiones
 self.addEventListener('fetch', (e) => {
+    // 1. Si la petición va a Google Script, NO usar caché
+    if (e.request.url.includes('script.google.com')) {
+        e.respondWith(fetch(e.request));
+        return;
+    }
+
+    // 2. Para todo lo demás, intentar responder con caché, y si no, ir a la red
     e.respondWith(
         caches.match(e.request).then((cachedResponse) => {
-            return cachedResponse || fetch(e.request);
+            return cachedResponse || fetch(e.request).catch(() => {
+                console.log("No hay internet y el recurso no está en caché:", e.request.url);
+            });
         })
     );
 });
