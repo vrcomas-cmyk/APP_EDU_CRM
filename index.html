@@ -11,24 +11,48 @@
 <body>
     <header>
         <h1>📅 Registro de Visitas</h1>
-        <span id="online-status" class="badge online">Online</span>
+        <div>
+            <button id="btn-sync" class="btn-sync">🔄 Sincronizar</button>
+            <span id="online-status" class="badge online">Online</span>
+        </div>
     </header>
 
     <main>
         <section class="card">
             <h2>Agendar Nueva Visita</h2>
+            <!-- SOLO DEBE HABER UN FORMULARIO AQUI -->
             <form id="visita-form">
+                <!-- Educador con Autocompletado -->
+                <div class="form-group">
+                    <label for="educador">Educador (Tu Nombre):</label>
+                    <input type="text" id="educador" list="lista-educadores" required placeholder="Escribe tu nombre...">
+                    <datalist id="lista-educadores"></datalist>
+                    <!-- Campo oculto para guardar el correo asociado -->
+                    <input type="hidden" id="educador-correo">
+                </div>
+
+                <!-- Cliente con Autocompletado -->
                 <div class="form-group">
                     <label for="cliente">Cliente:</label>
-                    <input type="text" id="cliente" required placeholder="Nombre del cliente o empresa">
+                    <input type="text" id="cliente" list="lista-clientes" required placeholder="Busca N° o Razón Social...">
+                    <datalist id="lista-clientes"></datalist>
                 </div>
+
+                <!-- Sector con Autocompletado -->
+                <div class="form-group">
+                    <label for="sector">Sector a revisar:</label>
+                    <input type="text" id="sector" list="lista-sectores" required placeholder="Escribe el sector...">
+                    <datalist id="lista-sectores"></datalist>
+                </div>
+
                 <div class="form-group">
                     <label for="fecha">Fecha y Hora:</label>
                     <input type="datetime-local" id="fecha" required>
                 </div>
+                
                 <div class="form-group">
-                    <label for="actividad">Actividad planificada:</label>
-                    <textarea id="actividad" placeholder="¿Qué vas a hacer? (Ej: Presentación de propuesta)"></textarea>
+                    <label for="actividad">Comentarios/Actividad:</label>
+                    <textarea id="actividad" placeholder="Detalles de la visita..."></textarea>
                 </div>
                 <button type="submit" class="btn">Guardar Visita</button>
             </form>
