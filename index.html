@@ -22,27 +22,21 @@
             <h2>Agendar Nueva Visita</h2>
             <!-- SOLO DEBE HABER UN FORMULARIO AQUI -->
             <form id="visita-form">
-                <!-- Educador con Autocompletado -->
+                <!-- Autocompletados (Datalists invisibles pero necesarios) -->
+                <datalist id="lista-educadores"></datalist>
+                <datalist id="lista-clientes"></datalist>
+                <datalist id="lista-sectores"></datalist>
+
+                <!-- Datos Generales de la Visita -->
                 <div class="form-group">
                     <label for="educador">Educador (Tu Nombre):</label>
                     <input type="text" id="educador" list="lista-educadores" required placeholder="Escribe tu nombre...">
-                    <datalist id="lista-educadores"></datalist>
-                    <!-- Campo oculto para guardar el correo asociado -->
                     <input type="hidden" id="educador-correo">
                 </div>
 
-                <!-- Cliente con Autocompletado -->
                 <div class="form-group">
                     <label for="cliente">Cliente:</label>
                     <input type="text" id="cliente" list="lista-clientes" required placeholder="Busca N° o Razón Social...">
-                    <datalist id="lista-clientes"></datalist>
-                </div>
-
-                <!-- Sector con Autocompletado -->
-                <div class="form-group">
-                    <label for="sector">Sector a revisar:</label>
-                    <input type="text" id="sector" list="lista-sectores" required placeholder="Escribe el sector...">
-                    <datalist id="lista-sectores"></datalist>
                 </div>
 
                 <div class="form-group">
@@ -50,11 +44,26 @@
                     <input type="datetime-local" id="fecha" required>
                 </div>
                 
-                <div class="form-group">
-                    <label for="actividad">Comentarios/Actividad:</label>
-                    <textarea id="actividad" placeholder="Detalles de la visita..."></textarea>
+                <hr style="border: 1px solid #eee; margin: 20px 0;">
+                
+                <!-- CONTENEDOR DE SECTORES Y ACTIVIDADES -->
+                <div id="sectores-container">
+                    <!-- Bloque inicial de Sector/Actividad -->
+                    <div class="sector-block form-group" style="border-left: 4px solid var(--primary); padding-left: 10px; margin-bottom: 15px;">
+                        <label>Sector a revisar:</label>
+                        <input type="text" class="sector-input" list="lista-sectores" required placeholder="Escribe el sector...">
+                        
+                        <label style="margin-top: 10px; display: block;">Actividad para este sector:</label>
+                        <textarea class="actividad-input" required placeholder="Detalles de la revisión..."></textarea>
+                    </div>
                 </div>
-                <button type="submit" class="btn">Guardar Visita</button>
+
+                <!-- Botón para añadir más sectores -->
+                <button type="button" id="btn-add-sector" class="btn" style="background-color: #e0e0e0; color: #333; margin-bottom: 20px;">
+                    ➕ Añadir otro sector
+                </button>
+
+                <button type="submit" class="btn">💾 Guardar Visita Completa</button>
             </form>
         </section>
 
