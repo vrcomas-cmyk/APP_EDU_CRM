@@ -6,7 +6,7 @@ if ('serviceWorker' in navigator) {
 }
 
 // 🔗 URL DE GOOGLE APPS SCRIPT
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyRdGq_Tef6GGg8MWr7_VNLS-VLvx439MTWPpmjJQ3kjXk_6OvtrFc19ehh7_GoVBZZ/exec";
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyRdGq_Tef6GGg8MWr7_VNLS-VLvx439MTWPpmjJQ3kjXk_6OvtrFc19ehh7_GoVBZZ/exechttps://script.google.com/macros/s/AKfycbyRdGq_Tef6GGg8MWr7_VNLS-VLvx439MTWPpmjJQ3kjXk_6OvtrFc19ehh7_GoVBZZ/exec";
 
 const form = document.getElementById('visita-form');
 const listaVisitas = document.getElementById('lista-visitas');
@@ -180,15 +180,21 @@ function mostrarVisitas() {
 async function descargarDatosMaestros() {
     try {
         console.log("Intentando descargar catálogos de Google Sheets...");
+        
+        // Un fetch limpio, Google maneja la redirección (302) solo si los permisos están en "Cualquier persona"
         const response = await fetch(GOOGLE_SCRIPT_URL);
+        
+        if (!response.ok) {
+            throw new Error('Error en la respuesta del servidor');
+        }
+        
         const datos = await response.json();
         
-        console.log("✅ Catálogos recibidos:", datos); // Te dirá qué llegó
+        console.log("✅ Catálogos recibidos:", datos);
         localStorage.setItem('datosPWA', JSON.stringify(datos));
         cargarCatalogosEnUI();
     } catch (error) {
         console.error("❌ Error descargando catálogos:", error);
-        alert("Aviso: No se pudieron descargar las listas actualizadas. Verifica la URL o los permisos en Apps Script.");
     }
 }
 
