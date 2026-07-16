@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestor de Visitas PWA</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1E88E5">
+</head>
+<body>
+    <header>
+        <h1>📅 Registro de Visitas</h1>
+        <span id="online-status" class="badge online">Online</span>
+    </header>
+
+    <main>
+        <section class="card">
+            <h2>Agendar Nueva Visita</h2>
+            <form id="visita-form">
+                <div class="form-group">
+                    <label for="cliente">Cliente:</label>
+                    <input type="text" id="cliente" required placeholder="Nombre del cliente o empresa">
+                </div>
+                <div class="form-group">
+                    <label for="fecha">Fecha y Hora:</label>
+                    <input type="datetime-local" id="fecha" required>
+                </div>
+                <div class="form-group">
+                    <label for="actividad">Actividad planificada:</label>
+                    <textarea id="actividad" placeholder="¿Qué vas a hacer? (Ej: Presentación de propuesta)"></textarea>
+                </div>
+                <button type="submit" class="btn">Guardar Visita</button>
+            </form>
+        </section>
+
+        <section class="card">
+            <h2>Visitas Agendadas</h2>
+            <div id="lista-visitas" class="lista-visitas">
+                <!-- Aquí se cargarán las visitas -->
+                <p class="empty-state">No hay visitas agendadas.</p>
+            </div>
+        </section>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>
