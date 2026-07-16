@@ -4,18 +4,14 @@
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#f5f7fb",
-  "theme-color": "#1E88E5",
+  "theme_color": "#1E88E5",
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "https://via.placeholder.com/192",
-      "type": "image/png",
-      "sizes": "192x192"
-    },
-    {
-      "src": "https://via.placeholder.com/512",
-      "type": "image/png",
-      "sizes": "512x512"
+      "src": "./icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any maskable"
     }
   ]
 }

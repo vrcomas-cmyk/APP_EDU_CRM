@@ -124,12 +124,22 @@ async function sincronizarConGoogleSheets() {
     btnSync.textContent = "⌛ Enviando...";
 
     try {
-        await fetch(GOOGLE_SCRIPT_URL, {
+        // Content-Type text/plain evita el preflight OPTIONS (Apps Script no lo soporta)
+        // y a diferencia de no-cors, la respuesta deja de ser opaca: sí podemos confirmar éxito.
+        const response = await fetch(GOOGLE_SCRIPT_URL, {
             method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({ visitas: pendientes })
         });
+
+        if (!response.ok) {
+            throw new Error(`Respuesta del servidor: ${response.status}`);
+        }
+
+        const resultado = await response.json().catch(() => null);
+        if (resultado && resultado.status === 'error') {
+            throw new Error(resultado.message || 'Apps Script reportó un error');
+        }
 
         visitas = visitas.map(v => {
             if (!v.sincronizado) v.sincronizado = true;
@@ -153,7 +163,10 @@ function mostrarVisitas() {
     listaVisitas.innerHTML = '';
 
     if (visitas.length === 0) {
-        listaVisitas.innerHTML = '<p class="empty-state">No hay visitas agendadas.</p>';
+        const p = document.createElement('p');
+        p.className = 'empty-state';
+        p.textContent = 'No hay visitas agendadas.';
+        listaVisitas.appendChild(p);
         return;
     }
 
@@ -165,13 +178,28 @@ function mostrarVisitas() {
         const fechaFormateada = new Date(visita.fecha).toLocaleString();
         const estadoNube = visita.sincronizado ? '☁️ Guardado en Google' : '⏳ Pendiente';
 
-        div.innerHTML = `
-            <h3>${visita.cliente}</h3>
-            <p><strong>Sector:</strong> ${visita.sector || 'N/A'}</p>
-            <p><strong>Actividad:</strong> ${visita.actividad || 'Ninguna'}</p>
-            <p style="font-size: 0.8rem; color: #666;">${fechaFormateada} | ${visita.educador || 'Sin educador'}</p>
-            <small style="color: ${visita.sincronizado ? 'green' : 'orange'}"><strong>${estadoNube}</strong></small>
-        `;
+        const h3 = document.createElement('h3');
+        h3.textContent = visita.cliente;
+
+        const pSector = document.createElement('p');
+        pSector.innerHTML = '<strong>Sector:</strong> ';
+        pSector.appendChild(document.createTextNode(visita.sector || 'N/A'));
+
+        const pActividad = document.createElement('p');
+        pActividad.innerHTML = '<strong>Actividad:</strong> ';
+        pActividad.appendChild(document.createTextNode(visita.actividad || 'Ninguna'));
+
+        const pMeta = document.createElement('p');
+        pMeta.style.cssText = 'font-size: 0.8rem; color: #666;';
+        pMeta.textContent = `${fechaFormateada} | ${visita.educador || 'Sin educador'}`;
+
+        const small = document.createElement('small');
+        small.style.color = visita.sincronizado ? 'green' : 'orange';
+        const strong = document.createElement('strong');
+        strong.textContent = estadoNube;
+        small.appendChild(strong);
+
+        div.append(h3, pSector, pActividad, pMeta, small);
         listaVisitas.appendChild(div);
     });
 }
@@ -207,19 +235,31 @@ function cargarCatalogosEnUI() {
     const listaClientes = document.getElementById('lista-clientes');
     if(listaClientes && datos.clientes) {
         listaClientes.innerHTML = '';
-        datos.clientes.forEach(c => listaClientes.innerHTML += `<option value="${c}">`);
+        datos.clientes.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c;
+            listaClientes.appendChild(opt);
+        });
     }
 
     const listaSectores = document.getElementById('lista-sectores');
     if(listaSectores && datos.sectores) {
         listaSectores.innerHTML = '';
-        datos.sectores.forEach(s => listaSectores.innerHTML += `<option value="${s}">`);
+        datos.sectores.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s;
+            listaSectores.appendChild(opt);
+        });
     }
 
     const listaEducadores = document.getElementById('lista-educadores');
     if(listaEducadores && datos.educadores) {
         listaEducadores.innerHTML = '';
-        datos.educadores.forEach(edu => listaEducadores.innerHTML += `<option value="${edu.nombre}">`);
+        datos.educadores.forEach(edu => {
+            const opt = document.createElement('option');
+            opt.value = edu.nombre;
+            listaEducadores.appendChild(opt);
+        });
     }
 }
 

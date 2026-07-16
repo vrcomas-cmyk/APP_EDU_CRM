@@ -1,0 +1,17 @@
+{
+  "app.js": {
+    "mtime": 1784242594.887019,
+    "ast_hash": "5203f3ba1d20ef9174d7fe055ebb2dfd",
+    "semantic_hash": "5203f3ba1d20ef9174d7fe055ebb2dfd"
+  },
+  "manifest.json": {
+    "mtime": 1784242544.650021,
+    "ast_hash": "967d7331ca1e57d0763e89ab3c804d31",
+    "semantic_hash": "967d7331ca1e57d0763e89ab3c804d31"
+  },
+  "sw.js": {
+    "mtime": 1784242547.740021,
+    "ast_hash": "26ea6fe905fed80c8134060b392e192e",
+    "semantic_hash": "26ea6fe905fed80c8134060b392e192e"
+  }
+}

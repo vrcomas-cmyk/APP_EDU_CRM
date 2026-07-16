@@ -1,0 +1,532 @@
+{
+  "directed": false,
+  "multigraph": false,
+  "graph": {},
+  "nodes": [
+    {
+      "label": "app.js",
+      "file_type": "code",
+      "source_file": "app.js",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "app",
+      "community": 1,
+      "norm_label": "app.js"
+    },
+    {
+      "label": "form",
+      "file_type": "code",
+      "source_file": "app.js",
+      "source_location": "L11",
+      "_origin": "ast",
+      "id": "app_form",
+      "community": 1,
+      "norm_label": "form"
+    },
+    {
+      "label": "listaVisitas",
+      "file_type": "code",
+      "source_file": "app.js",
+      "source_location": "L12",
+      "_origin": "ast",
+      "id": "app_listavisitas",
+      "community": 1,
+      "norm_label": "listavisitas"
+    },
+    {
+      "label": "statusBadge",
+      "file_type": "code",
+      "source_file": "app.js",
+      "source_location": "L13",
+      "_origin": "ast",
+      "id": "app_statusbadge",
+      "community": 1,
+      "norm_label": "statusbadge"
+    },
+    {
+      "label": "btnSync",
+      "file_type": "code",
+      "source_file": "app.js",
+      "source_location": "L14",
+      "_origin": "ast",
+      "id": "app_btnsync",
+      "community": 1,
+      "norm_label": "btnsync"
+    },
+    {
+      "label": "sectoresContainer",
+      "file_type": "code",
+      "source_file": "app.js",
+      "source_location": "L15",
+      "_origin": "ast",
+      "id": "app_sectorescontainer",
+      "community": 1,
+      "norm_label": "sectorescontainer"
+    },
+    {
+      "label": "btnAddSector",
+      "file_type": "code",
+      "source_file": "app.js",
+      "source_location": "L16",
+      "_origin": "ast",
+      "id": "app_btnaddsector",
+      "community": 1,
+      "norm_label": "btnaddsector"
+    },
+    {
+      "label": "actualizarEstadoConexion()",
+      "file_type": "code",
+      "source_file": "app.js",
+      "source_location": "L21",
+      "_origin": "ast",
+      "id": "app_actualizarestadoconexion",
+      "community": 2,
+      "norm_label": "actualizarestadoconexion()"
+    },
+    {
+      "label": "sincronizarConGoogleSheets()",
+      "file_type": "code",
+      "source_file": "app.js",
+      "source_location": "L119",
+      "_origin": "ast",
+      "id": "app_sincronizarcongooglesheets",
+      "community": 3,
+      "norm_label": "sincronizarcongooglesheets()"
+    },
+    {
+      "label": "mostrarVisitas()",
+      "file_type": "code",
+      "source_file": "app.js",
+      "source_location": "L161",
+      "_origin": "ast",
+      "id": "app_mostrarvisitas",
+      "community": 3,
+      "norm_label": "mostrarvisitas()"
+    },
+    {
+      "label": "descargarDatosMaestros()",
+      "file_type": "code",
+      "source_file": "app.js",
+      "source_location": "L208",
+      "_origin": "ast",
+      "id": "app_descargardatosmaestros",
+      "community": 2,
+      "norm_label": "descargardatosmaestros()"
+    },
+    {
+      "label": "cargarCatalogosEnUI()",
+      "file_type": "code",
+      "source_file": "app.js",
+      "source_location": "L229",
+      "_origin": "ast",
+      "id": "app_cargarcatalogosenui",
+      "community": 2,
+      "norm_label": "cargarcatalogosenui()"
+    },
+    {
+      "label": "educadorInput",
+      "file_type": "code",
+      "source_file": "app.js",
+      "source_location": "L267",
+      "_origin": "ast",
+      "id": "app_educadorinput",
+      "community": 1,
+      "norm_label": "educadorinput"
+    },
+    {
+      "label": "manifest.json",
+      "file_type": "code",
+      "source_file": "manifest.json",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "manifest",
+      "community": 0,
+      "norm_label": "manifest.json"
+    },
+    {
+      "label": "name",
+      "file_type": "code",
+      "source_file": "manifest.json",
+      "source_location": "L2",
+      "_origin": "ast",
+      "id": "manifest_name",
+      "community": 0,
+      "norm_label": "name"
+    },
+    {
+      "label": "short_name",
+      "file_type": "code",
+      "source_file": "manifest.json",
+      "source_location": "L3",
+      "_origin": "ast",
+      "id": "manifest_short_name",
+      "community": 0,
+      "norm_label": "short_name"
+    },
+    {
+      "label": "start_url",
+      "file_type": "code",
+      "source_file": "manifest.json",
+      "source_location": "L4",
+      "_origin": "ast",
+      "id": "manifest_start_url",
+      "community": 0,
+      "norm_label": "start_url"
+    },
+    {
+      "label": "display",
+      "file_type": "code",
+      "source_file": "manifest.json",
+      "source_location": "L5",
+      "_origin": "ast",
+      "id": "manifest_display",
+      "community": 0,
+      "norm_label": "display"
+    },
+    {
+      "label": "background_color",
+      "file_type": "code",
+      "source_file": "manifest.json",
+      "source_location": "L6",
+      "_origin": "ast",
+      "id": "manifest_background_color",
+      "community": 0,
+      "norm_label": "background_color"
+    },
+    {
+      "label": "theme_color",
+      "file_type": "code",
+      "source_file": "manifest.json",
+      "source_location": "L7",
+      "_origin": "ast",
+      "id": "manifest_theme_color",
+      "community": 0,
+      "norm_label": "theme_color"
+    },
+    {
+      "label": "orientation",
+      "file_type": "code",
+      "source_file": "manifest.json",
+      "source_location": "L8",
+      "_origin": "ast",
+      "id": "manifest_orientation",
+      "community": 0,
+      "norm_label": "orientation"
+    },
+    {
+      "label": "icons",
+      "file_type": "code",
+      "source_file": "manifest.json",
+      "source_location": "L9",
+      "_origin": "ast",
+      "id": "manifest_icons",
+      "community": 0,
+      "norm_label": "icons"
+    },
+    {
+      "label": "sw.js",
+      "file_type": "code",
+      "source_file": "sw.js",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "sw",
+      "community": 4,
+      "norm_label": "sw.js"
+    },
+    {
+      "label": "ASSETS",
+      "file_type": "code",
+      "source_file": "sw.js",
+      "source_location": "L3",
+      "_origin": "ast",
+      "id": "sw_assets",
+      "community": 4,
+      "norm_label": "assets"
+    }
+  ],
+  "links": [
+    {
+      "relation": "indirect_call",
+      "confidence": "INFERRED",
+      "source_file": "app.js",
+      "source_location": "L18",
+      "weight": 1.0,
+      "_origin": "ast",
+      "context": "argument",
+      "source": "app",
+      "target": "app_actualizarestadoconexion",
+      "confidence_score": 0.5
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app.js",
+      "source_location": "L16",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "app",
+      "target": "app_btnaddsector",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app.js",
+      "source_location": "L14",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "app",
+      "target": "app_btnsync",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app.js",
+      "source_location": "L229",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "app",
+      "target": "app_cargarcatalogosenui",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app.js",
+      "source_location": "L208",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "app",
+      "target": "app_descargardatosmaestros",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app.js",
+      "source_location": "L267",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "app",
+      "target": "app_educadorinput",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app.js",
+      "source_location": "L11",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "app",
+      "target": "app_form",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app.js",
+      "source_location": "L12",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "app",
+      "target": "app_listavisitas",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app.js",
+      "source_location": "L161",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "app",
+      "target": "app_mostrarvisitas",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app.js",
+      "source_location": "L15",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "app",
+      "target": "app_sectorescontainer",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "indirect_call",
+      "confidence": "INFERRED",
+      "source_file": "app.js",
+      "source_location": "L42",
+      "weight": 1.0,
+      "_origin": "ast",
+      "context": "argument",
+      "source": "app",
+      "target": "app_sincronizarcongooglesheets",
+      "confidence_score": 0.5
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "app.js",
+      "source_location": "L13",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "app",
+      "target": "app_statusbadge",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "app.js",
+      "source_location": "L27",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "app_actualizarestadoconexion",
+      "target": "app_descargardatosmaestros",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "app.js",
+      "source_location": "L26",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "app_actualizarestadoconexion",
+      "target": "app_sincronizarcongooglesheets",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "app.js",
+      "source_location": "L152",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "app_sincronizarcongooglesheets",
+      "target": "app_mostrarvisitas",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "app.js",
+      "source_location": "L223",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "app_descargardatosmaestros",
+      "target": "app_cargarcatalogosenui",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "manifest.json",
+      "source_location": "L6",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "manifest",
+      "target": "manifest_background_color",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "manifest.json",
+      "source_location": "L5",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "manifest",
+      "target": "manifest_display",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "manifest.json",
+      "source_location": "L9",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "manifest",
+      "target": "manifest_icons",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "manifest.json",
+      "source_location": "L2",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "manifest",
+      "target": "manifest_name",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "manifest.json",
+      "source_location": "L8",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "manifest",
+      "target": "manifest_orientation",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "manifest.json",
+      "source_location": "L3",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "manifest",
+      "target": "manifest_short_name",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "manifest.json",
+      "source_location": "L4",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "manifest",
+      "target": "manifest_start_url",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "manifest.json",
+      "source_location": "L7",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "manifest",
+      "target": "manifest_theme_color",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "sw.js",
+      "source_location": "L3",
+      "weight": 1.0,
+      "_origin": "ast",
+      "source": "sw",
+      "target": "sw_assets",
+      "confidence_score": 1.0
+    }
+  ],
+  "hyperedges": [],
+  "built_at_commit": "1d7383e0f4c20fa46f85a8628817ca5311bcef6b"
+}

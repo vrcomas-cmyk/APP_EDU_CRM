@@ -1,11 +1,12 @@
-// 🔴 CAMBIAMOS LA VERSIÓN A v2 PARA FORZAR LA ACTUALIZACIÓN
-const CACHE_NAME = 'visitas-pwa-v2';
+// 🔴 CAMBIAMOS LA VERSIÓN A v3 PARA FORZAR LA ACTUALIZACIÓN
+const CACHE_NAME = 'visitas-pwa-v3';
 const ASSETS = [
     './',
     './index.html',
     './style.css',
     './app.js',
-    './manifest.json'
+    './manifest.json',
+    './icon.svg'
 ];
 
 // Instalar el SW y cachear los archivos base

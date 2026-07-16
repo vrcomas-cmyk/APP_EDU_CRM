@@ -1,0 +1,114 @@
+{
+  "communities": {
+    "0": [
+      "manifest",
+      "manifest_background_color",
+      "manifest_display",
+      "manifest_icons",
+      "manifest_name",
+      "manifest_orientation",
+      "manifest_short_name",
+      "manifest_start_url",
+      "manifest_theme_color"
+    ],
+    "1": [
+      "app",
+      "app_btnaddsector",
+      "app_btnsync",
+      "app_educadorinput",
+      "app_form",
+      "app_listavisitas",
+      "app_sectorescontainer",
+      "app_statusbadge"
+    ],
+    "2": [
+      "app_actualizarestadoconexion",
+      "app_cargarcatalogosenui",
+      "app_descargardatosmaestros"
+    ],
+    "3": [
+      "app_mostrarvisitas",
+      "app_sincronizarcongooglesheets"
+    ],
+    "4": [
+      "sw",
+      "sw_assets"
+    ]
+  },
+  "cohesion": {
+    "0": 0.2222222222222222,
+    "1": 0.25,
+    "2": 0.6666666666666666,
+    "3": 1.0,
+    "4": 1.0
+  },
+  "gods": [
+    {
+      "id": "app_actualizarestadoconexion",
+      "label": "actualizarEstadoConexion()",
+      "degree": 3
+    },
+    {
+      "id": "app_sincronizarcongooglesheets",
+      "label": "sincronizarConGoogleSheets()",
+      "degree": 3
+    },
+    {
+      "id": "app_descargardatosmaestros",
+      "label": "descargarDatosMaestros()",
+      "degree": 3
+    },
+    {
+      "id": "app_mostrarvisitas",
+      "label": "mostrarVisitas()",
+      "degree": 2
+    },
+    {
+      "id": "app_cargarcatalogosenui",
+      "label": "cargarCatalogosEnUI()",
+      "degree": 2
+    },
+    {
+      "id": "app_form",
+      "label": "form",
+      "degree": 1
+    },
+    {
+      "id": "app_listavisitas",
+      "label": "listaVisitas",
+      "degree": 1
+    },
+    {
+      "id": "app_statusbadge",
+      "label": "statusBadge",
+      "degree": 1
+    },
+    {
+      "id": "app_btnsync",
+      "label": "btnSync",
+      "degree": 1
+    },
+    {
+      "id": "app_sectorescontainer",
+      "label": "sectoresContainer",
+      "degree": 1
+    }
+  ],
+  "surprises": [
+    {
+      "source": "actualizarEstadoConexion()",
+      "target": "sincronizarConGoogleSheets()",
+      "source_files": [
+        "app.js",
+        "app.js"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "note": "Bridges community 2 \u2192 community 3"
+    }
+  ],
+  "tokens": {
+    "input": 0,
+    "output": 0
+  }
+}
