@@ -1,6 +1,6 @@
 // 🔴 Subir esta versión SIEMPRE que cambie algún archivo de ASSETS,
 // si no los navegadores que ya instalaron el SW siguen sirviendo la versión vieja.
-const CACHE_NAME = 'visitas-pwa-v5';
+const CACHE_NAME = 'visitas-pwa-v6';
 const ASSETS = [
     './',
     './index.html',
@@ -9,12 +9,11 @@ const ASSETS = [
     './icon.svg',
     './js/app.js',
     './js/storage.js',
+    './js/estado.js',
     './js/sync.js',
     './js/fechas.js',
-    './js/sectores.js',
-    './js/agenda.js',
     './js/calendario.js',
-    './js/detalle.js',
+    './js/drawer.js',
     './js/evidencias.js'
 ];
 

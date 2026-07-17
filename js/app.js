@@ -1,47 +1,53 @@
 /**
- * Arranque, navegación y sincronización.
+ * Arranque y coordinación.
  *
- * Vistas: #/agenda (calendario + lista), #/nueva (agendar), #/visita/:id (ejecución),
- * #/pendientes (bandeja de evidencias).
+ * No hay router de vistas: el calendario ES la pantalla. Todo lo demás (agendar, ejecutar)
+ * ocurre en un drawer encima, para no tapar el contexto que da sentido a lo que estás
+ * haciendo — al agendar, la pregunta real es "¿dónde cabe esto?".
  */
 
-import {
-    migrarSiHaceFalta, leerCatalogo, agregarVisita, nuevoId
-} from './storage.js';
+import { migrarSiHaceFalta, leerCatalogo } from './storage.js';
 import { descargarCatalogo, sincronizarTodo } from './sync.js';
-import { initSelectorSectores, setCatalogoSectores, getSeleccion, mostrarError, limpiarSeleccion } from './sectores.js';
-import { initCalendario, clavesVisibles, refrescarCalendario, irADia } from './calendario.js';
-import { renderAgenda } from './agenda.js';
-import { initDetalle, renderDetalle } from './detalle.js';
-import { renderPendientes, contarPendientes, subirTodasLasPendientes } from './evidencias.js';
-import { etiquetaDiaLarga } from './fechas.js';
+import { deudaGlobal } from './estado.js';
+import { initCalendario, refrescarCalendario, irAHoy, setModo, diaVisible } from './calendario.js';
+import { initDrawer, abrirNuevaVisita, abrirVisita, hayDrawerAbierto } from './drawer.js';
 
-const VISTAS = ['agenda', 'nueva', 'visita', 'pendientes'];
-
-let statusBadge, btnSync;
-
-// ---------- arranque ----------
+let el = {};
+let sincronizando = false;
 
 document.addEventListener('DOMContentLoaded', () => {
-    statusBadge = document.getElementById('online-status');
-    btnSync = document.getElementById('btn-sync');
+    el = {
+        sync: document.getElementById('btn-sync'),
+        syncTxt: document.getElementById('sync-txt'),
+        deuda: document.getElementById('btn-deuda'),
+        deudaN: document.getElementById('deuda-n'),
+        fab: document.getElementById('fab'),
+        toasts: document.getElementById('toasts')
+    };
 
-    migrarSiHaceFalta();
+    const migracion = migrarSiHaceFalta();
+    if (migracion) {
+        toast(`Se actualizaron ${migracion.visitas} visitas al formato nuevo.`, { estado: 'completa' });
+    }
 
-    initSelectorSectores();
-    initCalendario(() => renderAgendaVisible());
-    initDetalle(() => refrescarTodo());
+    initDrawer({ onCambio: refrescarTodo, onToast: toast });
+    initCalendario({
+        onAbrirVisita: (id) => abrirVisita(id),
+        onCrearEn: (dia, hora) => abrirNuevaVisita({ dia, hora_inicio: hora })
+    });
 
-    cargarCatalogoEnUI();
-    cablearFormulario();
-    cablearAcciones();
+    el.fab.addEventListener('click', () => abrirNuevaVisita({ dia: diaVisible() }));
+    el.sync.addEventListener('click', () => sincronizar({ manual: true }));
+    el.deuda.addEventListener('click', () => toast('La bandeja de evidencias llega en el paso siguiente.'));
 
-    window.addEventListener('hashchange', enrutar);
-    window.addEventListener('online', actualizarEstadoConexion);
-    window.addEventListener('offline', actualizarEstadoConexion);
+    document.addEventListener('keydown', atajos);
+    window.addEventListener('online', alCambiarConexion);
+    window.addEventListener('offline', alCambiarConexion);
 
-    enrutar();
-    actualizarEstadoConexion();
+    refrescarTodo();
+    alCambiarConexion();
+    // La línea de "ahora" se queda quieta si nadie la mueve.
+    setInterval(refrescarCalendario, 60000);
 });
 
 if ('serviceWorker' in navigator) {
@@ -50,192 +56,154 @@ if ('serviceWorker' in navigator) {
     });
 }
 
-// ---------- navegación ----------
+// ---------- atajos ----------
 
-function enrutar() {
-    const ruta = location.hash.replace(/^#\/?/, '') || 'agenda';
-    const [seccion, parametro] = ruta.split('/');
-    const vista = VISTAS.includes(seccion) ? seccion : 'agenda';
+function atajos(e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    // Si estás escribiendo, "n" es una letra, no un comando.
+    const escribiendo = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable;
+    if (escribiendo) return;
 
-    VISTAS.forEach(v => {
-        document.getElementById(`vista-${v}`).hidden = (v !== vista);
-    });
-    document.querySelectorAll('.tab').forEach(tab => {
-        tab.classList.toggle('is-active', tab.dataset.vista === vista);
-    });
+    if (e.key === 'Escape') return;              // el drawer se cierra solo
+    if (hayDrawerAbierto()) return;
 
-    if (vista === 'agenda') renderAgendaVisible();
-    if (vista === 'visita') renderDetalle(parametro);
-    if (vista === 'pendientes') renderPendientes(() => refrescarTodo());
-
-    window.scrollTo(0, 0);
+    const acciones = {
+        n: () => abrirNuevaVisita({ dia: diaVisible() }),
+        t: () => irAHoy(),
+        d: () => setModo('dia'),
+        s: () => setModo('semana'),
+        m: () => setModo('mes')
+    };
+    const accion = acciones[e.key.toLowerCase()];
+    if (accion) { e.preventDefault(); accion(); }
 }
 
-function renderAgendaVisible() {
-    const claves = clavesVisibles();
-    renderAgenda(claves);
+// ---------- refresco ----------
 
-    const titulo = document.getElementById('agenda-titulo');
-    titulo.textContent = claves.length === 1
-        ? etiquetaDiaLarga(claves[0])
-        : `${claves.length} días`;
-
-    actualizarContadorPendientes();
-}
-
-/** Repinta todo lo que depende de los datos, sin importar en qué vista estemos. */
-function refrescarTodo() {
+export function refrescarTodo() {
     refrescarCalendario();
-    if (!document.getElementById('vista-agenda').hidden) renderAgendaVisible();
-    if (!document.getElementById('vista-pendientes').hidden) renderPendientes(() => refrescarTodo());
-    actualizarContadorPendientes();
+    actualizarDeuda();
 }
 
-function actualizarContadorPendientes() {
-    const contador = document.getElementById('contador-pendientes');
-    const total = contarPendientes();
-    contador.textContent = total;
-    contador.hidden = total === 0;
+function actualizarDeuda() {
+    const n = deudaGlobal().length;
+    el.deudaN.textContent = n;
+    el.deuda.hidden = n === 0;
 }
 
-// ---------- formulario de agendar ----------
+// ---------- toasts ----------
 
-function cablearFormulario() {
-    const form = document.getElementById('visita-form');
+let toastSeq = 0;
 
-    form.addEventListener('submit', (e) => {
-        e.preventDefault();
+/**
+ * Un toast nombra qué pasó y, si aplica, qué hacer. Nunca se disculpa ni dice
+ * "algo salió mal": eso no es información.
+ */
+export function toast(texto, { estado = null, accion = null, ms = 4000 } = {}) {
+    const t = document.createElement('div');
+    t.className = 'toast' + (estado ? ` st-${estado}` : '');
+    t.dataset.id = ++toastSeq;
 
-        const seleccion = getSeleccion();
-        if (seleccion.length === 0) {
-            mostrarError(true);
-            return;
-        }
-        mostrarError(false);
-
-        const fecha = document.getElementById('fecha').value;
-        agregarVisita({
-            id: nuevoId('v'),
-            educador: document.getElementById('educador').value,
-            educador_correo: document.getElementById('educador-correo').value,
-            cliente: document.getElementById('cliente').value,
-            fecha,
-            estado: 'agendada',
-            sectores: seleccion.map(s => ({
-                id: nuevoId('s'),
-                nombre: s.nombre,
-                objetivo: s.objetivo,
-                actividades: []
-            })),
-            sincronizado: false
-        });
-
-        form.reset();
-        document.getElementById('educador-correo').value = '';
-        limpiarSeleccion();
-
-        // Se salta al día agendado: si no, al volver a la agenda (que abre en "hoy")
-        // una visita de la próxima semana no aparecería y parecería que no se guardó.
-        location.hash = '#/agenda';
-        irADia(fecha);
-        refrescarTodo();
-
-        if (navigator.onLine) sincronizar();
-    });
-
-    const educador = document.getElementById('educador');
-    educador.addEventListener('change', (e) => {
-        const datos = leerCatalogo();
-        const encontrado = datos?.educadores?.find(edu => edu.nombre === e.target.value);
-        document.getElementById('educador-correo').value = encontrado ? encontrado.correo : '';
-    });
-}
-
-function cablearAcciones() {
-    btnSync.addEventListener('click', sincronizar);
-
-    document.getElementById('btn-subir-todas').addEventListener('click', async (e) => {
-        const boton = e.currentTarget;
-        boton.disabled = true;
-        boton.textContent = '⏳ Subiendo...';
-
-        const resultado = await subirTodasLasPendientes();
-        if (resultado.fallidas > 0) {
-            alert(`Subieron ${resultado.subidas}, fallaron ${resultado.fallidas}. Reintenta con señal.`);
-        }
-        refrescarTodo();
-    });
-}
-
-// ---------- catálogo ----------
-
-function cargarCatalogoEnUI() {
-    const datos = leerCatalogo();
-    if (!datos) return;
-
-    if (datos.sectores) setCatalogoSectores(datos.sectores);
-    llenarDatalist('lista-clientes', datos.clientes);
-    llenarDatalist('lista-educadores', (datos.educadores || []).map(e => e.nombre));
-}
-
-function llenarDatalist(id, valores) {
-    const lista = document.getElementById(id);
-    if (!lista || !valores) return;
-
-    const fragmento = document.createDocumentFragment();
-    valores.forEach(valor => {
-        const opcion = document.createElement('option');
-        opcion.value = valor;
-        fragmento.appendChild(opcion);
-    });
-
-    lista.innerHTML = '';
-    lista.appendChild(fragmento);
-}
-
-async function descargarCatalogoSiSePuede() {
-    try {
-        await descargarCatalogo();
-        cargarCatalogoEnUI();
-    } catch (err) {
-        console.error('No se pudieron descargar los catálogos:', err);
+    if (estado) {
+        const d = document.createElement('span');
+        d.className = 'dot';
+        if (estado === 'programada') d.classList.add('hollow');
+        t.appendChild(d);
     }
+
+    const txt = document.createElement('span');
+    txt.className = 'txt';
+    txt.textContent = texto;
+    t.appendChild(txt);
+
+    if (accion) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'u';
+        btn.textContent = accion.texto;
+        btn.addEventListener('click', () => { accion.fn(); t.remove(); });
+        t.appendChild(btn);
+    }
+
+    el.toasts.appendChild(t);
+    setTimeout(() => t.remove(), ms);
+    return t;
 }
 
 // ---------- conexión y sync ----------
 
-function actualizarEstadoConexion() {
+function alCambiarConexion() {
     if (navigator.onLine) {
-        statusBadge.textContent = 'Online';
-        statusBadge.className = 'badge online';
-        btnSync.disabled = false;
         sincronizar();
         descargarCatalogoSiSePuede();
     } else {
-        statusBadge.textContent = 'Offline';
-        statusBadge.className = 'badge offline';
-        btnSync.disabled = true;
+        pintarSync('is-off', 'Sin conexión');
     }
-    refrescarTodo();
 }
 
-let sincronizando = false;
+function pintarSync(clase, texto) {
+    el.sync.className = `sync ${clase}`;
+    el.syncTxt.textContent = texto;
+}
 
-async function sincronizar() {
-    if (sincronizando || !navigator.onLine) return;
+function estadoSyncEnReposo() {
+    if (!navigator.onLine) return pintarSync('is-off', 'Sin conexión');
+
+    const pendientes = deudaGlobal().length;
+    if (pendientes > 0) return pintarSync('is-queue', `${pendientes} en cola`);
+    pintarSync('', 'Al día');
+}
+
+async function sincronizar({ manual = false } = {}) {
+    if (sincronizando || !navigator.onLine) {
+        if (manual && !navigator.onLine) {
+            toast('Sin conexión. Lo que registres se guarda y sube solo al recuperar señal.', { estado: 'programada' });
+        }
+        return;
+    }
     sincronizando = true;
-    btnSync.textContent = '⌛ Enviando...';
+    pintarSync('is-busy', 'Enviando');
 
     try {
-        const resultado = await sincronizarTodo();
-        const nada = resultado.visitas.enviadas === 0 && resultado.evidencias.subidas === 0;
-        btnSync.textContent = nada ? '✅ ¡Al día!' : '✅ Sincronizado';
+        const r = await sincronizarTodo();
+        const nada = r.visitas.enviadas === 0 && r.evidencias.subidas === 0;
+        if (manual && nada) toast('Todo está sincronizado.', { estado: 'completa' });
+        if (!nada) {
+            const partes = [];
+            if (r.visitas.enviadas) partes.push(`${r.visitas.enviadas} visita${r.visitas.enviadas > 1 ? 's' : ''}`);
+            if (r.evidencias.subidas) partes.push(`${r.evidencias.subidas} evidencia${r.evidencias.subidas > 1 ? 's' : ''}`);
+            toast(`${partes.join(' y ')} sincronizada${partes.length > 1 || r.visitas.enviadas > 1 ? 's' : ''}.`, { estado: 'completa' });
+        }
     } catch (error) {
         console.error('Error al sincronizar:', error);
-        btnSync.textContent = '❌ Error';
-    } finally {
+        pintarSync('is-error', 'Error');
+        toast(`No se pudo sincronizar: ${error.message}`, {
+            estado: 'sin-registrar',
+            accion: { texto: 'Reintentar', fn: () => sincronizar({ manual: true }) },
+            ms: 8000
+        });
         sincronizando = false;
-        setTimeout(() => { btnSync.textContent = '🔄 Sincronizar'; }, 2000);
-        refrescarTodo();
+        return;
     }
+
+    sincronizando = false;
+    refrescarTodo();
+    estadoSyncEnReposo();
+}
+
+// ---------- catálogo ----------
+
+async function descargarCatalogoSiSePuede() {
+    try {
+        await descargarCatalogo();
+        refrescarTodo();
+    } catch (err) {
+        // Silencioso a propósito: el catálogo cacheado sirve, y no hay nada que el
+        // educador pueda hacer al respecto en un pasillo.
+        console.error('No se pudieron descargar los catálogos:', err);
+    }
+}
+
+export function catalogo() {
+    return leerCatalogo() || { clientes: [], sectores: [], educadores: [] };
 }

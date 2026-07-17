@@ -11,17 +11,22 @@
 import { leerVisitas } from './storage.js';
 import {
     ESTADOS, estadoDe, detalleEstado, duracionHoras, duracionTexto,
-    inicioDe, repartirEnColumnas, evidenciasPendientesDe
+    inicioDe, finDe, repartirEnColumnas
 } from './estado.js';
 import {
     claveDia, claveHoy, desdeClave, sumarDias, sumarMeses, diasDeSemana,
     diasDeCuadriculaMes, etiquetaMes, etiquetaRangoSemana, etiquetaDiaLarga,
-    inicialesDias, hora
+    inicialesDias, DIAS_ABREV, hora
 } from './fechas.js';
 
-const HORA_INICIO = 7;   // la rejilla arranca a las 07:00
-const HORA_FIN = 19;     // y termina a las 19:00
+// Ventana por defecto de la rejilla: la jornada donde de verdad ocurre el trabajo.
+const HORA_MIN = 7;
+const HORA_MAX = 19;
 const ANCHO_MOVIL = 720;
+
+// Ventana efectiva del render actual. Se recalcula por vista: una visita a las 06:00 o a
+// las 21:00 tiene que verse, no dibujarse fuera del lienzo y desaparecer.
+let ventana = { desde: HORA_MIN, hasta: HORA_MAX };
 
 let modo = 'dia';
 let cursor = new Date();
@@ -140,6 +145,8 @@ function cargaPorDia() {
 // ---------- rejilla de horas ----------
 
 function vistaRejilla(claves, clase) {
+    ventana = calcularVentana(claves);
+
     const grid = document.createElement('div');
     grid.className = `grid ${clase}`;
 
@@ -156,7 +163,7 @@ function vistaRejilla(claves, clase) {
         dow.className = 'dow';
         dow.textContent = clase === 'dia'
             ? etiquetaDiaLarga(clave)
-            : inicialesDias.largos[(f.getDay() + 6) % 7] + (clave === claveHoy() ? ' · Hoy' : '');
+            : DIAS_ABREV[(f.getDay() + 6) % 7] + (clave === claveHoy() ? ' · Hoy' : '');
 
         const num = document.createElement('div');
         num.className = 'dnum';
@@ -172,10 +179,34 @@ function vistaRejilla(claves, clase) {
     return grid;
 }
 
+/**
+ * Ventana de horas a mostrar: la jornada normal (07:00-19:00), estirada lo necesario para
+ * que quepa lo que hay. Sin esto, una visita a las 06:00 se dibujaría arriba del lienzo y
+ * simplemente no se vería: el educador la daría por perdida.
+ */
+function calcularVentana(claves) {
+    let desde = HORA_MIN, hasta = HORA_MAX;
+
+    claves.flatMap(visitasDe).forEach(v => {
+        const ini = inicioDe(v), fin = finDe(v);
+        if (ini) desde = Math.min(desde, Math.floor(ini.getHours() + ini.getMinutes() / 60));
+        if (fin) hasta = Math.max(hasta, Math.ceil(fin.getHours() + fin.getMinutes() / 60));
+    });
+
+    // La línea de ahora también merece caber, si el día es hoy.
+    if (claves.includes(claveHoy())) {
+        const h = new Date().getHours();
+        desde = Math.min(desde, h);
+        hasta = Math.max(hasta, h + 1);
+    }
+
+    return { desde: Math.max(0, desde), hasta: Math.min(24, Math.max(hasta, desde + 1)) };
+}
+
 function ejeHoras() {
     const eje = document.createElement('div');
     eje.className = 'axis';
-    for (let h = HORA_INICIO; h < HORA_FIN; h++) {
+    for (let h = ventana.desde; h < ventana.hasta; h++) {
         const t = document.createElement('div');
         t.className = 't';
         const s = document.createElement('span');
@@ -192,7 +223,7 @@ function columnaDia(clave) {
     col.dataset.dia = clave;
     if (clave === claveHoy()) col.classList.add('is-today');
 
-    for (let h = HORA_INICIO; h < HORA_FIN; h++) {
+    for (let h = ventana.desde; h < ventana.hasta; h++) {
         const banda = document.createElement('div');
         banda.className = 'h';
         col.appendChild(banda);
@@ -211,8 +242,8 @@ function columnaDia(clave) {
     col.addEventListener('click', (e) => {
         if (e.target.closest('.ev')) return;
         const rect = col.getBoundingClientRect();
-        const horas = (e.clientY - rect.top) / rect.height * (HORA_FIN - HORA_INICIO);
-        alCrearEn(clave, redondearACuarto(HORA_INICIO + horas));
+        const horas = (e.clientY - rect.top) / rect.height * (ventana.hasta - ventana.desde);
+        alCrearEn(clave, redondearACuarto(ventana.desde + horas));
     });
 
     return col;
@@ -221,15 +252,16 @@ function columnaDia(clave) {
 /** Las visitas reales empiezan en :00 o :30, no en :07. */
 function redondearACuarto(horaDecimal) {
     const total = Math.round(horaDecimal * 2) / 2;
-    const h = Math.max(HORA_INICIO, Math.min(HORA_FIN - 1, Math.floor(total)));
+    const h = Math.max(ventana.desde, Math.min(ventana.hasta - 1, Math.floor(total)));
     const m = (total - Math.floor(total)) >= 0.5 ? 30 : 0;
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
 function lineaAhora() {
     const ahora = new Date();
-    const pos = ahora.getHours() + ahora.getMinutes() / 60 - HORA_INICIO;
-    if (pos < 0 || pos > HORA_FIN - HORA_INICIO) return null;  // fuera de la ventana visible
+    const pos = ahora.getHours() + ahora.getMinutes() / 60 - ventana.desde;
+    // Fuera de la ventana (p. ej. de madrugada) no se dibuja: una línea pegada al borde mentiría.
+    if (pos < 0 || pos > ventana.hasta - ventana.desde) return null;
 
     const linea = document.createElement('div');
     linea.className = 'nowline';
@@ -246,7 +278,7 @@ function tarjetaVisita(visita, columna, columnas) {
     const estado = estadoDe(visita);
     const dur = duracionHoras(visita);
     const inicio = inicioDe(visita);
-    const desplazamiento = inicio ? inicio.getHours() + inicio.getMinutes() / 60 - HORA_INICIO : 0;
+    const desplazamiento = inicio ? inicio.getHours() + inicio.getMinutes() / 60 - ventana.desde : 0;
 
     const ev = document.createElement('button');
     ev.type = 'button';
@@ -317,14 +349,13 @@ function pastilla(texto, neutro = false) {
 // ---------- mes ----------
 
 function vistaMes() {
-    const conteo = cargaPorDia();
     const hoy = claveHoy();
     const mesActual = cursor.getMonth();
 
     const grid = document.createElement('div');
     grid.className = 'mes';
 
-    inicialesDias.largos.forEach((d, i) => {
+    DIAS_ABREV.forEach((d, i) => {
         const h = document.createElement('div');
         h.className = 'mes-h' + (i >= 5 ? ' finde' : '');
         h.textContent = d;
@@ -384,8 +415,6 @@ function lineaMes(visita) {
 // ---------- móvil ----------
 
 function tiraSemana() {
-    const conteo = cargaPorDia();
-    const hoy = claveHoy();
     const actual = claveDia(cursor);
 
     const tira = document.createElement('div');

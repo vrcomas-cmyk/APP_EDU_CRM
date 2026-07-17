@@ -1,60 +1,87 @@
 {
   "communities": {
     "0": [
-      "js_evidencias",
-      "js_evidencias_actualizarevidencia",
-      "js_evidencias_adjuntarevidencia",
-      "js_evidencias_comprimirimagen",
-      "js_evidencias_controlevidencia",
-      "js_evidencias_nombredearchivo",
-      "js_evidencias_quitarevidencia",
-      "js_evidencias_selectorarchivo",
-      "js_evidencias_subirtodaslaspendientes",
-      "js_evidencias_tarjetapendiente",
-      "js_storage",
-      "js_storage_abrirdb",
-      "js_storage_agregarvisita",
-      "js_storage_borrararchivo",
-      "js_storage_eliminarvisita",
-      "js_storage_guardararchivo",
-      "js_storage_guardarcatalogo",
-      "js_storage_guardarvisitas",
+      "js_app_catalogo",
+      "js_catalogos",
+      "js_catalogos_camposextra",
+      "js_catalogos_origenes",
+      "js_catalogos_origenes_por_defecto",
+      "js_catalogos_regla_base",
+      "js_catalogos_reglade",
+      "js_catalogos_tipos_por_defecto",
+      "js_catalogos_tiposactividad",
+      "js_drawer",
+      "js_drawer_abrir",
+      "js_drawer_abrirvisita",
+      "js_drawer_alcambiar",
+      "js_drawer_altoast",
+      "js_drawer_aminutos",
+      "js_drawer_barraregla",
+      "js_drawer_bloqueactividades",
+      "js_drawer_bloquesectores",
+      "js_drawer_cabecera",
+      "js_drawer_campocliente",
+      "js_drawer_campoeducador",
+      "js_drawer_campofecha",
+      "js_drawer_campohoras",
+      "js_drawer_campohospital",
+      "js_drawer_campotexto",
+      "js_drawer_cerrar",
+      "js_drawer_chipsorigen",
+      "js_drawer_colapsados",
+      "js_drawer_combo",
+      "js_drawer_cuerpo",
+      "js_drawer_duracionmin",
+      "js_drawer_editar",
+      "js_drawer_el",
+      "js_drawer_filtrar",
+      "js_drawer_initdrawer",
+      "js_drawer_listamateriales",
+      "js_drawer_marcarguardado",
+      "js_drawer_pie",
+      "js_drawer_pintar",
+      "js_drawer_resaltar",
+      "js_drawer_selecttipo",
+      "js_drawer_sumarminutos",
+      "js_drawer_tarjetaactividad",
+      "js_drawer_tarjetasector",
       "js_storage_historialhospitales",
-      "js_storage_leerarchivo",
-      "js_storage_leervisitas",
-      "js_storage_migrarsihacefalta",
-      "js_storage_migrarv1av2",
-      "js_storage_migrarv2av3",
+      "js_storage_leercatalogo",
       "js_storage_nuevoid",
-      "js_storage_sumarhoras",
-      "js_storage_todaslasactividades",
-      "js_storage_transaccion",
-      "js_storage_versionde",
-      "js_sync",
-      "js_sync_blobabase64",
-      "js_sync_descargarcatalogo",
-      "js_sync_postear",
-      "js_sync_sincronizartodo",
-      "js_sync_sincronizarvisitas",
-      "js_sync_subirevidencia",
-      "js_sync_subirevidenciaspendientes"
+      "js_storage_obtenervisita"
     ],
     "1": [
-      "js_agenda",
-      "js_agenda_agruparpordia",
-      "js_agenda_contarevidenciaspendientes",
-      "js_agenda_filavisita",
-      "js_agenda_filtrarpordias",
-      "js_agenda_grupodedia",
-      "js_agenda_insignaestado",
-      "js_agenda_lista",
-      "js_agenda_renderagenda",
-      "js_agenda_vacio",
+      "js_calendario",
+      "js_calendario_agendamovil",
+      "js_calendario_alcrearen",
+      "js_calendario_alredimensionar",
+      "js_calendario_calcularventana",
+      "js_calendario_columnadia",
+      "js_calendario_cursor",
+      "js_calendario_diavisible",
+      "js_calendario_ejehoras",
+      "js_calendario_el",
+      "js_calendario_esmovil",
+      "js_calendario_initcalendario",
+      "js_calendario_iradia",
+      "js_calendario_irahoy",
+      "js_calendario_lineaahora",
+      "js_calendario_lineames",
+      "js_calendario_mover",
+      "js_calendario_redondearacuarto",
+      "js_calendario_render",
+      "js_calendario_setmodo",
+      "js_calendario_tirasemana",
+      "js_calendario_ventana",
+      "js_calendario_visitasde",
+      "js_calendario_vistames",
+      "js_calendario_vistarejilla",
       "js_fechas",
       "js_fechas_clavedia",
       "js_fechas_clavehoy",
       "js_fechas_desdeclave",
       "js_fechas_dias",
+      "js_fechas_dias_abrev",
       "js_fechas_dias_cortos",
       "js_fechas_diasdecuadriculames",
       "js_fechas_diasdesemana",
@@ -72,68 +99,63 @@
       "js_fechas_sumarmeses"
     ],
     "2": [
-      "js_app",
-      "js_app_actualizarcontadorpendientes",
-      "js_app_actualizarestadoconexion",
-      "js_app_cablearacciones",
-      "js_app_cablearformulario",
-      "js_app_cargarcatalogoenui",
-      "js_app_descargarcatalogosisepuede",
-      "js_app_enrutar",
-      "js_app_llenardatalist",
-      "js_app_refrescartodo",
-      "js_app_renderagendavisible",
-      "js_app_sincronizar",
-      "js_app_vistas",
-      "js_calendario_refrescarcalendario",
-      "js_evidencias_contarpendientes",
-      "js_evidencias_renderpendientes",
-      "js_sectores_getseleccion",
-      "js_storage_evidenciaspendientes",
-      "js_storage_leercatalogo"
+      "js_calendario_cargapordia",
+      "js_evidencias",
+      "js_evidencias_adjuntarevidencia",
+      "js_evidencias_comprimirimagen",
+      "js_evidencias_controlevidencia",
+      "js_evidencias_escribirevidencia",
+      "js_evidencias_nombredearchivo",
+      "js_evidencias_quitarevidencia",
+      "js_evidencias_selectorarchivo",
+      "js_storage",
+      "js_storage_abrirdb",
+      "js_storage_actualizarvisita",
+      "js_storage_agregarvisita",
+      "js_storage_borrararchivo",
+      "js_storage_eliminarvisita",
+      "js_storage_evidenciaslocales",
+      "js_storage_guardararchivo",
+      "js_storage_guardarcatalogo",
+      "js_storage_guardarvisitas",
+      "js_storage_leerarchivo",
+      "js_storage_leervisitas",
+      "js_storage_migrarsihacefalta",
+      "js_storage_migrarv1av2",
+      "js_storage_migrarv2av3",
+      "js_storage_sumarhoras",
+      "js_storage_todaslasactividades",
+      "js_storage_transaccion",
+      "js_storage_versionde",
+      "js_sync",
+      "js_sync_blobabase64",
+      "js_sync_descargarcatalogo",
+      "js_sync_postear",
+      "js_sync_sincronizartodo",
+      "js_sync_sincronizarvisitas",
+      "js_sync_subirevidencia",
+      "js_sync_subirevidenciaspendientes"
     ],
     "3": [
-      "js_sectores",
-      "js_sectores_actualizarbotonesmasivos",
-      "js_sectores_actualizarestado",
-      "js_sectores_agregarpersonalizado",
-      "js_sectores_agregarsector",
-      "js_sectores_catalogo",
-      "js_sectores_crearbloque",
-      "js_sectores_el",
-      "js_sectores_initselectorsectores",
-      "js_sectores_limpiarseleccion",
-      "js_sectores_mostrarerror",
-      "js_sectores_nombresseleccionados",
-      "js_sectores_quitarsector",
-      "js_sectores_quitartodos",
-      "js_sectores_renderchips",
-      "js_sectores_seleccionartodos",
-      "js_sectores_setcatalogosectores"
-    ],
-    "4": [
-      "js_detalle",
-      "js_detalle_acciones",
-      "js_detalle_alcambiar",
-      "js_detalle_encabezado",
-      "js_detalle_filaactividad",
-      "js_detalle_formularioactividad",
-      "js_detalle_initdetalle",
-      "js_detalle_renderdetalle",
-      "js_detalle_repintar",
-      "js_detalle_tarjetanoencontrada",
-      "js_detalle_tarjetasector",
-      "js_storage_actualizarvisita",
-      "js_storage_obtenervisita"
-    ],
-    "5": [
+      "js_calendario_alabrirvisita",
+      "js_calendario_filaagenda",
+      "js_calendario_pastilla",
+      "js_calendario_punto",
+      "js_calendario_tarjetavisita",
+      "js_catalogos_requiereevidencia",
+      "js_drawer_avisosolape",
       "js_estado",
+      "js_estado_actividadesde",
       "js_estado_buscarsolapes",
+      "js_estado_detalleestado",
       "js_estado_duracionhoras",
       "js_estado_duraciontexto",
+      "js_estado_estadode",
+      "js_estado_estados",
       "js_estado_estaencurso",
       "js_estado_etiquetaestado",
       "js_estado_etiquetas",
+      "js_estado_evidenciaspendientesde",
       "js_estado_fechahora",
       "js_estado_finde",
       "js_estado_iniciode",
@@ -141,7 +163,25 @@
       "js_estado_sesolapan",
       "js_estado_yatermino"
     ],
-    "6": [
+    "4": [
+      "js_app",
+      "js_app_actualizardeuda",
+      "js_app_alcambiarconexion",
+      "js_app_atajos",
+      "js_app_descargarcatalogosisepuede",
+      "js_app_el",
+      "js_app_estadosyncenreposo",
+      "js_app_pintarsync",
+      "js_app_refrescartodo",
+      "js_app_sincronizar",
+      "js_app_toast",
+      "js_calendario_refrescarcalendario",
+      "js_drawer_abrirnuevavisita",
+      "js_drawer_haydrawerabierto",
+      "js_drawer_sumarhoras",
+      "js_estado_deudaglobal"
+    ],
+    "5": [
       "apps_script_appsscript",
       "apps_script_appsscript_dependencies",
       "apps_script_appsscript_exceptionlogging",
@@ -154,31 +194,7 @@
       "ref_https_www_googleapis_com_auth_drive_file",
       "ref_https_www_googleapis_com_auth_spreadsheets"
     ],
-    "7": [
-      "js_calendario",
-      "js_calendario_alcrearen",
-      "js_calendario_columnadia",
-      "js_calendario_cursor",
-      "js_calendario_diavisible",
-      "js_calendario_ejehoras",
-      "js_calendario_el",
-      "js_calendario_lineaahora",
-      "js_calendario_redondearacuarto",
-      "js_calendario_vistarejilla",
-      "js_estado_estados"
-    ],
-    "8": [
-      "js_calendario_alabrirvisita",
-      "js_calendario_filaagenda",
-      "js_calendario_pastilla",
-      "js_calendario_punto",
-      "js_calendario_tarjetavisita",
-      "js_estado_actividadesde",
-      "js_estado_detalleestado",
-      "js_estado_estadode",
-      "js_estado_evidenciaspendientesde"
-    ],
-    "9": [
+    "6": [
       "manifest",
       "manifest_background_color",
       "manifest_display",
@@ -189,147 +205,124 @@
       "manifest_start_url",
       "manifest_theme_color"
     ],
-    "10": [
-      "js_calendario_alredimensionar",
-      "js_calendario_esmovil",
-      "js_calendario_initcalendario",
-      "js_calendario_iradia",
-      "js_calendario_irahoy",
-      "js_calendario_mover",
-      "js_calendario_render",
-      "js_calendario_setmodo"
-    ],
-    "11": [
-      "js_calendario_agendamovil",
-      "js_calendario_cargapordia",
-      "js_calendario_lineames",
-      "js_calendario_tirasemana",
-      "js_calendario_visitasde",
-      "js_calendario_vistames"
-    ],
-    "12": [
+    "7": [
       "sw",
       "sw_assets"
     ]
   },
   "cohesion": {
-    "0": 0.13813813813813813,
-    "1": 0.15172413793103448,
-    "2": 0.24561403508771928,
-    "3": 0.3161764705882353,
-    "4": 0.358974358974359,
-    "5": 0.3333333333333333,
-    "6": 0.18181818181818182,
-    "7": 0.2727272727272727,
-    "8": 0.4444444444444444,
-    "9": 0.2222222222222222,
-    "10": 0.5357142857142857,
-    "11": 0.4,
-    "12": 1.0
+    "0": 0.11081560283687943,
+    "1": 0.12753623188405797,
+    "2": 0.1349206349206349,
+    "3": 0.18,
+    "4": 0.25,
+    "5": 0.18181818181818182,
+    "6": 0.2222222222222222,
+    "7": 1.0
   },
   "gods": [
     {
-      "id": "js_storage_leervisitas",
-      "label": "leerVisitas()",
-      "degree": 15
-    },
-    {
       "id": "js_calendario_render",
       "label": "render()",
-      "degree": 13
+      "degree": 18
     },
     {
-      "id": "js_agenda_renderagenda",
-      "label": "renderAgenda()",
-      "degree": 10
+      "id": "js_drawer_editar",
+      "label": "editar()",
+      "degree": 16
     },
     {
-      "id": "js_app_refrescartodo",
-      "label": "refrescarTodo()",
-      "degree": 10
+      "id": "js_storage_leervisitas",
+      "label": "leerVisitas()",
+      "degree": 16
     },
     {
-      "id": "js_app_cablearformulario",
-      "label": "cablearFormulario()",
-      "degree": 10
-    },
-    {
-      "id": "js_fechas_clavedia",
-      "label": "claveDia()",
-      "degree": 10
-    },
-    {
-      "id": "js_sectores_renderchips",
-      "label": "renderChips()",
-      "degree": 10
-    },
-    {
-      "id": "js_sync_subirevidencia",
-      "label": "subirEvidencia()",
-      "degree": 10
-    },
-    {
-      "id": "js_calendario_tarjetavisita",
-      "label": "tarjetaVisita()",
-      "degree": 10
+      "id": "js_drawer_tarjetaactividad",
+      "label": "tarjetaActividad()",
+      "degree": 12
     },
     {
       "id": "js_estado_estadode",
       "label": "estadoDe()",
+      "degree": 12
+    },
+    {
+      "id": "js_calendario_tarjetavisita",
+      "label": "tarjetaVisita()",
+      "degree": 11
+    },
+    {
+      "id": "js_estado_iniciode",
+      "label": "inicioDe()",
+      "degree": 11
+    },
+    {
+      "id": "js_fechas_clavedia",
+      "label": "claveDia()",
+      "degree": 11
+    },
+    {
+      "id": "js_storage_leercatalogo",
+      "label": "leerCatalogo()",
+      "degree": 11
+    },
+    {
+      "id": "js_calendario_vistames",
+      "label": "vistaMes()",
       "degree": 10
     }
   ],
   "surprises": [
     {
-      "source": "renderAgenda()",
-      "target": "leerVisitas()",
+      "source": "atajos()",
+      "target": "diaVisible()",
       "source_files": [
-        "js/agenda.js",
+        "js/app.js",
+        "js/calendario.js"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "bridges separate communities"
+    },
+    {
+      "source": "atajos()",
+      "target": "irAHoy()",
+      "source_files": [
+        "js/app.js",
+        "js/calendario.js"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "bridges separate communities"
+    },
+    {
+      "source": "atajos()",
+      "target": "setModo()",
+      "source_files": [
+        "js/app.js",
+        "js/calendario.js"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "bridges separate communities"
+    },
+    {
+      "source": "catalogo()",
+      "target": "leerCatalogo()",
+      "source_files": [
+        "js/app.js",
         "js/storage.js"
       ],
       "confidence": "EXTRACTED",
       "relation": "calls",
-      "why": "bridges separate communities"
+      "why": "peripheral node `catalogo()` unexpectedly reaches hub `leerCatalogo()`"
     },
     {
-      "source": "renderAgendaVisible()",
-      "target": "renderAgenda()",
+      "source": "visitasDe()",
+      "target": "leerVisitas()",
       "source_files": [
-        "js/app.js",
-        "js/agenda.js"
-      ],
-      "confidence": "EXTRACTED",
-      "relation": "calls",
-      "why": "bridges separate communities"
-    },
-    {
-      "source": "enrutar()",
-      "target": "renderDetalle()",
-      "source_files": [
-        "js/app.js",
-        "js/detalle.js"
-      ],
-      "confidence": "EXTRACTED",
-      "relation": "calls",
-      "why": "bridges separate communities"
-    },
-    {
-      "source": "renderAgendaVisible()",
-      "target": "etiquetaDiaLarga()",
-      "source_files": [
-        "js/app.js",
-        "js/fechas.js"
-      ],
-      "confidence": "EXTRACTED",
-      "relation": "calls",
-      "why": "bridges separate communities"
-    },
-    {
-      "source": "cablearFormulario()",
-      "target": "irADia()",
-      "source_files": [
-        "js/app.js",
-        "js/calendario.js"
+        "js/calendario.js",
+        "js/storage.js"
       ],
       "confidence": "EXTRACTED",
       "relation": "calls",

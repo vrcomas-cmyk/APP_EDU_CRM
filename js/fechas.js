@@ -1,15 +1,18 @@
 /**
  * Utilidades de fecha.
  *
- * Las visitas guardan `fecha` como cadena datetime-local ('2026-07-17T09:00'), sin zona.
+ * Las visitas guardan el día como 'YYYY-MM-DD' y las horas como 'HH:MM', sin zona.
  * Las claves de día se sacan cortando la cadena, NO con toISOString(): eso convierte a UTC
- * y en México movería la visita al día anterior o siguiente según la hora.
+ * y en México movería una visita de la tarde al día siguiente.
  */
 
 const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 const DIAS_CORTOS = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
     'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+
+/** Abreviados, lunes primero, para empatar con inicioSemana(). */
+export const DIAS_ABREV = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
 /** 'YYYY-MM-DD' de una fecha local (o de una cadena datetime-local). */
 export function claveDia(fecha) {

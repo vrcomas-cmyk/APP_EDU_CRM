@@ -1,30 +1,29 @@
 /**
- * Evidencias: una imagen o PDF por actividad.
+ * Evidencias: una imagen o PDF por actividad, cuando su tipo la exige.
  *
- * Es obligatoria, pero puede subirse mucho después de registrar la actividad, así que
- * nunca bloquea el guardado: se modela como deuda pendiente y se arrastra hasta que hay
- * señal. Estados: 'pendiente' (sin archivo) -> 'local' (archivo en IndexedDB) -> 'subida'.
+ * Es obligatoria pero puede subirse mucho después —hoy, mañana o en un mes—, así que nunca
+ * bloquea el guardado: se modela como deuda y se arrastra hasta que hay señal.
+ *
+ *   pendiente  sin archivo todavía
+ *   local      el archivo está en el teléfono, falta señal
+ *   subida     ya está en Drive, con su URL
+ *
+ * Esos dos primeros son problemas distintos y piden acciones distintas: uno necesita cámara,
+ * el otro necesita internet. Por eso el punto va relleno o hueco.
  */
 
-import {
-    leerVisitas, guardarVisitas, guardarArchivo, borrarArchivo,
-    evidenciasPendientes, todasLasActividades
-} from './storage.js';
-import { subirEvidencia, subirEvidenciasPendientes } from './sync.js';
-import { hora } from './fechas.js';
+import { leerVisitas, guardarVisitas, guardarArchivo, borrarArchivo } from './storage.js';
+import { subirEvidencia } from './sync.js';
 
 const LADO_MAX = 1600;
 const CALIDAD_JPEG = 0.8;
-const AVISO_TAMANO = 10 * 1024 * 1024;
+const LIMITE_PDF = 10 * 1024 * 1024;
 
 export const TIPOS_ACEPTADOS = 'image/*,application/pdf';
 
 // ---------- adjuntar ----------
 
-/**
- * Guarda el archivo localmente y marca la actividad como 'local'.
- * No sube nada: eso lo hace la cola cuando hay conexión.
- */
+/** Guarda el archivo localmente y marca 'local'. No sube nada: de eso se encarga la cola. */
 export async function adjuntarEvidencia(idActividad, archivo) {
     if (!archivo) return null;
 
@@ -32,39 +31,41 @@ export async function adjuntarEvidencia(idActividad, archivo) {
     if (!esPDF && !archivo.type.startsWith('image/')) {
         throw new Error('Solo se acepta una imagen o un PDF.');
     }
-    if (esPDF && archivo.size > AVISO_TAMANO) {
-        throw new Error('El PDF pesa más de 10MB y no va a subir bien. Usa uno más ligero.');
+    if (esPDF && archivo.size > LIMITE_PDF) {
+        const mb = (archivo.size / 1024 / 1024).toFixed(1);
+        throw new Error(`El PDF pesa ${mb} MB y el límite es 10. Usa uno más ligero.`);
     }
 
-    // Las fotos de celular pesan varios MB; sin recomprimir, subirlas con mala señal falla.
+    // Una foto de celular pesa varios MB; sin recomprimir no sube con mala señal, que es
+    // justo la condición en la que se va a usar.
     const blob = esPDF ? archivo : await comprimirImagen(archivo);
     await guardarArchivo(idActividad, blob);
 
-    actualizarEvidencia(idActividad, {
+    escribirEvidencia(idActividad, {
         estado: 'local',
         nombre: nombreDeArchivo(archivo, esPDF),
         mime: blob.type,
         url: ''
     });
-
     return blob;
 }
 
 export async function quitarEvidencia(idActividad) {
     await borrarArchivo(idActividad).catch(() => {});
-    actualizarEvidencia(idActividad, { estado: 'pendiente', nombre: '', mime: '', url: '' });
+    escribirEvidencia(idActividad, { estado: 'pendiente', nombre: '', mime: '', url: '' });
 }
+
+export { subirEvidencia };
 
 function nombreDeArchivo(archivo, esPDF) {
     if (esPDF) return archivo.name || 'evidencia.pdf';
     const base = (archivo.name || 'evidencia').replace(/\.[^.]+$/, '');
-    return `${base}.jpg`;
+    return `${base}.jpg`;   // se recomprimió a JPEG, la extensión debe decir la verdad
 }
 
 /** Escribe la evidencia en el árbol y marca la visita para re-sincronizar. */
-function actualizarEvidencia(idActividad, evidencia) {
+function escribirEvidencia(idActividad, evidencia) {
     const visitas = leerVisitas();
-
     for (const visita of visitas) {
         for (const sector of visita.sectores || []) {
             const actividad = (sector.actividades || []).find(a => a.id === idActividad);
@@ -79,7 +80,7 @@ function actualizarEvidencia(idActividad, evidencia) {
     return false;
 }
 
-/** Redimensiona a LADO_MAX por el lado largo y reencoda a JPEG. Una foto de 4MB baja a ~200KB. */
+/** Redimensiona a LADO_MAX el lado largo y reencoda a JPEG. De ~4MB a ~200KB. */
 function comprimirImagen(archivo) {
     return new Promise((resolve, reject) => {
         const url = URL.createObjectURL(archivo);
@@ -96,85 +97,41 @@ function comprimirImagen(archivo) {
 
             lienzo.toBlob(
                 blob => blob ? resolve(blob) : reject(new Error('No se pudo procesar la imagen')),
-                'image/jpeg',
-                CALIDAD_JPEG
+                'image/jpeg', CALIDAD_JPEG
             );
         };
-
         img.onerror = () => {
             URL.revokeObjectURL(url);
-            reject(new Error('No se pudo leer la imagen'));
+            reject(new Error('No se pudo leer la imagen. Prueba con otra foto.'));
         };
         img.src = url;
     });
 }
 
-// ---------- bandeja de pendientes ----------
-
-export function contarPendientes() {
-    return evidenciasPendientes().length;
-}
-
-export function renderPendientes(alCambiar) {
-    const contenedor = document.getElementById('lista-pendientes');
-    const btnSubirTodas = document.getElementById('btn-subir-todas');
-    contenedor.innerHTML = '';
-
-    const pendientes = evidenciasPendientes();
-    const conArchivo = pendientes.filter(p => p.actividad.evidencia?.estado === 'local');
-    btnSubirTodas.disabled = conArchivo.length === 0 || !navigator.onLine;
-    btnSubirTodas.textContent = conArchivo.length === 0
-        ? '☁️ No hay archivos por subir'
-        : `☁️ Subir ${conArchivo.length} archivo${conArchivo.length > 1 ? 's' : ''}`;
-
-    if (pendientes.length === 0) {
-        const p = document.createElement('p');
-        p.className = 'empty-state';
-        p.textContent = '✅ Todas las actividades tienen su evidencia subida.';
-        contenedor.appendChild(p);
-        return;
-    }
-
-    pendientes.forEach(({ visita, sector, actividad }) => {
-        contenedor.appendChild(tarjetaPendiente(visita, sector, actividad, alCambiar));
-    });
-}
-
-function tarjetaPendiente(visita, sector, actividad, alCambiar) {
-    const tarjeta = document.createElement('div');
-    tarjeta.className = 'pendiente-item';
-
-    const meta = document.createElement('p');
-    meta.className = 'pendiente-meta';
-    meta.textContent = `${visita.cliente} · ${sector.nombre} · ${visita.fecha.slice(0, 10)} ${hora(visita.fecha)}`;
-
-    const texto = document.createElement('h4');
-    texto.textContent = actividad.texto;
-
-    tarjeta.append(meta, texto, controlEvidencia(actividad, alCambiar));
-    return tarjeta;
-}
+// ---------- control reutilizable ----------
 
 /**
- * Control reutilizable: lo usa la bandeja de pendientes y la vista de detalle.
- * `alCambiar` se llama después de cada acción para que la vista se repinte.
+ * El control de evidencia de una actividad. Lo usa el drawer y (más adelante) la bandeja.
+ * `alCambiar` repinta a quien lo hospeda; `alToast` avisa sin usar alert().
  */
-export function controlEvidencia(actividad, alCambiar = () => {}) {
+export function controlEvidencia(actividad, { alCambiar = () => {}, alToast = () => {} } = {}) {
     const caja = document.createElement('div');
-    caja.className = 'evidencia-control';
+    caja.className = 'evid';
 
-    const evidencia = actividad.evidencia || { estado: 'pendiente' };
+    const ev = actividad.evidencia || { estado: 'pendiente' };
 
-    if (evidencia.estado === 'subida') {
+    if (ev.estado === 'subida') {
         const ok = document.createElement('span');
-        ok.className = 'visita-estado is-synced';
-        ok.textContent = '☁️ Evidencia subida';
+        ok.className = 'pill st-completa';
+        ok.style.setProperty('--st', 'var(--st-done)');
+        ok.style.setProperty('--st-bg', 'var(--st-done-bg)');
+        ok.textContent = '☁ Subida';
         caja.appendChild(ok);
 
-        if (evidencia.url) {
+        if (ev.url) {
             const ver = document.createElement('a');
-            ver.className = 'btn-link';
-            ver.href = evidencia.url;
+            ver.className = 'btn-txt';
+            ver.href = ev.url;
             ver.target = '_blank';
             ver.rel = 'noopener';
             ver.textContent = 'Ver';
@@ -183,46 +140,47 @@ export function controlEvidencia(actividad, alCambiar = () => {}) {
         return caja;
     }
 
-    if (evidencia.estado === 'local') {
+    if (ev.estado === 'local') {
         const listo = document.createElement('span');
-        listo.className = 'visita-estado is-pending';
-        listo.textContent = `📎 ${evidencia.nombre || 'archivo'} · sin subir`;
+        listo.className = 'pill st-faltan-evidencias';
+        listo.textContent = `📎 ${ev.nombre || 'archivo'}`;
 
-        const btnSubir = document.createElement('button');
-        btnSubir.type = 'button';
-        btnSubir.className = 'btn-link';
-        btnSubir.textContent = 'Subir ahora';
-        btnSubir.disabled = !navigator.onLine;
-        btnSubir.addEventListener('click', async () => {
-            btnSubir.disabled = true;
-            btnSubir.textContent = 'Subiendo...';
+        const subir = document.createElement('button');
+        subir.type = 'button';
+        subir.className = 'btn-txt';
+        subir.textContent = navigator.onLine ? 'Subir ahora' : 'Espera señal';
+        subir.disabled = !navigator.onLine;
+        subir.addEventListener('click', async () => {
+            subir.disabled = true;
+            subir.textContent = 'Subiendo…';
             try {
                 await subirEvidencia(actividad.id);
+                alToast('Evidencia subida.', { estado: 'completa' });
             } catch (err) {
                 console.error(err);
-                alert(`No se pudo subir: ${err.message}`);
+                alToast(`No se pudo subir: ${err.message}`, { estado: 'sin-registrar' });
             }
             alCambiar();
         });
 
-        const btnQuitar = document.createElement('button');
-        btnQuitar.type = 'button';
-        btnQuitar.className = 'btn-link es-peligro';
-        btnQuitar.textContent = 'Quitar';
-        btnQuitar.addEventListener('click', async () => {
+        const quitar = document.createElement('button');
+        quitar.type = 'button';
+        quitar.className = 'btn-txt peligro';
+        quitar.textContent = 'Quitar';
+        quitar.addEventListener('click', async () => {
             await quitarEvidencia(actividad.id);
             alCambiar();
         });
 
-        caja.append(listo, btnSubir, btnQuitar);
+        caja.append(listo, subir, quitar);
         return caja;
     }
 
-    caja.appendChild(selectorArchivo(actividad, alCambiar));
+    caja.appendChild(selectorArchivo(actividad, alCambiar, alToast));
     return caja;
 }
 
-function selectorArchivo(actividad, alCambiar) {
+function selectorArchivo(actividad, alCambiar, alToast) {
     const etiqueta = document.createElement('label');
     etiqueta.className = 'btn-archivo';
     etiqueta.textContent = '📷 Agregar evidencia';
@@ -237,26 +195,16 @@ function selectorArchivo(actividad, alCambiar) {
         const archivo = input.files && input.files[0];
         if (!archivo) return;
 
-        etiqueta.textContent = '⏳ Procesando...';
+        etiqueta.textContent = '⏳ Procesando…';
         try {
             await adjuntarEvidencia(actividad.id, archivo);
         } catch (err) {
             console.error(err);
-            alert(err.message);
+            alToast(err.message, { estado: 'sin-registrar' });
         }
         alCambiar();
     });
 
     etiqueta.appendChild(input);
     return etiqueta;
-}
-
-// ---------- cola ----------
-
-export async function subirTodasLasPendientes() {
-    const conArchivo = todasLasActividades()
-        .filter(({ actividad }) => actividad.evidencia?.estado === 'local');
-    if (conArchivo.length === 0) return { subidas: 0, fallidas: 0 };
-
-    return subirEvidenciasPendientes();
 }

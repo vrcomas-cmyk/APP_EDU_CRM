@@ -16,6 +16,9 @@
  * dejaría de significar algo.
  */
 
+import { requiereEvidencia } from './catalogos.js';
+import { leerVisitas, todasLasActividades } from './storage.js';
+
 export const ESTADOS = {
     PROGRAMADA: 'programada',
     SIN_REGISTRAR: 'sin-registrar',
@@ -35,8 +38,14 @@ export function actividadesDe(visita) {
     return (visita.sectores || []).flatMap(s => s.actividades || []);
 }
 
+/**
+ * Deuda real de evidencias. Solo cuentan las actividades cuyo TIPO la exige: marcar una
+ * "Revisión de anaquel" como pendiente sería deuda imposible de saldar, y una bandeja llena
+ * de cosas que no se pueden cerrar se deja de mirar.
+ */
 export function evidenciasPendientesDe(visita) {
-    return actividadesDe(visita).filter(a => a.evidencia?.estado !== 'subida');
+    return actividadesDe(visita)
+        .filter(a => requiereEvidencia(a) && a.evidencia?.estado !== 'subida');
 }
 
 /**
@@ -56,6 +65,12 @@ export function estadoDe(visita, ahora = new Date()) {
 
 export function etiquetaEstado(estado) {
     return ETIQUETAS[estado] || estado;
+}
+
+/** Deuda de evidencias de TODA la app. Es lo que cuenta el contador de la barra. */
+export function deudaGlobal(visitas = leerVisitas()) {
+    return todasLasActividades(visitas)
+        .filter(({ actividad }) => requiereEvidencia(actividad) && actividad.evidencia?.estado !== 'subida');
 }
 
 /** Texto que acompaña al color. El color nunca va solo. */

@@ -124,9 +124,10 @@ export function todasLasActividades(visitas = leerVisitas()) {
     return salida;
 }
 
-export function evidenciasPendientes(visitas = leerVisitas()) {
+/** Actividades con archivo local esperando señal. La deuda con reglas vive en estado.js. */
+export function evidenciasLocales(visitas = leerVisitas()) {
     return todasLasActividades(visitas)
-        .filter(({ actividad }) => !actividad.evidencia || actividad.evidencia.estado !== 'subida');
+        .filter(({ actividad }) => actividad.evidencia?.estado === 'local');
 }
 
 /**

@@ -113,14 +113,28 @@ const PROP_CARPETA = 'CARPETA_EVIDENCIAS_ID';
 // Prefijo de las propiedades que recuerdan la subcarpeta de cada cliente.
 const PROP_CLIENTE = 'CARPETA_CLIENTE_';
 
+// Catálogos nuevos. Si las pestañas no existen, la PWA usa sus valores por defecto.
+const HOJA_TIPOS = 'TiposActividad';
+const HOJA_ORIGENES = 'Origenes';
+const HOJA_ADMINS = 'Admins';
+
+/**
+ * Columnas de captura.
+ *
+ * OJO si vienes de la versión anterior: cambiaron. `fecha` se partió en `dia` + `hora_inicio`
+ * + `hora_fin`, y entraron hospital, origen y solicitado_por. Las pestañas viejas NO se
+ * migran solas —tienen otro orden de columnas— así que hay que renombrarlas y dejar que el
+ * script cree las nuevas. El error que verás te lo dice con nombre y apellido.
+ */
 const ENCABEZADOS_VISITAS = [
-    'id_padre', 'id_visita', 'educador', 'correo', 'cliente',
-    'fecha', 'sector', 'objetivo', 'estado', 'actualizado'
+    'id_padre', 'id_visita', 'educador', 'correo', 'cliente', 'hospital',
+    'dia', 'hora_inicio', 'hora_fin', 'sector', 'objetivo', 'origen',
+    'solicitado_por', 'estado', 'actualizado'
 ];
 
 const ENCABEZADOS_ACTIVIDADES = [
-    'id_actividad', 'id_padre', 'id_visita', 'sector',
-    'actividad', 'evidencia_url', 'creada', 'actualizado'
+    'id_actividad', 'id_padre', 'id_visita', 'sector', 'tipo', 'actividad',
+    'materiales', 'folio', 'gerente', 'evidencia_url', 'creada', 'actualizado'
 ];
 
 // ---------- ENTRADA HTTP ----------
@@ -131,7 +145,12 @@ function doGet() {
         return json({
             educadores: leerEducadores(db),
             sectores: leerSectores(db),
-            clientes: leerClientes(db)
+            clientes: leerClientes(db),
+            // Si estas pestañas no existen todavía, van vacías y la PWA usa sus valores
+            // por defecto: la app funciona desde el primer día, sin configurar nada.
+            tipos_actividad: leerTipos(),
+            origenes: leerOrigenes(db),
+            admins: leerAdmins(db)
         });
     } catch (err) {
         return json({ status: 'error', message: String(err) });
@@ -204,6 +223,64 @@ function leerSectores(db) {
     return leerColumnaUnica(db, HOJA_MATERIALES, COL_SECTOR);
 }
 
+/**
+ * Tipos de actividad CON SUS REGLAS. No es una lista de textos: cada fila declara qué campos
+ * exige, y con eso la app arma el formulario de campo.
+ *
+ * Pestaña "TiposActividad":
+ *   tipo | evidencia | materiales | folio | gerente     (sí/no, x, true, 1… todo cuenta)
+ *
+ * Se cachea: guardarVisitas la consulta una vez por actividad, y abrir el documento cada
+ * vez haría la sincronización lentísima.
+ */
+var _tiposCache = null;
+
+function leerTipos() {
+    if (_tiposCache) return _tiposCache;
+
+    var hoja = SpreadsheetApp.openById(SHEET_DB_ID).getSheetByName(HOJA_TIPOS);
+    if (!hoja || hoja.getLastRow() < 2) return (_tiposCache = []);
+
+    var datos = hoja.getDataRange().getValues();
+    var col = function (nombre) { return datos[0].indexOf(nombre); };
+    var iTipo = col('tipo') === -1 ? 0 : col('tipo');
+    var iEvid = col('evidencia'), iMat = col('materiales'), iFol = col('folio'), iGer = col('gerente');
+
+    _tiposCache = [];
+    for (var i = 1; i < datos.length; i++) {
+        var nombre = String(datos[i][iTipo]).trim();
+        if (!nombre) continue;
+        _tiposCache.push({
+            nombre: nombre,
+            evidencia: siNo(datos[i][iEvid], true),   // por defecto SÍ pide evidencia
+            materiales: siNo(datos[i][iMat], false),
+            folio: siNo(datos[i][iFol], false),
+            gerente: siNo(datos[i][iGer], false)
+        });
+    }
+    return _tiposCache;
+}
+
+/** Acepta lo que la gente escribe de verdad en una hoja: sí, x, TRUE, 1, ✔… */
+function siNo(valor, porDefecto) {
+    if (valor === undefined || valor === null || valor === '') return porDefecto;
+    if (valor === true) return true;
+    if (valor === false) return false;
+    var t = String(valor).trim().toLowerCase();
+    return ['si', 'sí', 'x', 'true', 'verdadero', '1', 'y', 'yes', '✔', '✓'].indexOf(t) !== -1;
+}
+
+function leerOrigenes(db) {
+    return leerColumnaUnica(db, HOJA_ORIGENES, 'origen');
+}
+
+/** Correos con acceso al módulo de administración. */
+function leerAdmins(db) {
+    return leerColumnaUnica(db, HOJA_ADMINS, 'correo').map(function (c) {
+        return c.toLowerCase();
+    });
+}
+
 function leerEducadores(db) {
     var hoja = db.getSheetByName(HOJA_EDUCADORES);
     if (!hoja) return [];
@@ -236,6 +313,10 @@ function guardarVisitas(visitas) {
     var ahora = new Date();
 
     visitas.forEach(function (visita) {
+        // El estado ya no lo declara nadie: se calcula igual que en la app, para que la hoja
+        // diga lo mismo que la pantalla del educador.
+        var estado = estadoDeVisita(visita);
+
         (visita.sectores || []).forEach(function (sector) {
             var idPadre = visita.id + '::' + sector.id;
 
@@ -243,8 +324,11 @@ function guardarVisitas(visitas) {
                 id: idPadre,
                 valores: [
                     idPadre, visita.id, visita.educador || '', visita.educador_correo || '',
-                    visita.cliente || '', visita.fecha || '', sector.nombre || '',
-                    sector.objetivo || '', visita.estado || 'agendada', ahora
+                    visita.cliente || '', visita.hospital || '',
+                    visita.dia || '', visita.hora_inicio || '', visita.hora_fin || '',
+                    sector.nombre || '', sector.objetivo || '',
+                    (sector.origen || []).join(', '), sector.solicitado_por || '',
+                    estado, ahora
                 ]
             });
 
@@ -253,7 +337,9 @@ function guardarVisitas(visitas) {
                     id: act.id,
                     valores: [
                         act.id, idPadre, visita.id, sector.nombre || '',
-                        act.texto || '', (act.evidencia && act.evidencia.url) || '',
+                        act.tipo || '', act.texto || '',
+                        (act.materiales || []).join(', '), act.folio || '', act.gerente || '',
+                        (act.evidencia && act.evidencia.url) || '',
                         act.creada || '', ahora
                     ]
                 });
@@ -272,6 +358,46 @@ function guardarVisitas(visitas) {
         padres: filasPadre.length,
         actividades: filasHija.length
     };
+}
+
+/**
+ * Estado derivado, espejo de js/estado.js. Se recalcula aquí en vez de confiar en lo que
+ * mande la app: la hoja es el registro, y un cliente viejo en caché podría mandar basura.
+ *
+ *   programada         aún no llega su hora, sin actividades
+ *   sin-registrar      YA pasó y sigue vacía  <- lo único que es una alerta
+ *   faltan-evidencias  hay actividades, falta soporte
+ *   completa           todo listo
+ */
+function estadoDeVisita(visita) {
+    var actividades = [];
+    (visita.sectores || []).forEach(function (s) {
+        actividades = actividades.concat(s.actividades || []);
+    });
+
+    if (actividades.length === 0) {
+        return yaTermino(visita) ? 'sin-registrar' : 'programada';
+    }
+
+    var faltan = actividades.filter(function (a) {
+        return requiereEvidencia(a.tipo) && !(a.evidencia && a.evidencia.estado === 'subida');
+    });
+    return faltan.length === 0 ? 'completa' : 'faltan-evidencias';
+}
+
+function yaTermino(visita) {
+    if (!visita.dia || !visita.hora_fin) return false;
+    var p = String(visita.dia).split('-');
+    var h = String(visita.hora_fin).split(':');
+    var fin = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]), Number(h[0]), Number(h[1]));
+    return fin < new Date();
+}
+
+/** Un tipo desconocido exige evidencia: el default seguro es pedir, no perdonar. */
+function requiereEvidencia(tipo) {
+    if (!tipo) return true;
+    var regla = leerTipos().filter(function (t) { return t.nombre === tipo; })[0];
+    return regla ? regla.evidencia !== false : true;
 }
 
 /**
@@ -356,18 +482,30 @@ function obtenerHoja(nombre, encabezados) {
         return hoja;
     }
 
-    // Si ya existía con OTRO formato (p.ej. la hoja plana de la versión anterior), escribir
-    // aquí metería datos en columnas equivocadas. Mejor romper con un mensaje claro.
-    var actuales = hoja.getRange(1, 1, 1, encabezados.length).getValues()[0];
-    for (var i = 0; i < encabezados.length; i++) {
+    var anchoActual = hoja.getLastColumn();
+    var actuales = hoja.getRange(1, 1, 1, Math.max(anchoActual, 1)).getValues()[0];
+
+    // Las columnas que ya existen tienen que coincidir en NOMBRE y POSICIÓN. Si no,
+    // escribir aquí metería datos en la columna equivocada: mejor romper con un mensaje
+    // que diga exactamente qué hacer.
+    for (var i = 0; i < Math.min(actuales.length, encabezados.length); i++) {
         if (String(actuales[i]).trim() !== encabezados[i]) {
             throw new Error(
-                'La pestaña "' + nombre + '" existe pero tiene otras columnas (se esperaba "' +
-                encabezados[i] + '" en la posición ' + (i + 1) + ' y hay "' + actuales[i] + '"). ' +
-                'Renómbrala (por ejemplo a "' + nombre + '_anterior") y vuelve a sincronizar: ' +
-                'el script creará la pestaña nueva con el formato correcto.'
+                'La pestaña "' + nombre + '" tiene otras columnas: en la posición ' + (i + 1) +
+                ' se esperaba "' + encabezados[i] + '" y hay "' + actuales[i] + '". ' +
+                'Esto pasa al venir de la versión anterior, donde la columna "fecha" era una sola. ' +
+                'Renómbrala a "' + nombre + '_anterior" y vuelve a sincronizar: el script creará ' +
+                'la pestaña nueva con el formato correcto y tus datos viejos quedan intactos al lado.'
             );
         }
+    }
+
+    // Coincide hasta donde llega, pero le faltan columnas del final: se AGREGAN en vez de
+    // tronar. Así, añadir un campo más adelante no obliga a rehacer la hoja.
+    if (actuales.length < encabezados.length) {
+        var nuevas = encabezados.slice(actuales.length);
+        hoja.getRange(1, actuales.length + 1, 1, nuevas.length)
+            .setValues([nuevas]).setFontWeight('bold');
     }
     return hoja;
 }
