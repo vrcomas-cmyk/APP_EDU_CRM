@@ -14,6 +14,7 @@
 
 import { leerVisitas, guardarVisitas, guardarArchivo, borrarArchivo } from './storage.js';
 import { subirEvidencia } from './sync.js';
+import { registrar, TIPOS } from './eventos.js';
 
 const LADO_MAX = 1600;
 const CALIDAD_JPEG = 0.8;
@@ -41,12 +42,14 @@ export async function adjuntarEvidencia(idActividad, archivo) {
     const blob = esPDF ? archivo : await comprimirImagen(archivo);
     await guardarArchivo(idActividad, blob);
 
-    escribirEvidencia(idActividad, {
+    const nombre = nombreDeArchivo(archivo, esPDF);
+    const visita = escribirEvidencia(idActividad, {
         estado: 'local',
-        nombre: nombreDeArchivo(archivo, esPDF),
+        nombre,
         mime: blob.type,
         url: ''
     });
+    if (visita) registrar(TIPOS.EVIDENCIA, visita, { id_actividad: idActividad, nombre });
     return blob;
 }
 
@@ -63,7 +66,7 @@ function nombreDeArchivo(archivo, esPDF) {
     return `${base}.jpg`;   // se recomprimió a JPEG, la extensión debe decir la verdad
 }
 
-/** Escribe la evidencia en el árbol y marca la visita para re-sincronizar. */
+/** Escribe la evidencia en el árbol y marca la visita para re-sincronizar. Devuelve la visita tocada. */
 function escribirEvidencia(idActividad, evidencia) {
     const visitas = leerVisitas();
     for (const visita of visitas) {
@@ -74,10 +77,10 @@ function escribirEvidencia(idActividad, evidencia) {
             actividad.evidencia = evidencia;
             visita.sincronizado = false;
             guardarVisitas(visitas);
-            return true;
+            return visita;
         }
     }
-    return false;
+    return null;
 }
 
 /** Redimensiona a LADO_MAX el lado largo y reencoda a JPEG. De ~4MB a ~200KB. */

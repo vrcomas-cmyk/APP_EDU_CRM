@@ -109,8 +109,15 @@ function abrir(id) {
 
 function cerrar() {
     const visita = obtenerVisita(visitaId);
-    // Un borrador sin cliente no es una visita: es un clic accidental.
-    if (visita?.borrador && !visita.cliente?.trim()) eliminarVisita(visita.id);
+    if (visita?.borrador) {
+        // Un borrador sin cliente no es una visita: es un clic accidental.
+        if (!visita.cliente?.trim()) {
+            eliminarVisita(visita.id);
+        } else {
+            // Llegó con datos (p. ej. duplicada) y se cierra sin tocar nada más: ya es real.
+            registrarProgramada(actualizarVisita(visita.id, v => { delete v.borrador; }));
+        }
+    }
 
     el.raiz.hidden = true;
     document.body.style.overflow = '';
@@ -121,8 +128,17 @@ function cerrar() {
 
 // ---------- guardado ----------
 
+/** El borrador deja de serlo en su primer edit real: ahí nace la visita para efectos del spec. */
+function registrarProgramada(visita) {
+    registrar(TIPOS.VISITA_PROGRAMADA, visita, {
+        dia: visita.dia, hora_inicio: visita.hora_inicio, hora_fin: visita.hora_fin
+    });
+}
+
 function editar(mutador, { repintar = false } = {}) {
-    actualizarVisita(visitaId, (v) => { mutador(v); delete v.borrador; });
+    const eraBorrador = !!obtenerVisita(visitaId)?.borrador;
+    const actualizada = actualizarVisita(visitaId, (v) => { mutador(v); delete v.borrador; });
+    if (eraBorrador) registrarProgramada(actualizada);
     marcarGuardado();
     alCambiar();
     if (repintar) pintar();

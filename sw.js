@@ -1,6 +1,6 @@
 // 🔴 Subir esta versión SIEMPRE que cambie algún archivo de ASSETS,
 // si no los navegadores que ya instalaron el SW siguen sirviendo la versión vieja.
-const CACHE_NAME = 'visitas-pwa-v10';
+const CACHE_NAME = 'visitas-pwa-v11';
 const ASSETS = [
     './',
     './index.html',
