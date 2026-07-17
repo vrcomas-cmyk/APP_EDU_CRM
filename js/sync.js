@@ -15,6 +15,7 @@ import {
 
 export const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyRdGq_Tef6GGg8MWr7_VNLS-VLvx439MTWPpmjJQ3kjXk_6OvtrFc19ehh7_GoVBZZ/exec";
 
+
 /**
  * text/plain evita el preflight OPTIONS, que Apps Script no responde. No cambiar a
  * application/json: rompe la sincronización aunque el body siga siendo JSON.

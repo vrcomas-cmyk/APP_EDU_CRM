@@ -37,6 +37,34 @@
       "js_fechas_sumarmeses"
     ],
     "1": [
+      "js_detalle",
+      "js_detalle_acciones",
+      "js_detalle_alcambiar",
+      "js_detalle_encabezado",
+      "js_detalle_filaactividad",
+      "js_detalle_formularioactividad",
+      "js_detalle_renderdetalle",
+      "js_detalle_repintar",
+      "js_detalle_tarjetanoencontrada",
+      "js_detalle_tarjetasector",
+      "js_storage",
+      "js_storage_abrirdb",
+      "js_storage_actualizarvisita",
+      "js_storage_agregarvisita",
+      "js_storage_borrararchivo",
+      "js_storage_eliminarvisita",
+      "js_storage_esformatonuevo",
+      "js_storage_guardararchivo",
+      "js_storage_guardarcatalogo",
+      "js_storage_guardarvisitas",
+      "js_storage_leerarchivo",
+      "js_storage_leervisitas",
+      "js_storage_migrarsihacefalta",
+      "js_storage_nuevoid",
+      "js_storage_obtenervisita",
+      "js_storage_transaccion"
+    ],
+    "2": [
       "js_evidencias",
       "js_evidencias_actualizarevidencia",
       "js_evidencias_adjuntarevidencia",
@@ -49,19 +77,8 @@
       "js_evidencias_selectorarchivo",
       "js_evidencias_subirtodaslaspendientes",
       "js_evidencias_tarjetapendiente",
-      "js_storage",
-      "js_storage_abrirdb",
-      "js_storage_borrararchivo",
-      "js_storage_esformatonuevo",
       "js_storage_evidenciaspendientes",
-      "js_storage_guardararchivo",
-      "js_storage_guardarcatalogo",
-      "js_storage_guardarvisitas",
-      "js_storage_leerarchivo",
-      "js_storage_leervisitas",
-      "js_storage_migrarsihacefalta",
       "js_storage_todaslasactividades",
-      "js_storage_transaccion",
       "js_sync",
       "js_sync_blobabase64",
       "js_sync_postear",
@@ -70,7 +87,7 @@
       "js_sync_subirevidencia",
       "js_sync_subirevidenciaspendientes"
     ],
-    "2": [
+    "3": [
       "js_app",
       "js_app_actualizarcontadorpendientes",
       "js_app_actualizarestadoconexion",
@@ -87,11 +104,10 @@
       "js_detalle_initdetalle",
       "js_sectores_getseleccion",
       "js_sectores_setcatalogosectores",
-      "js_storage_agregarvisita",
       "js_storage_leercatalogo",
       "js_sync_descargarcatalogo"
     ],
-    "3": [
+    "4": [
       "js_sectores",
       "js_sectores_actualizarbotonesmasivos",
       "js_sectores_actualizarestado",
@@ -108,22 +124,6 @@
       "js_sectores_quitartodos",
       "js_sectores_renderchips",
       "js_sectores_seleccionartodos"
-    ],
-    "4": [
-      "js_detalle",
-      "js_detalle_acciones",
-      "js_detalle_alcambiar",
-      "js_detalle_encabezado",
-      "js_detalle_filaactividad",
-      "js_detalle_formularioactividad",
-      "js_detalle_renderdetalle",
-      "js_detalle_repintar",
-      "js_detalle_tarjetanoencontrada",
-      "js_detalle_tarjetasector",
-      "js_storage_actualizarvisita",
-      "js_storage_eliminarvisita",
-      "js_storage_nuevoid",
-      "js_storage_obtenervisita"
     ],
     "5": [
       "js_agenda",
@@ -157,10 +157,10 @@
   },
   "cohesion": {
     "0": 0.17647058823529413,
-    "1": 0.16733870967741934,
-    "2": 0.23391812865497075,
-    "3": 0.3416666666666667,
-    "4": 0.34065934065934067,
+    "1": 0.18769230769230769,
+    "2": 0.20476190476190476,
+    "3": 0.24836601307189543,
+    "4": 0.3416666666666667,
     "5": 0.3333333333333333,
     "6": 0.2222222222222222,
     "7": 1.0
@@ -174,7 +174,7 @@
     {
       "id": "js_storage_leervisitas",
       "label": "leerVisitas()",
-      "degree": 15
+      "degree": 12
     },
     {
       "id": "js_fechas_etiquetadialarga",
