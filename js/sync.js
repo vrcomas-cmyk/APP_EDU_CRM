@@ -89,6 +89,9 @@ export async function subirEvidencia(idActividad) {
     const resultado = await postear({
         action: 'subirEvidencia',
         id_actividad: idActividad,
+        // El script archiva por cliente y no puede deducirlo: la fila de la actividad
+        // puede no existir todavía si la evidencia se sube antes de sincronizar la visita.
+        cliente: entrada.visita.cliente || '',
         nombre: entrada.actividad.evidencia?.nombre || `${idActividad}`,
         mimeType: blob.type || 'application/octet-stream',
         datos: await blobABase64(blob)

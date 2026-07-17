@@ -6,17 +6,55 @@
  *      donde se guardan las visitas).
  *   2. Pega este archivo completo (reemplaza lo que haya).
  *   3. Revisa la CONFIGURACIÓN de abajo.
- *   4. IMPORTANTE, se olvida siempre: este script ahora usa Drive (antes solo Sheets), así
- *      que pide permisos nuevos. Selecciona la función "autorizar" en el editor y dale
- *      Ejecutar UNA vez para aceptarlos. Si no lo haces, la app publicada falla al subir
- *      evidencias aunque el código esté bien.
+ *
+ *   4. PERMISOS DE DRIVE (el paso que rompe todo si se salta):
+ *      Este script escribe en Drive; antes solo leía Sheets. Apps Script NO amplía los
+ *      permisos solo porque cambie el código: los toma del manifiesto. Volver a autorizar
+ *      sin tocarlo te vuelve a dar exactamente el mismo permiso insuficiente, y la subida
+ *      falla con "No cuentas con el permiso para llamar a DriveApp.Folder.createFile".
+ *
+ *      a) ⚙ Configuración del proyecto → marca "Mostrar el archivo de manifiesto
+ *         appsscript.json en el editor".
+ *      b) Abre appsscript.json y asegúrate de que "oauthScopes" incluya:
+ *              "https://www.googleapis.com/auth/spreadsheets"
+ *              "https://www.googleapis.com/auth/drive.file"
+ *         (hay una copia lista en apps-script/appsscript.json; si tu manifiesto ya tiene
+ *          zona horaria u otras claves, solo AGREGA oauthScopes, no lo reemplaces entero).
+ *
+ *         "drive.file" = el script solo alcanza los archivos que él mismo crea, no el resto
+ *         de tu Drive. Por eso NO puede escribir en una carpeta que hayas hecho a mano.
+ *
+ *      c) Guarda, selecciona la función "autorizar" y dale Ejecutar. Debe pedirte permisos
+ *         DE NUEVO y mencionar Google Drive. En el registro tiene que decir
+ *         "✅ Escritura en Drive OK" y "✅ Todo listo".
+ *
+ *      d) UNA SOLA VEZ: el registro de "autorizar" trae la URL de la carpeta que creó
+ *         ("Evidencias Visitas"). Ábrela y MUÉVELA dentro de tu carpeta "Evidencias".
+ *         El id no cambia, así que el script la sigue alcanzando, y a partir de ahí todo
+ *         queda archivado así:
+ *
+ *              Evidencias/                        <- tu carpeta
+ *                  Evidencias Visitas/            <- la del script, ya movida
+ *                      100000 HOSPITAL X/         <- una por cliente, automáticas
+ *                          foto.jpg
+ *                      100001 CLINICA Y/
+ *                          acta.pdf
+ *
+ *         Déjala en Mi unidad. Si la mueves a una unidad COMPARTIDA el script puede perder
+ *         el acceso y crear otra carpeta.
+ *      d) Si NO te vuelve a pedir permisos, Google está reusando el token viejo: entra a
+ *         https://myaccount.google.com/permissions, quita el acceso de este proyecto y
+ *         repite el paso (c).
+ *
  *   5. Implementar → Gestionar implementaciones → editar la existente (icono del lápiz) →
  *      Versión: Nueva → Implementar.
  *        - Ejecutar como: Yo
  *        - Quién tiene acceso: CUALQUIER PERSONA   <-- indispensable, si no la PWA recibe 401
- *      Editar la implementación existente CONSERVA la URL /exec que la PWA ya tiene.
- *      Si creas una implementación NUEVA, la URL cambia y hay que actualizar
- *      GOOGLE_SCRIPT_URL en js/sync.js.
+ *      Hay que crear versión NUEVA: la implementación sirve la versión con la que se publicó,
+ *      así que guardar el código no basta.
+ *      Editar la implementación existente CONSERVA la URL /exec que la PWA ya tiene. Si creas
+ *      una implementación NUEVA, la URL cambia y hay que actualizar GOOGLE_SCRIPT_URL en
+ *      js/sync.js.
  *
  * Dos documentos, como en la versión anterior:
  *   - Catálogos (Clientes / Materiales / Educadores): se LEEN de SHEET_DB_ID.
@@ -39,7 +77,7 @@ const SHEET_DB_ID = '1g_vhnyt14oCrn8t21qPN-Jjs3r37ox1nhLAcXFjCoxk';
 // Documento donde se escriben las visitas.
 // '' = el documento al que está pegado este script (el comportamiento de antes).
 // Si algún día el script deja de estar pegado a una hoja, pon aquí su ID.
-const SHEET_VISITAS_ID = '';
+const SHEET_VISITAS_ID = '1_HjRYIje0_yNMK3s3ACAxMG0rgOjHeSaWpJBX4u8Duc';
 
 // Catálogos: pestaña y nombre de la columna a leer (si no se encuentra, se usa la col. A).
 const HOJA_CLIENTES = 'Clientes';
@@ -56,9 +94,24 @@ const HOJA_EDUCADORES = 'Educadores';
 const HOJA_VISITAS = 'Visitas';
 const HOJA_ACTIVIDADES = 'Actividades';
 
-// Carpeta de Drive donde caen las evidencias. Déjalo en '' y se crea/reutiliza
-// una carpeta llamada "Evidencias Visitas" en tu Drive raíz.
-const CARPETA_EVIDENCIAS_ID = '';
+// Carpeta raíz de las evidencias. Dentro, el script crea una subcarpeta por cliente.
+//
+// DÉJALO VACÍO. Con el permiso "drive.file" el script solo alcanza los archivos que él mismo
+// crea: si pones aquí el id de tu carpeta "Evidencias" (hecha a mano) no podrá abrirla.
+// La crea sola la primera vez; luego TÚ la mueves dentro de "Evidencias" y listo (ver el
+// paso 4d de arriba).
+//
+// Solo tiene sentido llenarlo si vuelves al permiso "drive" completo.
+const CARPETA_EVIDENCIAS_ID = '1cMtdFG2lNFYa_Q3HqdqFGmrHV_DIRDbq';
+
+// Nombre de la carpeta que crea el script la primera vez.
+const NOMBRE_CARPETA_EVIDENCIAS = 'Evidencias Visitas';
+
+// Donde se guarda el id de esa carpeta, para no depender de buscarla por nombre.
+const PROP_CARPETA = 'CARPETA_EVIDENCIAS_ID';
+
+// Prefijo de las propiedades que recuerdan la subcarpeta de cada cliente.
+const PROP_CLIENTE = 'CARPETA_CLIENTE_';
 
 const ENCABEZADOS_VISITAS = [
     'id_padre', 'id_visita', 'educador', 'correo', 'cliente',
@@ -336,7 +389,7 @@ function subirEvidencia(body) {
         body.nombre || (body.id_actividad + '.bin')
     );
 
-    var archivo = carpetaEvidencias().createFile(blob);
+    var archivo = carpetaDeCliente(body.cliente).createFile(blob);
 
     // Muchos dominios de Workspace bloquean compartir "cualquiera con el enlace". Si pasa,
     // el archivo igual queda guardado y visible dentro del dominio: no vale la pena tirar
@@ -362,11 +415,77 @@ function subirEvidencia(body) {
     return { status: 'ok', id_actividad: body.id_actividad, url: url, fila_actualizada: !!fila };
 }
 
-function carpetaEvidencias() {
-    if (CARPETA_EVIDENCIAS_ID) return DriveApp.getFolderById(CARPETA_EVIDENCIAS_ID);
+/**
+ * Carpeta raíz de evidencias.
+ *
+ * Con el permiso "drive.file" el script solo alcanza lo que él mismo creó, así que NO se puede
+ * buscar por nombre en el Drive (getFoldersByName no vería nada y crearía una carpeta nueva en
+ * cada subida). Se crea una vez y se guarda su id.
+ */
+function carpetaRaizEvidencias() {
+    var props = PropertiesService.getScriptProperties();
+    var id = CARPETA_EVIDENCIAS_ID || props.getProperty(PROP_CARPETA);
 
-    var existentes = DriveApp.getFoldersByName('Evidencias Visitas');
-    return existentes.hasNext() ? existentes.next() : DriveApp.createFolder('Evidencias Visitas');
+    if (id) {
+        try {
+            return DriveApp.getFolderById(id);
+        } catch (err) {
+            if (CARPETA_EVIDENCIAS_ID) {
+                throw new Error(
+                    'No se puede abrir la carpeta ' + CARPETA_EVIDENCIAS_ID + '. Con el permiso ' +
+                    '"drive.file" el script solo alcanza carpetas que creó él mismo. Deja ' +
+                    'CARPETA_EVIDENCIAS_ID vacío y deja que la cree; luego muévela dentro de ' +
+                    'tu carpeta "Evidencias". Detalle: ' + err
+                );
+            }
+            // La carpeta recordada se borró o se movió a una unidad compartida: se recrea.
+            props.deleteProperty(PROP_CARPETA);
+        }
+    }
+
+    var carpeta = DriveApp.createFolder(NOMBRE_CARPETA_EVIDENCIAS);
+    props.setProperty(PROP_CARPETA, carpeta.getId());
+    return carpeta;
+}
+
+/**
+ * Subcarpeta por cliente, dentro de la raíz. Su id también se recuerda: sin eso habría que
+ * listar, y con drive.file eso no es de fiar.
+ */
+function carpetaDeCliente(cliente) {
+    var raiz = carpetaRaizEvidencias();
+
+    var nombre = String(cliente || '').trim().replace(/\s+/g, ' ').slice(0, 120);
+    if (!nombre) nombre = 'Sin cliente';
+
+    var props = PropertiesService.getScriptProperties();
+    var clave = PROP_CLIENTE + nombre;
+    var id = props.getProperty(clave);
+
+    if (id) {
+        try {
+            return DriveApp.getFolderById(id);
+        } catch (err) {
+            props.deleteProperty(clave); // se borró o se movió: se recrea abajo
+        }
+    }
+
+    // Red de seguridad por si se perdieron las propiedades: la raíz sí la creó el script,
+    // así que listar SUS hijas suele funcionar aun con drive.file. Si no, se crea y ya.
+    try {
+        var existentes = raiz.getFoldersByName(nombre);
+        if (existentes.hasNext()) {
+            var encontrada = existentes.next();
+            props.setProperty(clave, encontrada.getId());
+            return encontrada;
+        }
+    } catch (err) {
+        // sin permiso para listar: se crea directo
+    }
+
+    var carpeta = raiz.createFolder(nombre);
+    props.setProperty(clave, carpeta.getId());
+    return carpeta;
 }
 
 // ---------- HERRAMIENTAS DEL EDITOR ----------
@@ -375,13 +494,51 @@ function carpetaEvidencias() {
 /**
  * Ejecuta esta función UNA vez desde el editor para aceptar los permisos de Drive.
  * Sin esto, la app publicada falla al subir evidencias aunque el código esté bien.
+ *
+ * Hace de verdad la operación que falla en campo (crear un archivo), porque un permiso de
+ * Drive de SOLO LECTURA alcanza para encontrar la carpeta pero no para escribir en ella:
+ * si solo se listara, esto pasaría y la subida real seguiría rota.
  */
 function autorizar() {
     var libro = libroVisitas();
-    var carpeta = carpetaEvidencias();
     Logger.log('Visitas en: "%s"', libro.getName());
-    Logger.log('Evidencias en: "%s"', carpeta.getName());
-    Logger.log('Permisos aceptados. Ya puedes crear la nueva versión de la implementación.');
+
+    var raiz = carpetaRaizEvidencias();
+    Logger.log('Carpeta raíz: "%s"', raiz.getName());
+    Logger.log('  url: %s', raiz.getUrl());
+    Logger.log('  👉 Muévela DENTRO de tu carpeta "Evidencias". Solo una vez: el id no cambia');
+    Logger.log('     y el script no pierde el acceso. Déjala en Mi unidad, no en una unidad');
+    Logger.log('     compartida.');
+
+    var carpeta = carpetaDeCliente('PRUEBA DE PERMISOS');
+    Logger.log('Subcarpeta de cliente: "%s" (se crea una por cliente)', carpeta.getName());
+
+    var prueba = carpeta.createFile(
+        Utilities.newBlob('prueba de permisos', 'text/plain', 'prueba-permisos.txt')
+    );
+    Logger.log('✅ Escritura en Drive OK (archivo de prueba creado).');
+
+    try {
+        prueba.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+        Logger.log('✅ Enlace público OK.');
+    } catch (err) {
+        Logger.log('⚠ El dominio no permite enlaces públicos; las evidencias quedarán ' +
+                   'visibles solo dentro del dominio. La subida igual funciona.');
+    }
+
+    // Limpiar es cortesía, no parte de lo que la PWA necesita: subir solo usa createFile +
+    // setSharing + getUrl, y esos ya pasaron. En unidades compartidas setTrashed suele fallar
+    // aunque escribir sí funcione, y no vale la pena reprobar por eso.
+    try {
+        prueba.setTrashed(true);
+        carpeta.setTrashed(true);
+        PropertiesService.getScriptProperties().deleteProperty(PROP_CLIENTE + 'PRUEBA DE PERMISOS');
+    } catch (err) {
+        Logger.log('⚠ No se pudo borrar lo de prueba (%s). Bórralo a mano: %s',
+                   err.message, carpeta.getUrl());
+    }
+
+    Logger.log('✅ Todo listo. Ya puedes crear la NUEVA VERSIÓN de la implementación.');
 }
 
 /**

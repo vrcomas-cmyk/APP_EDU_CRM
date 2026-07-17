@@ -56,6 +56,39 @@ Escribe en dos pestañas:
 Todas las escrituras son **upsert por id**: la app reenvía la misma visita cada vez que se
 edita, así que insertar a ciegas duplicaría filas.
 
+Los catálogos se leen de **otro documento** (`SHEET_DB_ID`), no del de las visitas: clientes de
+`Clientes`, educadores de `Educadores`, y los sectores de `Materiales` → `Descr. Sector`
+deduplicados (no hay pestaña "Sectores").
+
+El manifiesto (`apps-script/appsscript.json`) declara los permisos y **debe copiarse también**:
+Apps Script no amplía los scopes solo porque el código cambie, así que reautorizar sin tocarlo
+vuelve a conceder el mismo permiso insuficiente y la subida sigue fallando con *"No cuentas con
+el permiso para llamar a DriveApp.Folder.createFile"*.
+
+Las evidencias usan **`drive.file`**: el script solo alcanza los archivos que él mismo crea, no
+el resto del Drive. Se archivan así:
+
+```
+Evidencias/                        ← carpeta del usuario (el script NO la ve)
+    Evidencias Visitas/            ← la crea el script; se mueve aquí a mano, una sola vez
+        100000 HOSPITAL X/         ← una por cliente, automáticas
+            foto.jpg
+```
+
+Consecuencias del scope, que explican el diseño:
+
+- **No puede escribir en una carpeta creada a mano**, de ahí el paso de mover la suya. Al
+  moverla el id no cambia, así que no pierde el acceso. Dejarla en *Mi unidad*: en una unidad
+  compartida puede perderla.
+- **No se puede buscar por nombre en el Drive** (`getFoldersByName` no ve nada). Por eso los ids
+  de la raíz y de cada cliente viven en las propiedades del script: sin ellos se crearía una
+  carpeta nueva en cada subida.
+- La PWA **manda el `cliente`** en el POST de la evidencia. No se deduce de la hoja porque la
+  fila puede no existir todavía (la evidencia puede subirse antes de sincronizar la visita).
+
+Corre `autorizar()` desde el editor para verificarlo: crea un archivo de prueba real, porque un
+permiso de solo lectura alcanza para *encontrar* la carpeta pero no para escribir en ella.
+
 ## Cuidado con
 
 - **`sw.js`**: sube `CACHE_NAME` cada vez que cambies un archivo de `ASSETS`. Si no, los

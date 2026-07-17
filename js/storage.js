@@ -115,7 +115,7 @@ let dbPromesa = null;
 function abrirDB() {
     if (dbPromesa) return dbPromesa;
 
-    dbPromesa = new Promise((resolve, reject) => {
+    const promesa = new Promise((resolve, reject) => {
         if (!('indexedDB' in globalThis) || !globalThis.indexedDB) {
             reject(new Error('IndexedDB no disponible'));
             return;
@@ -132,6 +132,12 @@ function abrirDB() {
         solicitud.onerror = () => reject(solicitud.error);
     });
 
+    // No memorizar el fallo: si el primer intento falla (arranque, cuota, modo privado),
+    // guardar la promesa rechazada dejaría las evidencias inservibles el resto de la sesión
+    // aunque IndexedDB ya estuviera disponible.
+    promesa.catch(() => { dbPromesa = null; });
+
+    dbPromesa = promesa;
     return dbPromesa;
 }
 
