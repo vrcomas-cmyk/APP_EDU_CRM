@@ -3,8 +3,8 @@
   "short_name": "VisitasApp",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#f5f7fb",
-  "theme_color": "#1E88E5",
+  "background_color": "#eef1f8",
+  "theme_color": "#4F46E5",
   "orientation": "portrait-primary",
   "icons": [
     {

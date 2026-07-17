@@ -1,6 +1,145 @@
 {
   "communities": {
     "0": [
+      "js_calendario",
+      "js_calendario_alcambiar",
+      "js_calendario_cargapordia",
+      "js_calendario_clavesvisibles",
+      "js_calendario_cuadriculademes",
+      "js_calendario_cursor",
+      "js_calendario_el",
+      "js_calendario_initcalendario",
+      "js_calendario_iradia",
+      "js_calendario_mover",
+      "js_calendario_puntos",
+      "js_calendario_refrescar",
+      "js_calendario_refrescarcalendario",
+      "js_calendario_render",
+      "js_calendario_resumendeldia",
+      "js_calendario_tiradesemana",
+      "js_fechas",
+      "js_fechas_clavedia",
+      "js_fechas_clavehoy",
+      "js_fechas_desdeclave",
+      "js_fechas_dias",
+      "js_fechas_dias_cortos",
+      "js_fechas_diasdecuadriculames",
+      "js_fechas_diasdesemana",
+      "js_fechas_etiquetadia",
+      "js_fechas_etiquetadialarga",
+      "js_fechas_etiquetames",
+      "js_fechas_etiquetarangosemana",
+      "js_fechas_inicialesdias",
+      "js_fechas_iniciomes",
+      "js_fechas_iniciosemana",
+      "js_fechas_meses",
+      "js_fechas_sumardias",
+      "js_fechas_sumarmeses"
+    ],
+    "1": [
+      "js_evidencias",
+      "js_evidencias_actualizarevidencia",
+      "js_evidencias_adjuntarevidencia",
+      "js_evidencias_comprimirimagen",
+      "js_evidencias_contarpendientes",
+      "js_evidencias_controlevidencia",
+      "js_evidencias_nombredearchivo",
+      "js_evidencias_quitarevidencia",
+      "js_evidencias_renderpendientes",
+      "js_evidencias_selectorarchivo",
+      "js_evidencias_subirtodaslaspendientes",
+      "js_evidencias_tarjetapendiente",
+      "js_storage",
+      "js_storage_abrirdb",
+      "js_storage_borrararchivo",
+      "js_storage_esformatonuevo",
+      "js_storage_evidenciaspendientes",
+      "js_storage_guardararchivo",
+      "js_storage_guardarcatalogo",
+      "js_storage_guardarvisitas",
+      "js_storage_leerarchivo",
+      "js_storage_leervisitas",
+      "js_storage_migrarsihacefalta",
+      "js_storage_todaslasactividades",
+      "js_storage_transaccion",
+      "js_sync",
+      "js_sync_blobabase64",
+      "js_sync_postear",
+      "js_sync_sincronizartodo",
+      "js_sync_sincronizarvisitas",
+      "js_sync_subirevidencia",
+      "js_sync_subirevidenciaspendientes"
+    ],
+    "2": [
+      "js_app",
+      "js_app_actualizarcontadorpendientes",
+      "js_app_actualizarestadoconexion",
+      "js_app_cablearacciones",
+      "js_app_cablearformulario",
+      "js_app_cargarcatalogoenui",
+      "js_app_descargarcatalogosisepuede",
+      "js_app_enrutar",
+      "js_app_llenardatalist",
+      "js_app_refrescartodo",
+      "js_app_renderagendavisible",
+      "js_app_sincronizar",
+      "js_app_vistas",
+      "js_detalle_initdetalle",
+      "js_sectores_getseleccion",
+      "js_sectores_setcatalogosectores",
+      "js_storage_agregarvisita",
+      "js_storage_leercatalogo",
+      "js_sync_descargarcatalogo"
+    ],
+    "3": [
+      "js_sectores",
+      "js_sectores_actualizarbotonesmasivos",
+      "js_sectores_actualizarestado",
+      "js_sectores_agregarpersonalizado",
+      "js_sectores_agregarsector",
+      "js_sectores_catalogo",
+      "js_sectores_crearbloque",
+      "js_sectores_el",
+      "js_sectores_initselectorsectores",
+      "js_sectores_limpiarseleccion",
+      "js_sectores_mostrarerror",
+      "js_sectores_nombresseleccionados",
+      "js_sectores_quitarsector",
+      "js_sectores_quitartodos",
+      "js_sectores_renderchips",
+      "js_sectores_seleccionartodos"
+    ],
+    "4": [
+      "js_detalle",
+      "js_detalle_acciones",
+      "js_detalle_alcambiar",
+      "js_detalle_encabezado",
+      "js_detalle_filaactividad",
+      "js_detalle_formularioactividad",
+      "js_detalle_renderdetalle",
+      "js_detalle_repintar",
+      "js_detalle_tarjetanoencontrada",
+      "js_detalle_tarjetasector",
+      "js_storage_actualizarvisita",
+      "js_storage_eliminarvisita",
+      "js_storage_nuevoid",
+      "js_storage_obtenervisita"
+    ],
+    "5": [
+      "js_agenda",
+      "js_agenda_agruparpordia",
+      "js_agenda_contarevidenciaspendientes",
+      "js_agenda_filavisita",
+      "js_agenda_filtrarpordias",
+      "js_agenda_grupodedia",
+      "js_agenda_insignaestado",
+      "js_agenda_lista",
+      "js_agenda_renderagenda",
+      "js_agenda_vacio",
+      "js_fechas_hora",
+      "js_fechas_ordenarclavesdias"
+    ],
+    "6": [
       "manifest",
       "manifest_background_color",
       "manifest_display",
@@ -11,100 +150,128 @@
       "manifest_start_url",
       "manifest_theme_color"
     ],
-    "1": [
-      "app",
-      "app_btnaddsector",
-      "app_btnsync",
-      "app_educadorinput",
-      "app_form",
-      "app_listavisitas",
-      "app_sectorescontainer",
-      "app_statusbadge"
-    ],
-    "2": [
-      "app_actualizarestadoconexion",
-      "app_cargarcatalogosenui",
-      "app_descargardatosmaestros"
-    ],
-    "3": [
-      "app_mostrarvisitas",
-      "app_sincronizarcongooglesheets"
-    ],
-    "4": [
+    "7": [
       "sw",
       "sw_assets"
     ]
   },
   "cohesion": {
-    "0": 0.2222222222222222,
-    "1": 0.25,
-    "2": 0.6666666666666666,
-    "3": 1.0,
-    "4": 1.0
+    "0": 0.17647058823529413,
+    "1": 0.16733870967741934,
+    "2": 0.23391812865497075,
+    "3": 0.3416666666666667,
+    "4": 0.34065934065934067,
+    "5": 0.3333333333333333,
+    "6": 0.2222222222222222,
+    "7": 1.0
   },
   "gods": [
     {
-      "id": "app_actualizarestadoconexion",
-      "label": "actualizarEstadoConexion()",
-      "degree": 3
+      "id": "js_fechas_clavedia",
+      "label": "claveDia()",
+      "degree": 17
     },
     {
-      "id": "app_sincronizarcongooglesheets",
-      "label": "sincronizarConGoogleSheets()",
-      "degree": 3
+      "id": "js_storage_leervisitas",
+      "label": "leerVisitas()",
+      "degree": 15
     },
     {
-      "id": "app_descargardatosmaestros",
-      "label": "descargarDatosMaestros()",
-      "degree": 3
+      "id": "js_fechas_etiquetadialarga",
+      "label": "etiquetaDiaLarga()",
+      "degree": 11
     },
     {
-      "id": "app_mostrarvisitas",
-      "label": "mostrarVisitas()",
-      "degree": 2
+      "id": "js_agenda_renderagenda",
+      "label": "renderAgenda()",
+      "degree": 10
     },
     {
-      "id": "app_cargarcatalogosenui",
-      "label": "cargarCatalogosEnUI()",
-      "degree": 2
+      "id": "js_app_refrescartodo",
+      "label": "refrescarTodo()",
+      "degree": 10
     },
     {
-      "id": "app_form",
-      "label": "form",
-      "degree": 1
+      "id": "js_app_cablearformulario",
+      "label": "cablearFormulario()",
+      "degree": 10
     },
     {
-      "id": "app_listavisitas",
-      "label": "listaVisitas",
-      "degree": 1
+      "id": "js_calendario_render",
+      "label": "render()",
+      "degree": 10
     },
     {
-      "id": "app_statusbadge",
-      "label": "statusBadge",
-      "degree": 1
+      "id": "js_calendario_tiradesemana",
+      "label": "tiraDeSemana()",
+      "degree": 10
     },
     {
-      "id": "app_btnsync",
-      "label": "btnSync",
-      "degree": 1
+      "id": "js_fechas_hora",
+      "label": "hora()",
+      "degree": 10
     },
     {
-      "id": "app_sectorescontainer",
-      "label": "sectoresContainer",
-      "degree": 1
+      "id": "js_sectores_renderchips",
+      "label": "renderChips()",
+      "degree": 10
     }
   ],
   "surprises": [
     {
-      "source": "actualizarEstadoConexion()",
-      "target": "sincronizarConGoogleSheets()",
+      "source": "renderAgenda()",
+      "target": "leerVisitas()",
       "source_files": [
-        "app.js",
-        "app.js"
+        "js/agenda.js",
+        "js/storage.js"
       ],
       "confidence": "EXTRACTED",
       "relation": "calls",
-      "note": "Bridges community 2 \u2192 community 3"
+      "why": "bridges separate communities"
+    },
+    {
+      "source": "renderAgendaVisible()",
+      "target": "renderAgenda()",
+      "source_files": [
+        "js/app.js",
+        "js/agenda.js"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "bridges separate communities"
+    },
+    {
+      "source": "filtrarPorDias()",
+      "target": "claveDia()",
+      "source_files": [
+        "js/agenda.js",
+        "js/fechas.js"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "bridges separate communities"
+    },
+    {
+      "source": "agruparPorDia()",
+      "target": "claveDia()",
+      "source_files": [
+        "js/agenda.js",
+        "js/fechas.js"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "bridges separate communities"
+    },
+    {
+      "source": "vacio()",
+      "target": "claveHoy()",
+      "source_files": [
+        "js/agenda.js",
+        "js/fechas.js"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "bridges separate communities"
     }
   ],
   "tokens": {

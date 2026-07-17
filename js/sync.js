@@ -1,0 +1,142 @@
+/**
+ * Cliente del Apps Script.
+ *
+ * Dos operaciones separadas a propósito:
+ *   - guardarVisitas: upsert del árbol (ligero, se manda seguido).
+ *   - subirEvidencia: un archivo por petición. Las evidencias pueden subirse días después
+ *     de registrar la actividad, y meterlas en el mismo POST haría payloads enormes que
+ *     fallan con mala señal.
+ */
+
+import {
+    leerVisitas, guardarVisitas as persistirVisitas, guardarCatalogo,
+    leerArchivo, borrarArchivo, todasLasActividades
+} from './storage.js';
+
+export const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyRdGq_Tef6GGg8MWr7_VNLS-VLvx439MTWPpmjJQ3kjXk_6OvtrFc19ehh7_GoVBZZ/exec";
+
+/**
+ * text/plain evita el preflight OPTIONS, que Apps Script no responde. No cambiar a
+ * application/json: rompe la sincronización aunque el body siga siendo JSON.
+ */
+async function postear(cuerpo) {
+    const respuesta = await fetch(GOOGLE_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(cuerpo)
+    });
+
+    if (!respuesta.ok) throw new Error(`Respuesta del servidor: ${respuesta.status}`);
+
+    const resultado = await respuesta.json().catch(() => null);
+    if (resultado && resultado.status === 'error') {
+        throw new Error(resultado.message || 'Apps Script reportó un error');
+    }
+    return resultado;
+}
+
+// ---------- catálogos ----------
+
+export async function descargarCatalogo() {
+    const respuesta = await fetch(GOOGLE_SCRIPT_URL);
+    if (!respuesta.ok) throw new Error(`Error al descargar catálogos: ${respuesta.status}`);
+
+    const datos = await respuesta.json();
+    guardarCatalogo(datos);
+    return datos;
+}
+
+// ---------- visitas ----------
+
+export async function sincronizarVisitas() {
+    const pendientes = leerVisitas().filter(v => !v.sincronizado);
+    if (pendientes.length === 0) return { enviadas: 0 };
+
+    await postear({ action: 'guardarVisitas', visitas: pendientes });
+
+    // Se relee: el usuario pudo editar algo mientras el POST estaba en vuelo, y marcar
+    // esa edición como sincronizada la perdería.
+    const idsEnviados = new Set(pendientes.map(v => v.id));
+    const visitas = leerVisitas();
+    visitas.forEach(v => {
+        if (idsEnviados.has(v.id)) v.sincronizado = true;
+    });
+    persistirVisitas(visitas);
+
+    return { enviadas: pendientes.length };
+}
+
+// ---------- evidencias ----------
+
+function blobABase64(blob) {
+    return new Promise((resolve, reject) => {
+        const lector = new FileReader();
+        lector.onload = () => resolve(String(lector.result).split(',')[1]);
+        lector.onerror = () => reject(lector.error);
+        lector.readAsDataURL(blob);
+    });
+}
+
+/** Sube el archivo local de una actividad y guarda la URL que devuelve Drive. */
+export async function subirEvidencia(idActividad) {
+    const blob = await leerArchivo(idActividad);
+    if (!blob) throw new Error(`Sin archivo local para la actividad ${idActividad}`);
+
+    const entrada = todasLasActividades().find(x => x.actividad.id === idActividad);
+    if (!entrada) throw new Error(`Actividad ${idActividad} no encontrada`);
+
+    const resultado = await postear({
+        action: 'subirEvidencia',
+        id_actividad: idActividad,
+        nombre: entrada.actividad.evidencia?.nombre || `${idActividad}`,
+        mimeType: blob.type || 'application/octet-stream',
+        datos: await blobABase64(blob)
+    });
+
+    const visitas = leerVisitas();
+    for (const visita of visitas) {
+        for (const sector of visita.sectores || []) {
+            const act = (sector.actividades || []).find(a => a.id === idActividad);
+            if (!act) continue;
+
+            act.evidencia = { ...act.evidencia, estado: 'subida', url: resultado.url };
+            // Se reenvía la visita para que la URL quede también en la fila hija por si
+            // el script no la encontró (actividad aún no sincronizada al subir el archivo).
+            visita.sincronizado = false;
+            persistirVisitas(visitas);
+            await borrarArchivo(idActividad);
+            return resultado;
+        }
+    }
+
+    throw new Error(`No se pudo marcar la evidencia de ${idActividad}`);
+}
+
+/** Sube todas las evidencias que estén en 'local'. Devuelve cuántas subieron y cuántas fallaron. */
+export async function subirEvidenciasPendientes() {
+    const locales = todasLasActividades()
+        .filter(({ actividad }) => actividad.evidencia?.estado === 'local');
+
+    let subidas = 0;
+    let fallidas = 0;
+
+    for (const { actividad } of locales) {
+        try {
+            await subirEvidencia(actividad.id);
+            subidas++;
+        } catch (err) {
+            console.error(`Falló la evidencia ${actividad.id}:`, err);
+            fallidas++;
+        }
+    }
+
+    return { subidas, fallidas };
+}
+
+/** Orden importante: primero las filas, luego los archivos, y al final se reenvían las URLs. */
+export async function sincronizarTodo() {
+    const visitas = await sincronizarVisitas();
+    const evidencias = await subirEvidenciasPendientes();
+    if (evidencias.subidas > 0) await sincronizarVisitas();
+    return { visitas, evidencias };
+}

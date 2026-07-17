@@ -1,12 +1,21 @@
-// 🔴 CAMBIAMOS LA VERSIÓN A v3 PARA FORZAR LA ACTUALIZACIÓN
-const CACHE_NAME = 'visitas-pwa-v3';
+// 🔴 Subir esta versión SIEMPRE que cambie algún archivo de ASSETS,
+// si no los navegadores que ya instalaron el SW siguen sirviendo la versión vieja.
+const CACHE_NAME = 'visitas-pwa-v5';
 const ASSETS = [
     './',
     './index.html',
     './style.css',
-    './app.js',
     './manifest.json',
-    './icon.svg'
+    './icon.svg',
+    './js/app.js',
+    './js/storage.js',
+    './js/sync.js',
+    './js/fechas.js',
+    './js/sectores.js',
+    './js/agenda.js',
+    './js/calendario.js',
+    './js/detalle.js',
+    './js/evidencias.js'
 ];
 
 // Instalar el SW y cachear los archivos base
@@ -17,7 +26,7 @@ self.addEventListener('install', (e) => {
         })
     );
     // Forzar al SW a tomar el control inmediatamente
-    self.skipWaiting(); 
+    self.skipWaiting();
 });
 
 // Activar y limpiar cachés antiguas
