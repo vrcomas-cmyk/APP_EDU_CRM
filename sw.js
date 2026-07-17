@@ -1,6 +1,6 @@
 // 🔴 Subir esta versión SIEMPRE que cambie algún archivo de ASSETS,
 // si no los navegadores que ya instalaron el SW siguen sirviendo la versión vieja.
-const CACHE_NAME = 'visitas-pwa-v11';
+const CACHE_NAME = 'visitas-pwa-v12';
 const ASSETS = [
     './',
     './index.html',
@@ -55,7 +55,8 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
     // 1. Si la petición va al backend o a Google Identity, NO usar caché: una copia vieja
     //    del script de sesión podría dejar a alguien atascado con un login que ya no funciona.
-    if (e.request.url.includes('script.google.com') || e.request.url.includes('accounts.google.com')) {
+    if (e.request.url.includes('script.google.com') || e.request.url.includes('accounts.google.com')
+        || e.request.url.includes('supabase.co')) {
         e.respondWith(fetch(e.request));
         return;
     }

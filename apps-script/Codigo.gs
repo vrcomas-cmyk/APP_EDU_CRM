@@ -141,6 +141,12 @@ const CLIENT_ID = '698264876096-35bqu62bnsfb7v8tnph6m8p7pr7v56r9.apps.googleuser
 // cuenta de Google verificada (no recomendado fuera de pruebas).
 const DOMINIO_PERMITIDO = 'degasa.com';
 
+// El rol de administrador vive en Supabase (tabla pdt_admins, vista solo a través de este RPC
+// que expone nada más un booleano por correo). El resto de la sincronización —visitas,
+// actividades, materiales, eventos, catálogos— se queda igual, en Sheets.
+const SUPABASE_URL = 'https://fiplfsuhsqibzrpvjvbx.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpcGxmc3Voc3FpYnpycHZqdmJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyODAyNjgsImV4cCI6MjA4OTg1NjI2OH0.YG3Fk8XJ_n9PGIYUHtoiy-MJNuWqJTsFBwooKnt1X5s';
+
 /**
  * Columnas de captura — modelo v4.
  *
@@ -623,8 +629,33 @@ function reemplazarHoja(libro, nombre, encabezados, filas) {
     if (filas.length > 0) hoja.getRange(2, 1, filas.length, encabezados.length).setValues(filas);
 }
 
+/**
+ * Admin por la hoja "Admins" (histórico) O por Supabase (fuente nueva, la que se administra
+ * desde ahí en vez de editando la hoja). Cualquiera de las dos basta — así los admins que ya
+ * estaban dados de alta en Sheets no pierden acceso el día que Supabase esté caído.
+ */
 function esAdmin(db, correo) {
-    return leerAdmins(db).indexOf(String(correo || '').toLowerCase()) !== -1;
+    if (leerAdmins(db).indexOf(String(correo || '').toLowerCase()) !== -1) return true;
+    return esAdminSupabase(correo);
+}
+
+/** Nunca lanza: si Supabase no responde, este lado del OR simplemente da 'no'. */
+function esAdminSupabase(correo) {
+    if (!correo) return false;
+    try {
+        var resp = UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/rpc/pdt_es_admin', {
+            method: 'post',
+            contentType: 'application/json',
+            headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY },
+            payload: JSON.stringify({ p_correo: correo }),
+            muteHttpExceptions: true
+        });
+        if (resp.getResponseCode() !== 200) return false;
+        return resp.getContentText() === 'true';
+    } catch (err) {
+        Logger.log('esAdminSupabase falló: %s', err);
+        return false;
+    }
 }
 
 /**

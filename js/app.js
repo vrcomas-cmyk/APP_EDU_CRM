@@ -12,7 +12,7 @@ import { deudaGlobal } from './estado.js';
 import { initCalendario, refrescarCalendario, irAHoy, setModo, diaVisible, irADia } from './calendario.js';
 import { initDrawer, abrirNuevaVisita, abrirVisita, hayDrawerAbierto } from './drawer.js';
 import { initPaleta, abrirPaleta, hayPaletaAbierta } from './paleta.js';
-import { initAdmin, abrirAdmin, puedeAdministrar, hayAdminAbierto } from './admin.js';
+import { initAdmin, abrirAdmin, puedeAdministrar, actualizarEstadoAdmin, hayAdminAbierto } from './admin.js';
 import { initAuth, sesionActual, pintarBotonEntrada, intentarRefresco, cerrarSesion } from './auth.js';
 
 let el = {};
@@ -74,6 +74,11 @@ function pintarSesion(sesion) {
 
 function pintarAdminBoton() {
     el.admin.hidden = !puedeAdministrar();
+}
+
+/** Consulta Supabase en segundo plano; repinta el botón solo si trajo una respuesta real. */
+function refrescarAdmin() {
+    actualizarEstadoAdmin().then((res) => { if (res !== null) pintarAdminBoton(); });
 }
 
 /** Todo lo que antes vivía suelto en DOMContentLoaded: ahora espera a que haya sesión. */
@@ -214,6 +219,7 @@ function alCambiarConexion() {
         intentarRefresco();
         sincronizar();
         descargarCatalogoSiSePuede();
+        refrescarAdmin();
     } else {
         pintarSync('is-off', 'Sin conexión');
     }
