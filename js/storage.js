@@ -11,7 +11,28 @@ const CLAVE_VISITAS = 'visitas';
 const CLAVE_CATALOGO = 'datosPWA';
 const CLAVE_BACKUP = 'visitas_backup_v1';
 const CLAVE_VERSION_MODELO = 'modelo_version';
-const VERSION_MODELO = 2;
+const VERSION_MODELO = 3;
+
+/**
+ * Modelo v3. Cambios contra v2:
+ *   - `fecha` ('2026-07-15T09:00') se parte en `dia` + `hora_inicio` + `hora_fin`.
+ *     Una visita ocupa un rango, no un instante: el calendario la dibuja a escala.
+ *   - `hospital`: dónde ocurre. El cliente es la cuenta; no son lo mismo.
+ *   - Por sector: `origen[]` y `solicitado_por`.
+ *   - Por actividad: `tipo` (del catálogo) y los condicionales `materiales[]`, `folio`, `gerente`.
+ *   - Se va `estado`: ahora se deriva (ver js/estado.js).
+ *
+ * visita = {
+ *   id, educador, educador_correo, cliente, hospital,
+ *   dia: '2026-07-15', hora_inicio: '09:00', hora_fin: '11:00',
+ *   sectores: [{ id, nombre, objetivo, origen: [], solicitado_por, actividades: [
+ *     { id, tipo, texto, creada, materiales: [], folio, gerente,
+ *       evidencia: { estado: 'pendiente'|'local'|'subida', nombre, mime, url } }
+ *   ]}],
+ *   sincronizado: false
+ * }
+ */
+export const DURACION_POR_DEFECTO_H = 1;
 
 const DB_NOMBRE = 'visitas-db';
 const DB_VERSION = 1;
@@ -108,6 +129,24 @@ export function evidenciasPendientes(visitas = leerVisitas()) {
         .filter(({ actividad }) => !actividad.evidencia || actividad.evidencia.estado !== 'subida');
 }
 
+/**
+ * Hospitales ya escritos, del más usado al menos.
+ *
+ * El hospital es texto libre por decisión de producto, y su costo es que "Hosp. Ángeles" y
+ * "H. Angeles" se vuelvan dos. Sugerir lo ya escrito no lo impide, pero hace que la
+ * escritura converja sola sin obligar a configurar un catálogo.
+ */
+export function historialHospitales(visitas = leerVisitas()) {
+    const cuenta = new Map();
+    visitas.forEach(v => {
+        const h = (v.hospital || '').trim();
+        if (h) cuenta.set(h, (cuenta.get(h) || 0) + 1);
+    });
+    return Array.from(cuenta.entries())
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .map(([nombre]) => nombre);
+}
+
 // ---------- IndexedDB (archivos de evidencia) ----------
 
 let dbPromesa = null;
@@ -165,16 +204,13 @@ export function borrarArchivo(idActividad) {
 // ---------- migración ----------
 
 /**
- * El formato viejo era una fila plana por sector:
- *   { id, educador, cliente, fecha, sector, objetivo, actividad, sincronizado }
- * El nuevo es un árbol visita -> sectores -> actividades.
+ * Migración por saltos. Cada navegador puede venir de una versión distinta, así que se
+ * detecta la forma del dato en vez de confiar solo en el número guardado (los primeros
+ * usuarios nunca tuvieron `modelo_version`).
  *
- * La bandera `sincronizado` se respeta en vez de forzarla:
- *  - Lo que YA subió se deja como sincronizado para no reenviarlo.
- *  - Lo que nunca subió (se capturó offline) se deja pendiente, o se perdería: sus datos
- *    no están en ninguna hoja.
- * Una visita agrupa varias filas viejas, así que solo cuenta como sincronizada si TODAS
- * sus filas lo estaban.
+ *   v1  filas planas   { fecha, sector, actividad, ... }  -> una fila por sector
+ *   v2  árbol          { fecha, sectores: [{ actividades }] }
+ *   v3  árbol + rango  { dia, hora_inicio, hora_fin, hospital, ... }
  */
 export function migrarSiHaceFalta() {
     if (Number(localStorage.getItem(CLAVE_VERSION_MODELO)) >= VERSION_MODELO) return null;
@@ -185,24 +221,57 @@ export function migrarSiHaceFalta() {
         return null;
     }
 
-    let viejas;
+    let datos;
     try {
-        viejas = JSON.parse(crudo);
+        datos = JSON.parse(crudo);
     } catch (err) {
         console.error('Visitas ilegibles, no se migra nada:', err);
         return null;
     }
 
-    if (!Array.isArray(viejas) || viejas.length === 0 || esFormatoNuevo(viejas[0])) {
+    if (!Array.isArray(datos) || datos.length === 0) {
         localStorage.setItem(CLAVE_VERSION_MODELO, String(VERSION_MODELO));
         return null;
     }
 
-    localStorage.setItem(CLAVE_BACKUP, crudo);
+    const desde = versionDe(datos[0]);
+    if (desde === 3) {
+        localStorage.setItem(CLAVE_VERSION_MODELO, String(VERSION_MODELO));
+        return null;
+    }
 
+    // Se respalda lo que había ANTES de tocar nada, con la versión de la que venía.
+    localStorage.setItem(`${CLAVE_BACKUP}${desde}`, crudo);
+
+    const filasV1 = desde === 1 ? datos.length : 0;
+    let visitas = desde === 1 ? migrarV1aV2(datos) : datos;
+    visitas = visitas.map(migrarV2aV3);
+
+    guardarVisitas(visitas);
+    localStorage.setItem(CLAVE_VERSION_MODELO, String(VERSION_MODELO));
+
+    console.log(`Migradas ${visitas.length} visitas de v${desde} a v${VERSION_MODELO}.`);
+    return { desde, visitas: visitas.length, filasV1 };
+}
+
+function versionDe(visita) {
+    if (!visita || !Array.isArray(visita.sectores)) return 1;  // fila plana
+    if (visita.dia !== undefined) return 3;
+    return 2;                                                   // árbol con `fecha`
+}
+
+/**
+ * v1 -> v2: agrupa las filas planas del mismo cliente/fecha/educador en una visita.
+ *
+ * `sincronizado` se respeta en vez de forzarlo: lo que ya subió no se reenvía, y lo que
+ * nunca subió (capturado offline) queda pendiente o se perdería, porque sus datos no están
+ * en ninguna hoja. Una visita agrupa varias filas, así que solo cuenta como sincronizada
+ * si TODAS lo estaban.
+ */
+function migrarV1aV2(filas) {
     const porVisita = new Map();
 
-    viejas.forEach(fila => {
+    filas.forEach(fila => {
         const clave = [fila.educador, fila.cliente, fila.fecha].join('||');
 
         if (!porVisita.has(clave)) {
@@ -212,7 +281,6 @@ export function migrarSiHaceFalta() {
                 educador_correo: fila.educador_correo || '',
                 cliente: fila.cliente || '',
                 fecha: fila.fecha || '',
-                estado: 'completada',
                 sectores: [],
                 sincronizado: true,
                 migrada: true
@@ -224,7 +292,6 @@ export function migrarSiHaceFalta() {
 
         const nombreSector = fila.sector || 'Sin sector';
         let sector = visita.sectores.find(s => s.nombre === nombreSector);
-
         if (!sector) {
             sector = { id: nuevoId('s'), nombre: nombreSector, objetivo: fila.objetivo || '', actividades: [] };
             visita.sectores.push(sector);
@@ -235,19 +302,56 @@ export function migrarSiHaceFalta() {
                 id: nuevoId('a'),
                 texto: fila.actividad,
                 creada: fila.fecha || '',
+                // Los datos viejos no conocían el concepto de evidencia. Marcarlas como
+                // pendientes llenaría la bandeja de deuda imposible de saldar.
                 evidencia: { estado: 'subida', nombre: '', mime: '', url: '' }
             });
         }
     });
 
-    const migradas = Array.from(porVisita.values());
-    guardarVisitas(migradas);
-    localStorage.setItem(CLAVE_VERSION_MODELO, String(VERSION_MODELO));
-
-    console.log(`Migradas ${viejas.length} filas planas a ${migradas.length} visitas.`);
-    return { filasViejas: viejas.length, visitas: migradas.length };
+    return Array.from(porVisita.values());
 }
 
-function esFormatoNuevo(visita) {
-    return visita && Array.isArray(visita.sectores);
+/**
+ * v2 -> v3: parte `fecha` en día + rango y siembra los campos nuevos.
+ * No se conoce la duración real de lo ya capturado, así que se asume una hora y se marca
+ * `duracion_estimada` para no presentar un dato inventado como si fuera medido.
+ */
+function migrarV2aV3(visita) {
+    const fecha = visita.fecha || '';
+    const dia = fecha.slice(0, 10);
+    const horaInicio = fecha.slice(11, 16) || '09:00';
+
+    const nueva = {
+        ...visita,
+        dia,
+        hora_inicio: horaInicio,
+        hora_fin: sumarHoras(horaInicio, DURACION_POR_DEFECTO_H),
+        duracion_estimada: true,
+        hospital: visita.hospital || '',
+        sectores: (visita.sectores || []).map(sector => ({
+            ...sector,
+            origen: sector.origen || [],
+            solicitado_por: sector.solicitado_por || '',
+            actividades: (sector.actividades || []).map(act => ({
+                ...act,
+                tipo: act.tipo || '',
+                materiales: act.materiales || [],
+                folio: act.folio || '',
+                gerente: act.gerente || ''
+            }))
+        }))
+    };
+
+    // El estado ahora se deriva; conservarlo invitaría a que algo lo leyera por error.
+    delete nueva.fecha;
+    delete nueva.estado;
+    return nueva;
+}
+
+/** 'HH:MM' + horas -> 'HH:MM', topado a 23:59 para no saltar de día. */
+function sumarHoras(hora, horas) {
+    const [hh, mm] = hora.split(':').map(Number);
+    const total = Math.min((hh || 0) * 60 + (mm || 0) + horas * 60, 23 * 60 + 59);
+    return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 }

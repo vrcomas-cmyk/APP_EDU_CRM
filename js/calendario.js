@@ -1,27 +1,41 @@
 /**
- * Calendario con tres modos: Día, Semana y Mes.
+ * El calendario. Es el producto, no una pantalla del producto.
  *
- * No dibuja visitas: solo decide qué días están visibles y avisa al que lo usa
- * (`onCambio`), que se encarga de repintar la agenda de abajo.
+ * Día y Semana comparten rejilla de horas: la visita se POSICIONA y ESCALA por su duración
+ * real, que es la razón de que hora_inicio y hora_fin sean campos separados y ninguno se
+ * calcule solo. Mes tira el eje de horas porque a esa escala la pregunta ya no es "a qué
+ * hora" sino "dónde hay hueco". Móvil no encoge la rejilla: cambia de forma a agenda
+ * vertical, porque 7 columnas con eje de horas son ilegibles en 390px.
  */
 
 import { leerVisitas } from './storage.js';
+import {
+    ESTADOS, estadoDe, detalleEstado, duracionHoras, duracionTexto,
+    inicioDe, repartirEnColumnas, evidenciasPendientesDe
+} from './estado.js';
 import {
     claveDia, claveHoy, desdeClave, sumarDias, sumarMeses, diasDeSemana,
     diasDeCuadriculaMes, etiquetaMes, etiquetaRangoSemana, etiquetaDiaLarga,
     inicialesDias, hora
 } from './fechas.js';
 
+const HORA_INICIO = 7;   // la rejilla arranca a las 07:00
+const HORA_FIN = 19;     // y termina a las 19:00
+const ANCHO_MOVIL = 720;
+
 let modo = 'dia';
 let cursor = new Date();
-let alCambiar = () => {};
+let alAbrirVisita = () => {};
+let alCrearEn = () => {};
 let el = {};
 
-export function initCalendario(onCambio) {
-    alCambiar = onCambio || (() => {});
+export function initCalendario({ onAbrirVisita, onCrearEn } = {}) {
+    alAbrirVisita = onAbrirVisita || (() => {});
+    alCrearEn = onCrearEn || (() => {});
+
     el = {
+        cal: document.getElementById('cal'),
         titulo: document.getElementById('cal-titulo'),
-        cuerpo: document.getElementById('cal-cuerpo'),
         anterior: document.getElementById('cal-anterior'),
         siguiente: document.getElementById('cal-siguiente'),
         hoy: document.getElementById('cal-hoy'),
@@ -30,220 +44,452 @@ export function initCalendario(onCambio) {
 
     el.anterior.addEventListener('click', () => mover(-1));
     el.siguiente.addEventListener('click', () => mover(1));
-    el.hoy.addEventListener('click', () => {
-        cursor = new Date();
-        refrescar();
-    });
+    el.hoy.addEventListener('click', irAHoy);
 
     el.modos.querySelectorAll('button').forEach(btn => {
-        btn.addEventListener('click', () => {
-            modo = btn.dataset.modo;
-            el.modos.querySelectorAll('button').forEach(b => b.classList.toggle('is-active', b === btn));
-            refrescar();
-        });
+        btn.addEventListener('click', () => setModo(btn.dataset.modo));
     });
 
-    refrescar();
-}
+    // El móvil no tiene rejilla: forzar "semana" ahí no significaría nada.
+    if (esMovil()) modo = 'agenda';
 
-/** Días que el calendario está mostrando; la agenda filtra con esto. */
-export function clavesVisibles() {
-    if (modo === 'dia') return [claveDia(cursor)];
-    if (modo === 'semana') return diasDeSemana(cursor);
-    // En mes se listan solo los días del mes, no el relleno de la cuadrícula:
-    // si no, la agenda mostraría visitas de meses vecinos.
-    return diasDeCuadriculaMes(cursor).filter(c => desdeClave(c).getMonth() === cursor.getMonth());
-}
-
-export function refrescarCalendario() {
+    window.addEventListener('resize', alRedimensionar);
     render();
 }
 
-/** Salta al día de una fecha datetime-local y cambia a modo Día. */
-export function irADia(fechaTexto) {
-    if (!fechaTexto) return;
-    cursor = desdeClave(claveDia(fechaTexto));
-    modo = 'dia';
-    el.modos.querySelectorAll('button')
-        .forEach(b => b.classList.toggle('is-active', b.dataset.modo === 'dia'));
-    refrescar();
-}
-
-function refrescar() {
+export function setModo(nuevo) {
+    modo = nuevo;
+    el.modos.querySelectorAll('button').forEach(b => {
+        b.setAttribute('aria-pressed', String(b.dataset.modo === nuevo));
+    });
     render();
-    alCambiar();
 }
 
-function mover(direccion) {
-    if (modo === 'dia') cursor = sumarDias(cursor, direccion);
-    else if (modo === 'semana') cursor = sumarDias(cursor, 7 * direccion);
-    else cursor = sumarMeses(cursor, direccion);
-    refrescar();
+export function irAHoy() {
+    cursor = new Date();
+    render();
+}
+
+export function irADia(dia) {
+    if (!dia) return;
+    cursor = desdeClave(claveDia(dia));
+    if (!esMovil()) setModo('dia'); else render();
+}
+
+export function refrescarCalendario() { render(); }
+
+export function diaVisible() { return claveDia(cursor); }
+
+function esMovil() { return window.innerWidth <= ANCHO_MOVIL; }
+
+let eraMovil = null;
+function alRedimensionar() {
+    const ahora = esMovil();
+    if (eraMovil === ahora) return;   // solo re-render al CRUZAR el punto de quiebre
+    eraMovil = ahora;
+    if (ahora) modo = 'agenda';
+    else if (modo === 'agenda') modo = 'dia';
+    render();
+}
+
+function mover(dir) {
+    if (modo === 'mes') cursor = sumarMeses(cursor, dir);
+    else if (modo === 'semana') cursor = sumarDias(cursor, 7 * dir);
+    else cursor = sumarDias(cursor, dir);
+    render();
 }
 
 // ---------- render ----------
 
 function render() {
-    el.cuerpo.innerHTML = '';
+    if (!el.cal) return;
+    el.cal.innerHTML = '';
 
-    if (modo === 'dia') {
-        el.titulo.textContent = etiquetaDiaLarga(claveDia(cursor));
-        el.cuerpo.appendChild(resumenDelDia(claveDia(cursor)));
+    const movil = esMovil();
+    el.modos.hidden = movil;
+
+    if (movil) {
+        el.titulo.textContent = etiquetaRangoSemana(cursor);
+        el.cal.append(tiraSemana(), agendaMovil());
+        return;
+    }
+
+    if (modo === 'mes') {
+        el.titulo.textContent = etiquetaMes(cursor);
+        el.cal.appendChild(vistaMes());
     } else if (modo === 'semana') {
         el.titulo.textContent = etiquetaRangoSemana(cursor);
-        el.cuerpo.appendChild(tiraDeSemana());
+        el.cal.appendChild(vistaRejilla(diasDeSemana(cursor).slice(0, 5), 'semana'));
     } else {
-        el.titulo.textContent = etiquetaMes(cursor);
-        el.cuerpo.appendChild(cuadriculaDeMes());
+        el.titulo.textContent = etiquetaDiaLarga(claveDia(cursor));
+        el.cal.appendChild(vistaRejilla([claveDia(cursor)], 'dia'));
     }
 }
 
-/** clave de día -> nº de visitas. Una sola pasada sobre las visitas. */
+function visitasDe(clave) {
+    return leerVisitas().filter(v => v.dia === clave);
+}
+
+/** clave de día -> nº de visitas. Una sola pasada. */
 function cargaPorDia() {
     const conteo = {};
-    leerVisitas().forEach(v => {
-        const c = claveDia(v.fecha);
-        conteo[c] = (conteo[c] || 0) + 1;
-    });
+    leerVisitas().forEach(v => { conteo[v.dia] = (conteo[v.dia] || 0) + 1; });
     return conteo;
 }
 
-function resumenDelDia(clave) {
-    const visitas = leerVisitas()
-        .filter(v => claveDia(v.fecha) === clave)
-        .sort((a, b) => hora(a.fecha).localeCompare(hora(b.fecha)));
+// ---------- rejilla de horas ----------
 
-    const caja = document.createElement('div');
-    caja.className = 'cal-dia-resumen';
+function vistaRejilla(claves, clase) {
+    const grid = document.createElement('div');
+    grid.className = `grid ${clase}`;
 
-    if (visitas.length === 0) {
-        const p = document.createElement('p');
-        p.className = 'empty-state';
-        p.textContent = 'Día libre.';
-        caja.appendChild(p);
-        return caja;
-    }
+    const head = document.createElement('div');
+    head.className = 'grid-head';
+    head.appendChild(document.createElement('div'));   // esquina sobre el eje
 
-    visitas.forEach(v => {
-        const linea = document.createElement('div');
-        linea.className = 'cal-linea';
-        if (v.estado === 'completada') linea.classList.add('es-completada');
+    claves.forEach(clave => {
+        const f = desdeClave(clave);
+        const celda = document.createElement('div');
+        if (clave === claveHoy()) celda.className = 'is-today';
 
-        const h = document.createElement('span');
-        h.className = 'cal-linea-hora';
-        h.textContent = hora(v.fecha) || '--:--';
+        const dow = document.createElement('div');
+        dow.className = 'dow';
+        dow.textContent = clase === 'dia'
+            ? etiquetaDiaLarga(clave)
+            : inicialesDias.largos[(f.getDay() + 6) % 7] + (clave === claveHoy() ? ' · Hoy' : '');
 
-        const nombre = document.createElement('span');
-        nombre.className = 'cal-linea-cliente';
-        nombre.textContent = v.cliente;
+        const num = document.createElement('div');
+        num.className = 'dnum';
+        num.textContent = f.getDate();
 
-        linea.append(h, nombre);
-        caja.appendChild(linea);
+        celda.append(dow, num);
+        head.appendChild(celda);
     });
-    return caja;
+    grid.appendChild(head);
+    grid.appendChild(ejeHoras());
+
+    claves.forEach(clave => grid.appendChild(columnaDia(clave)));
+    return grid;
 }
 
-function tiraDeSemana() {
+function ejeHoras() {
+    const eje = document.createElement('div');
+    eje.className = 'axis';
+    for (let h = HORA_INICIO; h < HORA_FIN; h++) {
+        const t = document.createElement('div');
+        t.className = 't';
+        const s = document.createElement('span');
+        s.textContent = `${String(h).padStart(2, '0')}:00`;
+        t.appendChild(s);
+        eje.appendChild(t);
+    }
+    return eje;
+}
+
+function columnaDia(clave) {
+    const col = document.createElement('div');
+    col.className = 'col';
+    col.dataset.dia = clave;
+    if (clave === claveHoy()) col.classList.add('is-today');
+
+    for (let h = HORA_INICIO; h < HORA_FIN; h++) {
+        const banda = document.createElement('div');
+        banda.className = 'h';
+        col.appendChild(banda);
+    }
+
+    if (clave === claveHoy()) {
+        const linea = lineaAhora();
+        if (linea) col.appendChild(linea);
+    }
+
+    repartirEnColumnas(visitasDe(clave)).forEach(({ visita, columna, columnas }) => {
+        col.appendChild(tarjetaVisita(visita, columna, columnas));
+    });
+
+    // Click en el hueco = crear ahí. Menos clics que abrir el drawer y teclear la hora.
+    col.addEventListener('click', (e) => {
+        if (e.target.closest('.ev')) return;
+        const rect = col.getBoundingClientRect();
+        const horas = (e.clientY - rect.top) / rect.height * (HORA_FIN - HORA_INICIO);
+        alCrearEn(clave, redondearACuarto(HORA_INICIO + horas));
+    });
+
+    return col;
+}
+
+/** Las visitas reales empiezan en :00 o :30, no en :07. */
+function redondearACuarto(horaDecimal) {
+    const total = Math.round(horaDecimal * 2) / 2;
+    const h = Math.max(HORA_INICIO, Math.min(HORA_FIN - 1, Math.floor(total)));
+    const m = (total - Math.floor(total)) >= 0.5 ? 30 : 0;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+function lineaAhora() {
+    const ahora = new Date();
+    const pos = ahora.getHours() + ahora.getMinutes() / 60 - HORA_INICIO;
+    if (pos < 0 || pos > HORA_FIN - HORA_INICIO) return null;  // fuera de la ventana visible
+
+    const linea = document.createElement('div');
+    linea.className = 'nowline';
+    linea.style.setProperty('--now', pos.toFixed(3));
+
+    const badge = document.createElement('span');
+    badge.className = 'now-badge';
+    badge.textContent = `${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`;
+    linea.appendChild(badge);
+    return linea;
+}
+
+function tarjetaVisita(visita, columna, columnas) {
+    const estado = estadoDe(visita);
+    const dur = duracionHoras(visita);
+    const inicio = inicioDe(visita);
+    const desplazamiento = inicio ? inicio.getHours() + inicio.getMinutes() / 60 - HORA_INICIO : 0;
+
+    const ev = document.createElement('button');
+    ev.type = 'button';
+    ev.className = `ev st-${estado}`;
+    ev.dataset.id = visita.id;
+    ev.style.setProperty('--s', desplazamiento.toFixed(3));
+    ev.style.setProperty('--dur', dur.toFixed(3));
+    ev.style.setProperty('--col', columna);
+    ev.style.setProperty('--cols', columnas);
+
+    // Bajo ~45min no cabe más que hora y cliente; forzarlo produce texto cortado a la mitad.
+    if (dur < 0.75) ev.classList.add('compacta');
+
+    const t = document.createElement('span');
+    t.className = 'ev-time';
+    t.textContent = dur >= 1
+        ? `${hora(visita.hora_inicio || '')}–${hora(visita.hora_fin || '')} · ${duracionTexto(visita)}`
+        : visita.hora_inicio || '';
+
+    const cliente = document.createElement('span');
+    cliente.className = 'ev-client';
+    cliente.textContent = visita.cliente || 'Sin cliente';
+
+    ev.append(t, cliente);
+
+    if (dur >= 0.75) {
+        const hosp = document.createElement('span');
+        hosp.className = 'ev-hosp';
+        hosp.textContent = visita.hospital || 'Sin hospital';
+        ev.appendChild(hosp);
+    }
+    if (dur >= 1.5 && modo === 'dia') {
+        const sectores = document.createElement('span');
+        sectores.className = 'ev-sectores';
+        (visita.sectores || []).forEach(s => {
+            const chip = document.createElement('span');
+            chip.textContent = s.nombre;
+            sectores.appendChild(chip);
+        });
+        if (sectores.children.length) ev.appendChild(sectores);
+    }
+    if (dur >= 1) {
+        const flags = document.createElement('span');
+        flags.className = 'ev-flags';
+        flags.append(punto(estado), pastilla(detalleEstado(visita)));
+        if (!visita.sincronizado) flags.appendChild(pastilla('↑ En cola', true));
+        ev.appendChild(flags);
+    }
+
+    ev.addEventListener('click', (e) => { e.stopPropagation(); alAbrirVisita(visita.id); });
+    return ev;
+}
+
+function punto(estado) {
+    const d = document.createElement('span');
+    d.className = 'dot';
+    if (estado === ESTADOS.PROGRAMADA) d.classList.add('hollow');
+    return d;
+}
+
+function pastilla(texto, neutro = false) {
+    const p = document.createElement('span');
+    p.className = neutro ? 'pill neutro' : 'pill';
+    p.textContent = texto;
+    return p;
+}
+
+// ---------- mes ----------
+
+function vistaMes() {
+    const conteo = cargaPorDia();
+    const hoy = claveHoy();
+    const mesActual = cursor.getMonth();
+
+    const grid = document.createElement('div');
+    grid.className = 'mes';
+
+    inicialesDias.largos.forEach((d, i) => {
+        const h = document.createElement('div');
+        h.className = 'mes-h' + (i >= 5 ? ' finde' : '');
+        h.textContent = d;
+        grid.appendChild(h);
+    });
+
+    diasDeCuadriculaMes(cursor).forEach(clave => {
+        const f = desdeClave(clave);
+        const finde = f.getDay() === 0 || f.getDay() === 6;
+
+        const celda = document.createElement('button');
+        celda.type = 'button';
+        celda.className = 'mes-cell';
+        if (f.getMonth() !== mesActual) celda.classList.add('otro-mes');
+        else if (finde) celda.classList.add('finde');
+        if (clave === hoy) celda.classList.add('is-today');
+
+        const n = document.createElement('span');
+        n.className = 'mes-n';
+        n.textContent = f.getDate();
+        celda.appendChild(n);
+
+        const delDia = visitasDe(clave).sort((a, b) => (inicioDe(a) || 0) - (inicioDe(b) || 0));
+        // Máximo 3: una celda que intenta mostrarlo todo no muestra nada.
+        delDia.slice(0, 3).forEach(v => celda.appendChild(lineaMes(v)));
+        if (delDia.length > 3) {
+            const mas = document.createElement('span');
+            mas.className = 'mes-more';
+            mas.textContent = `+${delDia.length - 3} más`;
+            celda.appendChild(mas);
+        }
+
+        celda.addEventListener('click', () => irADia(clave));
+        grid.appendChild(celda);
+    });
+
+    return grid;
+}
+
+function lineaMes(visita) {
+    const estado = estadoDe(visita);
+    const linea = document.createElement('span');
+    linea.className = `mes-ev st-${estado}`;
+
+    const t = document.createElement('span');
+    t.className = 't';
+    t.textContent = visita.hora_inicio || '';
+
+    const c = document.createElement('span');
+    c.className = 'c';
+    c.textContent = visita.cliente || 'Sin cliente';
+
+    linea.append(punto(estado), t, c);
+    return linea;
+}
+
+// ---------- móvil ----------
+
+function tiraSemana() {
     const conteo = cargaPorDia();
     const hoy = claveHoy();
     const actual = claveDia(cursor);
 
     const tira = document.createElement('div');
-    tira.className = 'cal-semana';
+    tira.className = 'wkstrip';
 
     diasDeSemana(cursor).forEach(clave => {
-        const fecha = desdeClave(clave);
-        const dia = document.createElement('button');
-        dia.type = 'button';
-        dia.className = 'cal-dia';
-        dia.classList.toggle('es-hoy', clave === hoy);
-        dia.classList.toggle('es-activo', clave === actual);
+        const f = desdeClave(clave);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        if (clave === actual) btn.className = 'is-sel';
 
-        const inicial = document.createElement('span');
-        inicial.className = 'cal-dia-inicial';
-        inicial.textContent = inicialesDias()[(fecha.getDay() + 6) % 7];
+        const d = document.createElement('span');
+        d.className = 'd';
+        d.textContent = inicialesDias()[(f.getDay() + 6) % 7];
 
-        const numero = document.createElement('span');
-        numero.className = 'cal-dia-numero';
-        numero.textContent = fecha.getDate();
+        const n = document.createElement('span');
+        n.className = 'n';
+        n.textContent = f.getDate();
 
-        dia.append(inicial, numero, puntos(conteo[clave] || 0));
-        dia.addEventListener('click', () => {
-            cursor = fecha;
-            modo = 'dia';
-            el.modos.querySelectorAll('button')
-                .forEach(b => b.classList.toggle('is-active', b.dataset.modo === 'dia'));
-            refrescar();
+        // Los puntos son la carga del día y su estado: se lee la semana sin abrirla.
+        const carga = document.createElement('span');
+        carga.className = 'carga';
+        visitasDe(clave).slice(0, 4).forEach(v => {
+            const i = document.createElement('i');
+            i.className = `st-${estadoDe(v)}`;
+            carga.appendChild(i);
         });
 
-        tira.appendChild(dia);
+        btn.append(d, n, carga);
+        btn.addEventListener('click', () => { cursor = f; render(); });
+        tira.appendChild(btn);
     });
     return tira;
 }
 
-function cuadriculaDeMes() {
-    const conteo = cargaPorDia();
-    const hoy = claveHoy();
-    const mesActual = cursor.getMonth();
+function agendaMovil() {
+    const caja = document.createElement('div');
+    const clave = claveDia(cursor);
+    const delDia = visitasDe(clave).sort((a, b) => (inicioDe(a) || 0) - (inicioDe(b) || 0));
 
-    const envoltura = document.createElement('div');
-    envoltura.className = 'cal-mes';
+    const head = document.createElement('div');
+    head.className = 'agenda-day' + (clave === claveHoy() ? ' es-hoy' : '');
+    const lbl = document.createElement('span');
+    lbl.className = 'lbl';
+    lbl.textContent = etiquetaDiaLarga(clave);
+    const cnt = document.createElement('span');
+    cnt.className = 'cnt';
+    cnt.textContent = delDia.length === 1 ? '1 visita' : `${delDia.length} visitas`;
+    head.append(lbl, cnt);
+    caja.appendChild(head);
 
-    const cabecera = document.createElement('div');
-    cabecera.className = 'cal-mes-cabecera';
-    inicialesDias().forEach(inicial => {
-        const s = document.createElement('span');
-        s.textContent = inicial;
-        cabecera.appendChild(s);
-    });
+    if (delDia.length === 0) {
+        const vacio = document.createElement('p');
+        vacio.className = 'empty';
+        const t = document.createElement('strong');
+        t.textContent = clave === claveHoy() ? 'Día libre' : 'Sin visitas';
+        vacio.append(t, document.createTextNode('Toca "Nueva visita" para agendar una.'));
+        caja.appendChild(vacio);
+        return caja;
+    }
 
-    const rejilla = document.createElement('div');
-    rejilla.className = 'cal-mes-rejilla';
-
-    diasDeCuadriculaMes(cursor).forEach(clave => {
-        const fecha = desdeClave(clave);
-        const celda = document.createElement('button');
-        celda.type = 'button';
-        celda.className = 'cal-celda';
-        celda.classList.toggle('es-otro-mes', fecha.getMonth() !== mesActual);
-        celda.classList.toggle('es-hoy', clave === hoy);
-
-        const numero = document.createElement('span');
-        numero.className = 'cal-dia-numero';
-        numero.textContent = fecha.getDate();
-
-        celda.append(numero, puntos(conteo[clave] || 0));
-        celda.addEventListener('click', () => {
-            cursor = fecha;
-            modo = 'dia';
-            el.modos.querySelectorAll('button')
-                .forEach(b => b.classList.toggle('is-active', b.dataset.modo === 'dia'));
-            refrescar();
-        });
-
-        rejilla.appendChild(celda);
-    });
-
-    envoltura.append(cabecera, rejilla);
-    return envoltura;
+    const lista = document.createElement('div');
+    lista.className = 'agenda-list';
+    delDia.forEach(v => lista.appendChild(filaAgenda(v)));
+    caja.appendChild(lista);
+    return caja;
 }
 
-/** Hasta 3 puntos; de ahí en adelante "+N" para no reventar la celda. */
-function puntos(cantidad) {
-    const caja = document.createElement('span');
-    caja.className = 'cal-puntos';
-    if (cantidad === 0) return caja;
+function filaAgenda(visita) {
+    const estado = estadoDe(visita);
+    const fila = document.createElement('button');
+    fila.type = 'button';
+    fila.className = `arow st-${estado}`;
+    fila.dataset.id = visita.id;
 
-    for (let i = 0; i < Math.min(cantidad, 3); i++) {
-        const punto = document.createElement('i');
-        punto.className = 'cal-punto';
-        caja.appendChild(punto);
-    }
-    if (cantidad > 3) {
-        const mas = document.createElement('i');
-        mas.className = 'cal-mas';
-        mas.textContent = `+${cantidad - 3}`;
-        caja.appendChild(mas);
-    }
-    return caja;
+    const t = document.createElement('span');
+    t.className = 'arow-time';
+    t.append(
+        document.createTextNode(visita.hora_inicio || '--:--'),
+        document.createElement('br')
+    );
+    const fin = document.createElement('span');
+    fin.className = 'end';
+    fin.textContent = visita.hora_fin || '';
+    t.appendChild(fin);
+
+    const cuerpo = document.createElement('span');
+    cuerpo.className = 'arow-body';
+
+    const cliente = document.createElement('span');
+    cliente.className = 'arow-client';
+    cliente.textContent = visita.cliente || 'Sin cliente';
+
+    const hosp = document.createElement('span');
+    hosp.className = 'arow-hosp';
+    hosp.textContent = visita.hospital || 'Sin hospital';
+
+    const meta = document.createElement('span');
+    meta.className = 'arow-meta';
+    meta.append(punto(estado), pastilla(detalleEstado(visita)));
+    if (!visita.sincronizado) meta.appendChild(pastilla('↑ En cola', true));
+
+    cuerpo.append(cliente, hosp, meta);
+    fila.append(t, cuerpo);
+    fila.addEventListener('click', () => alAbrirVisita(visita.id));
+    return fila;
 }

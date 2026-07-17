@@ -2,145 +2,53 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestor de Visitas</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Plan de Trabajo</title>
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#4F46E5">
+    <meta name="theme-color" content="#F5F8F7" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#0D1112" media="(prefers-color-scheme: dark)">
 </head>
 <body>
-    <header>
-        <h1>📅 Visitas</h1>
-        <div class="header-acciones">
-            <button id="btn-sync" class="btn-sync">🔄 Sincronizar</button>
-            <span id="online-status" class="badge online">Online</span>
-        </div>
-    </header>
+    <div class="app">
+        <header class="appbar">
+            <span class="appbar-mark">PLAN DE TRABAJO</span>
 
-    <nav class="tabs">
-        <a class="tab" href="#/agenda" data-vista="agenda">Agenda</a>
-        <a class="tab" href="#/nueva" data-vista="nueva">Agendar</a>
-        <a class="tab" href="#/pendientes" data-vista="pendientes">
-            Evidencias<span id="contador-pendientes" class="tab-badge" hidden>0</span>
-        </a>
-    </nav>
+            <div class="datenav">
+                <button type="button" id="cal-anterior" class="arrow" aria-label="Anterior">‹</button>
+                <button type="button" id="cal-siguiente" class="arrow" aria-label="Siguiente">›</button>
+                <span class="datenav-label" id="cal-titulo">—</span>
+                <button type="button" id="cal-hoy" class="btn-hoy">Hoy</button>
+            </div>
 
-    <main>
-        <!-- ===== AGENDA + CALENDARIO ===== -->
-        <section id="vista-agenda" class="vista">
-            <section class="card calendario">
-                <div class="cal-nav">
-                    <button type="button" id="cal-anterior" class="cal-flecha" aria-label="Anterior">‹</button>
-                    <div class="cal-titulo-grupo">
-                        <h3 id="cal-titulo">—</h3>
-                        <button type="button" id="cal-hoy" class="btn-link">Ir a hoy</button>
-                    </div>
-                    <button type="button" id="cal-siguiente" class="cal-flecha" aria-label="Siguiente">›</button>
-                </div>
+            <div class="seg" id="cal-modo" role="group" aria-label="Vista del calendario">
+                <button type="button" data-modo="dia" aria-pressed="true">Día</button>
+                <button type="button" data-modo="semana" aria-pressed="false">Semana</button>
+                <button type="button" data-modo="mes" aria-pressed="false">Mes</button>
+            </div>
 
-                <div class="segmented" id="cal-modo">
-                    <button type="button" data-modo="dia" class="is-active">Día</button>
-                    <button type="button" data-modo="semana">Semana</button>
-                    <button type="button" data-modo="mes">Mes</button>
-                </div>
+            <span class="appbar-spacer"></span>
 
-                <div id="cal-cuerpo"></div>
-            </section>
+            <button type="button" id="btn-deuda" class="deuda" hidden>
+                <span class="dot st-faltan-evidencias" style="--st: var(--st-part)"></span>
+                <span id="deuda-n">0</span> evidencias
+            </button>
 
-            <section class="card">
-                <h2 id="agenda-titulo">Visitas</h2>
-                <div id="lista-visitas"></div>
-            </section>
-        </section>
+            <button type="button" id="btn-sync" class="sync">
+                <span class="led"></span><span id="sync-txt">Al día</span>
+            </button>
+        </header>
 
-        <!-- ===== AGENDAR NUEVA VISITA ===== -->
-        <section id="vista-nueva" class="vista" hidden>
-            <section class="card">
-                <h2>Agendar visita</h2>
-                <p class="field-hint">
-                    Define qué sectores vas a trabajar y con qué objetivo. Las actividades se
-                    registran después, al llegar con el cliente.
-                </p>
+        <main class="main" id="main">
+            <div class="cal" id="cal"></div>
+        </main>
+    </div>
 
-                <form id="visita-form">
-                    <datalist id="lista-educadores"></datalist>
-                    <datalist id="lista-clientes"></datalist>
+    <button type="button" id="fab" class="fab">
+        Nueva visita <kbd>N</kbd>
+    </button>
 
-                    <div class="form-group">
-                        <label for="educador">Educador</label>
-                        <input type="text" id="educador" list="lista-educadores" required
-                               placeholder="Escribe tu nombre...">
-                        <input type="hidden" id="educador-correo">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="cliente">Cliente</label>
-                        <input type="text" id="cliente" list="lista-clientes" required
-                               placeholder="Busca N° o Razón Social...">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="fecha">Fecha y hora</label>
-                        <input type="datetime-local" id="fecha" required>
-                    </div>
-
-                    <hr class="form-divider">
-
-                    <div class="form-group">
-                        <div class="sectores-header">
-                            <label>Sectores a revisar</label>
-                            <div class="sectores-actions">
-                                <button type="button" id="btn-select-all" class="btn-link">Seleccionar todos</button>
-                                <button type="button" id="btn-deselect-all" class="btn-link">Quitar todos</button>
-                            </div>
-                        </div>
-                        <p class="field-hint">Toca un sector para agregarlo; al elegirlo desaparece de esta lista.</p>
-                        <div id="sectores-disponibles" class="chips-container">
-                            <p class="empty-state">Cargando sectores...</p>
-                        </div>
-                        <div class="sector-custom-input">
-                            <input type="text" id="sector-custom" placeholder="¿No está en la lista? Escríbelo aquí...">
-                            <button type="button" id="btn-add-sector-custom" class="btn-add-chip"
-                                    aria-label="Agregar sector personalizado">➕</button>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <div class="sectores-header">
-                            <label>Sectores seleccionados</label>
-                            <span id="sectores-contador" class="chip-counter">0</span>
-                        </div>
-                        <div id="sectores-container" class="sectores-container">
-                            <p class="empty-state" id="sectores-empty">Aún no has seleccionado ningún sector.</p>
-                        </div>
-                        <p id="sectores-error" class="form-error" hidden>⚠️ Selecciona al menos un sector antes de agendar.</p>
-                    </div>
-
-                    <button type="submit" class="btn">📅 Agendar visita</button>
-                </form>
-            </section>
-        </section>
-
-        <!-- ===== DETALLE / EJECUCIÓN ===== -->
-        <section id="vista-visita" class="vista" hidden>
-            <div id="detalle-contenido"></div>
-        </section>
-
-        <!-- ===== EVIDENCIAS PENDIENTES ===== -->
-        <section id="vista-pendientes" class="vista" hidden>
-            <section class="card">
-                <h2>Evidencias pendientes</h2>
-                <p class="field-hint">
-                    Cada actividad necesita su evidencia. Puedes subirlas cuando tengas señal,
-                    aunque sea días después.
-                </p>
-                <div class="pendientes-acciones">
-                    <button type="button" id="btn-subir-todas" class="btn">☁️ Subir las que ya tienen archivo</button>
-                </div>
-                <div id="lista-pendientes"></div>
-            </section>
-        </section>
-    </main>
+    <div class="toasts" id="toasts" aria-live="polite"></div>
 
     <script type="module" src="js/app.js"></script>
 </body>

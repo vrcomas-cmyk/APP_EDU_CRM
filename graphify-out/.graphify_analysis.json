@@ -1,22 +1,55 @@
 {
   "communities": {
     "0": [
-      "js_calendario",
-      "js_calendario_alcambiar",
-      "js_calendario_cargapordia",
-      "js_calendario_clavesvisibles",
-      "js_calendario_cuadriculademes",
-      "js_calendario_cursor",
-      "js_calendario_el",
-      "js_calendario_initcalendario",
-      "js_calendario_iradia",
-      "js_calendario_mover",
-      "js_calendario_puntos",
-      "js_calendario_refrescar",
-      "js_calendario_refrescarcalendario",
-      "js_calendario_render",
-      "js_calendario_resumendeldia",
-      "js_calendario_tiradesemana",
+      "js_evidencias",
+      "js_evidencias_actualizarevidencia",
+      "js_evidencias_adjuntarevidencia",
+      "js_evidencias_comprimirimagen",
+      "js_evidencias_controlevidencia",
+      "js_evidencias_nombredearchivo",
+      "js_evidencias_quitarevidencia",
+      "js_evidencias_selectorarchivo",
+      "js_evidencias_subirtodaslaspendientes",
+      "js_evidencias_tarjetapendiente",
+      "js_storage",
+      "js_storage_abrirdb",
+      "js_storage_agregarvisita",
+      "js_storage_borrararchivo",
+      "js_storage_eliminarvisita",
+      "js_storage_guardararchivo",
+      "js_storage_guardarcatalogo",
+      "js_storage_guardarvisitas",
+      "js_storage_historialhospitales",
+      "js_storage_leerarchivo",
+      "js_storage_leervisitas",
+      "js_storage_migrarsihacefalta",
+      "js_storage_migrarv1av2",
+      "js_storage_migrarv2av3",
+      "js_storage_nuevoid",
+      "js_storage_sumarhoras",
+      "js_storage_todaslasactividades",
+      "js_storage_transaccion",
+      "js_storage_versionde",
+      "js_sync",
+      "js_sync_blobabase64",
+      "js_sync_descargarcatalogo",
+      "js_sync_postear",
+      "js_sync_sincronizartodo",
+      "js_sync_sincronizarvisitas",
+      "js_sync_subirevidencia",
+      "js_sync_subirevidenciaspendientes"
+    ],
+    "1": [
+      "js_agenda",
+      "js_agenda_agruparpordia",
+      "js_agenda_contarevidenciaspendientes",
+      "js_agenda_filavisita",
+      "js_agenda_filtrarpordias",
+      "js_agenda_grupodedia",
+      "js_agenda_insignaestado",
+      "js_agenda_lista",
+      "js_agenda_renderagenda",
+      "js_agenda_vacio",
       "js_fechas",
       "js_fechas_clavedia",
       "js_fechas_clavehoy",
@@ -29,44 +62,14 @@
       "js_fechas_etiquetadialarga",
       "js_fechas_etiquetames",
       "js_fechas_etiquetarangosemana",
+      "js_fechas_hora",
       "js_fechas_inicialesdias",
       "js_fechas_iniciomes",
       "js_fechas_iniciosemana",
       "js_fechas_meses",
+      "js_fechas_ordenarclavesdias",
       "js_fechas_sumardias",
       "js_fechas_sumarmeses"
-    ],
-    "1": [
-      "js_evidencias",
-      "js_evidencias_actualizarevidencia",
-      "js_evidencias_adjuntarevidencia",
-      "js_evidencias_comprimirimagen",
-      "js_evidencias_contarpendientes",
-      "js_evidencias_controlevidencia",
-      "js_evidencias_nombredearchivo",
-      "js_evidencias_quitarevidencia",
-      "js_evidencias_renderpendientes",
-      "js_evidencias_selectorarchivo",
-      "js_evidencias_subirtodaslaspendientes",
-      "js_evidencias_tarjetapendiente",
-      "js_storage",
-      "js_storage_abrirdb",
-      "js_storage_borrararchivo",
-      "js_storage_evidenciaspendientes",
-      "js_storage_guardararchivo",
-      "js_storage_guardarcatalogo",
-      "js_storage_guardarvisitas",
-      "js_storage_leerarchivo",
-      "js_storage_leervisitas",
-      "js_storage_todaslasactividades",
-      "js_storage_transaccion",
-      "js_sync",
-      "js_sync_blobabase64",
-      "js_sync_postear",
-      "js_sync_sincronizartodo",
-      "js_sync_sincronizarvisitas",
-      "js_sync_subirevidencia",
-      "js_sync_subirevidenciaspendientes"
     ],
     "2": [
       "js_app",
@@ -82,13 +85,12 @@
       "js_app_renderagendavisible",
       "js_app_sincronizar",
       "js_app_vistas",
+      "js_calendario_refrescarcalendario",
+      "js_evidencias_contarpendientes",
+      "js_evidencias_renderpendientes",
       "js_sectores_getseleccion",
-      "js_storage_agregarvisita",
-      "js_storage_esformatonuevo",
-      "js_storage_leercatalogo",
-      "js_storage_migrarsihacefalta",
-      "js_storage_nuevoid",
-      "js_sync_descargarcatalogo"
+      "js_storage_evidenciaspendientes",
+      "js_storage_leercatalogo"
     ],
     "3": [
       "js_sectores",
@@ -122,22 +124,22 @@
       "js_detalle_tarjetanoencontrada",
       "js_detalle_tarjetasector",
       "js_storage_actualizarvisita",
-      "js_storage_eliminarvisita",
       "js_storage_obtenervisita"
     ],
     "5": [
-      "js_agenda",
-      "js_agenda_agruparpordia",
-      "js_agenda_contarevidenciaspendientes",
-      "js_agenda_filavisita",
-      "js_agenda_filtrarpordias",
-      "js_agenda_grupodedia",
-      "js_agenda_insignaestado",
-      "js_agenda_lista",
-      "js_agenda_renderagenda",
-      "js_agenda_vacio",
-      "js_fechas_hora",
-      "js_fechas_ordenarclavesdias"
+      "js_estado",
+      "js_estado_buscarsolapes",
+      "js_estado_duracionhoras",
+      "js_estado_duraciontexto",
+      "js_estado_estaencurso",
+      "js_estado_etiquetaestado",
+      "js_estado_etiquetas",
+      "js_estado_fechahora",
+      "js_estado_finde",
+      "js_estado_iniciode",
+      "js_estado_repartirencolumnas",
+      "js_estado_sesolapan",
+      "js_estado_yatermino"
     ],
     "6": [
       "apps_script_appsscript",
@@ -153,6 +155,30 @@
       "ref_https_www_googleapis_com_auth_spreadsheets"
     ],
     "7": [
+      "js_calendario",
+      "js_calendario_alcrearen",
+      "js_calendario_columnadia",
+      "js_calendario_cursor",
+      "js_calendario_diavisible",
+      "js_calendario_ejehoras",
+      "js_calendario_el",
+      "js_calendario_lineaahora",
+      "js_calendario_redondearacuarto",
+      "js_calendario_vistarejilla",
+      "js_estado_estados"
+    ],
+    "8": [
+      "js_calendario_alabrirvisita",
+      "js_calendario_filaagenda",
+      "js_calendario_pastilla",
+      "js_calendario_punto",
+      "js_calendario_tarjetavisita",
+      "js_estado_actividadesde",
+      "js_estado_detalleestado",
+      "js_estado_estadode",
+      "js_estado_evidenciaspendientesde"
+    ],
+    "9": [
       "manifest",
       "manifest_background_color",
       "manifest_display",
@@ -163,37 +189,54 @@
       "manifest_start_url",
       "manifest_theme_color"
     ],
-    "8": [
+    "10": [
+      "js_calendario_alredimensionar",
+      "js_calendario_esmovil",
+      "js_calendario_initcalendario",
+      "js_calendario_iradia",
+      "js_calendario_irahoy",
+      "js_calendario_mover",
+      "js_calendario_render",
+      "js_calendario_setmodo"
+    ],
+    "11": [
+      "js_calendario_agendamovil",
+      "js_calendario_cargapordia",
+      "js_calendario_lineames",
+      "js_calendario_tirasemana",
+      "js_calendario_visitasde",
+      "js_calendario_vistames"
+    ],
+    "12": [
       "sw",
       "sw_assets"
     ]
   },
   "cohesion": {
-    "0": 0.17647058823529413,
-    "1": 0.18160919540229886,
-    "2": 0.22105263157894736,
+    "0": 0.13813813813813813,
+    "1": 0.15172413793103448,
+    "2": 0.24561403508771928,
     "3": 0.3161764705882353,
-    "4": 0.32967032967032966,
+    "4": 0.358974358974359,
     "5": 0.3333333333333333,
     "6": 0.18181818181818182,
-    "7": 0.2222222222222222,
-    "8": 1.0
+    "7": 0.2727272727272727,
+    "8": 0.4444444444444444,
+    "9": 0.2222222222222222,
+    "10": 0.5357142857142857,
+    "11": 0.4,
+    "12": 1.0
   },
   "gods": [
-    {
-      "id": "js_fechas_clavedia",
-      "label": "claveDia()",
-      "degree": 17
-    },
     {
       "id": "js_storage_leervisitas",
       "label": "leerVisitas()",
       "degree": 15
     },
     {
-      "id": "js_fechas_etiquetadialarga",
-      "label": "etiquetaDiaLarga()",
-      "degree": 11
+      "id": "js_calendario_render",
+      "label": "render()",
+      "degree": 13
     },
     {
       "id": "js_agenda_renderagenda",
@@ -211,23 +254,28 @@
       "degree": 10
     },
     {
-      "id": "js_calendario_render",
-      "label": "render()",
-      "degree": 10
-    },
-    {
-      "id": "js_calendario_tiradesemana",
-      "label": "tiraDeSemana()",
-      "degree": 10
-    },
-    {
-      "id": "js_fechas_hora",
-      "label": "hora()",
+      "id": "js_fechas_clavedia",
+      "label": "claveDia()",
       "degree": 10
     },
     {
       "id": "js_sectores_renderchips",
       "label": "renderChips()",
+      "degree": 10
+    },
+    {
+      "id": "js_sync_subirevidencia",
+      "label": "subirEvidencia()",
+      "degree": 10
+    },
+    {
+      "id": "js_calendario_tarjetavisita",
+      "label": "tarjetaVisita()",
+      "degree": 10
+    },
+    {
+      "id": "js_estado_estadode",
+      "label": "estadoDe()",
       "degree": 10
     }
   ],
@@ -255,10 +303,21 @@
       "why": "bridges separate communities"
     },
     {
-      "source": "filtrarPorDias()",
-      "target": "claveDia()",
+      "source": "enrutar()",
+      "target": "renderDetalle()",
       "source_files": [
-        "js/agenda.js",
+        "js/app.js",
+        "js/detalle.js"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "bridges separate communities"
+    },
+    {
+      "source": "renderAgendaVisible()",
+      "target": "etiquetaDiaLarga()",
+      "source_files": [
+        "js/app.js",
         "js/fechas.js"
       ],
       "confidence": "EXTRACTED",
@@ -266,22 +325,11 @@
       "why": "bridges separate communities"
     },
     {
-      "source": "agruparPorDia()",
-      "target": "claveDia()",
+      "source": "cablearFormulario()",
+      "target": "irADia()",
       "source_files": [
-        "js/agenda.js",
-        "js/fechas.js"
-      ],
-      "confidence": "EXTRACTED",
-      "relation": "calls",
-      "why": "bridges separate communities"
-    },
-    {
-      "source": "vacio()",
-      "target": "claveHoy()",
-      "source_files": [
-        "js/agenda.js",
-        "js/fechas.js"
+        "js/app.js",
+        "js/calendario.js"
       ],
       "confidence": "EXTRACTED",
       "relation": "calls",

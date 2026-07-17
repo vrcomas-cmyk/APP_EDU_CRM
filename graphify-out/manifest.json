@@ -20,9 +20,9 @@
     "semantic_hash": "220195dbfbc7dc099210699ede033dc8"
   },
   "js/calendario.js": {
-    "mtime": 1784252710.780765,
-    "ast_hash": "d07a25c712269f7dcdb98ee3f20739ec",
-    "semantic_hash": "d07a25c712269f7dcdb98ee3f20739ec"
+    "mtime": 1784264233.6280339,
+    "ast_hash": "088240c02bedfa9cae993cabb8c3df76",
+    "semantic_hash": "088240c02bedfa9cae993cabb8c3df76"
   },
   "js/detalle.js": {
     "mtime": 1784252688.306765,
@@ -45,9 +45,9 @@
     "semantic_hash": "8fe5c6956bc5eb02532d0e832771e1cc"
   },
   "js/storage.js": {
-    "mtime": 1784257083.8117373,
-    "ast_hash": "82449bc0d94857023da12cd9f1d1340d",
-    "semantic_hash": "82449bc0d94857023da12cd9f1d1340d"
+    "mtime": 1784263980.2090294,
+    "ast_hash": "75b21324cf3d5d4f531d59a728b9b5ac",
+    "semantic_hash": "75b21324cf3d5d4f531d59a728b9b5ac"
   },
   "js/sync.js": {
     "mtime": 1784256880.3797386,
@@ -58,5 +58,10 @@
     "mtime": 1784256493.579741,
     "ast_hash": "1275c86a4181717fae9d8806e0aff866",
     "semantic_hash": "1275c86a4181717fae9d8806e0aff866"
+  },
+  "js/estado.js": {
+    "mtime": 1784263909.218028,
+    "ast_hash": "bc13e6b44f52ab8611d24432fca7f8dd",
+    "semantic_hash": "bc13e6b44f52ab8611d24432fca7f8dd"
   }
 }
