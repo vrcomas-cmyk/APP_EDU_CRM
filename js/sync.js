@@ -12,6 +12,8 @@ import {
     leerVisitas, guardarVisitas as persistirVisitas, guardarCatalogo,
     leerArchivo, borrarArchivo, todasLasActividades
 } from './storage.js';
+import { eventosPendientes, marcarSincronizados } from './eventos.js';
+import { sesionActual } from './auth.js';
 
 export const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyRdGq_Tef6GGg8MWr7_VNLS-VLvx439MTWPpmjJQ3kjXk_6OvtrFc19ehh7_GoVBZZ/exec";
 
@@ -19,12 +21,18 @@ export const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyRdGq
 /**
  * text/plain evita el preflight OPTIONS, que Apps Script no responde. No cambiar a
  * application/json: rompe la sincronización aunque el body siga siendo JSON.
+ *
+ * El id_token va en el BODY, no en un header Authorization: un header dispararía el mismo
+ * preflight que se está evitando. El servidor es quien de verdad lo valida (ver Codigo.gs);
+ * aquí solo se manda el que haya en caché, aunque ya esté vencido — el servidor lo rechaza
+ * con un mensaje claro y la fila queda pendiente para el siguiente sync.
  */
 async function postear(cuerpo) {
+    const sesion = sesionActual();
     const respuesta = await fetch(GOOGLE_SCRIPT_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify(cuerpo)
+        body: JSON.stringify({ ...cuerpo, id_token: sesion?.id_token || '' })
     });
 
     if (!respuesta.ok) throw new Error(`Respuesta del servidor: ${respuesta.status}`);
@@ -137,10 +145,30 @@ export async function subirEvidenciasPendientes() {
     return { subidas, fallidas };
 }
 
+// ---------- administración ----------
+
+/** Reemplaza los catálogos compartidos. Requiere ser admin: el servidor lo vuelve a revisar. */
+export async function guardarCatalogosAdmin(cambios) {
+    return postear({ action: 'guardarCatalogosAdmin', ...cambios });
+}
+
+// ---------- eventos ----------
+
+/** Bitácora de negocio. Va al final: referencia visitas y no bloquea nada si falla. */
+export async function sincronizarEventos() {
+    const pendientes = eventosPendientes();
+    if (pendientes.length === 0) return { enviados: 0 };
+
+    await postear({ action: 'guardarEventos', eventos: pendientes });
+    marcarSincronizados(pendientes.map(e => e.id));
+    return { enviados: pendientes.length };
+}
+
 /** Orden importante: primero las filas, luego los archivos, y al final se reenvían las URLs. */
 export async function sincronizarTodo() {
     const visitas = await sincronizarVisitas();
     const evidencias = await subirEvidenciasPendientes();
     if (evidencias.subidas > 0) await sincronizarVisitas();
-    return { visitas, evidencias };
+    const eventos = await sincronizarEventos();
+    return { visitas, evidencias, eventos };
 }

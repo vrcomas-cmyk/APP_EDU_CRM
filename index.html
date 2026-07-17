@@ -10,7 +10,15 @@
     <meta name="theme-color" content="#0D1112" media="(prefers-color-scheme: dark)">
 </head>
 <body>
-    <div class="app">
+    <div class="gate" id="gate">
+        <div class="gate-caja">
+            <span class="appbar-mark">PLAN DE TRABAJO</span>
+            <p class="gate-sub">Entra con tu cuenta de DEGASA para ver y registrar tus visitas.</p>
+            <div id="gate-boton"></div>
+        </div>
+    </div>
+
+    <div class="app" id="app" hidden>
         <header class="appbar">
             <span class="appbar-mark">PLAN DE TRABAJO</span>
 
@@ -29,6 +37,8 @@
 
             <span class="appbar-spacer"></span>
 
+            <button type="button" id="btn-admin" class="btn-hoy" hidden>Admin</button>
+
             <button type="button" id="btn-deuda" class="deuda" hidden>
                 <span class="dot st-faltan-evidencias" style="--st: var(--st-part)"></span>
                 <span id="deuda-n">0</span> evidencias
@@ -36,6 +46,11 @@
 
             <button type="button" id="btn-sync" class="sync">
                 <span class="led"></span><span id="sync-txt">Al día</span>
+            </button>
+
+            <button type="button" id="btn-sesion" class="sesion-chip" aria-label="Cerrar sesión">
+                <img id="sesion-foto" alt="" hidden>
+                <span id="sesion-nombre"></span>
             </button>
         </header>
 

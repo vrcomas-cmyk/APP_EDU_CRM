@@ -10,14 +10,18 @@
 
 import { leerVisitas } from './storage.js';
 import {
-    ESTADOS, estadoDe, detalleEstado, duracionHoras, duracionTexto,
-    inicioDe, finDe, repartirEnColumnas
+    SALUD, saludDe, detalleEstado, estadoDe, ESTADOS, tieneCheckIn, tieneCheckOut,
+    duracionHoras, duracionTexto, inicioDe, finDe, repartirEnColumnas
 } from './estado.js';
+import { reagendarVisita } from './visita.js';
 import {
     claveDia, claveHoy, desdeClave, sumarDias, sumarMeses, diasDeSemana,
     diasDeCuadriculaMes, etiquetaMes, etiquetaRangoSemana, etiquetaDiaLarga,
-    inicialesDias, DIAS_ABREV, hora
+    inicialesDias, DIAS_ABREV, hora, horaAMinutos, minutosAHora
 } from './fechas.js';
+
+// Distingue un clic de un arrastre: menos de esto es un dedo o un mouse que tiembla, no gesto.
+const UMBRAL_ARRASTRE = 4;
 
 // Ventana por defecto de la rejilla: la jornada donde de verdad ocurre el trabajo.
 const HORA_MIN = 7;
@@ -32,11 +36,15 @@ let modo = 'dia';
 let cursor = new Date();
 let alAbrirVisita = () => {};
 let alCrearEn = () => {};
+let alCambiar = () => {};
+let alToast = () => {};
 let el = {};
 
-export function initCalendario({ onAbrirVisita, onCrearEn } = {}) {
+export function initCalendario({ onAbrirVisita, onCrearEn, onCambio, onToast } = {}) {
     alAbrirVisita = onAbrirVisita || (() => {});
     alCrearEn = onCrearEn || (() => {});
+    alCambiar = onCambio || (() => {});
+    alToast = onToast || (() => {});
 
     el = {
         cal: document.getElementById('cal'),
@@ -238,15 +246,70 @@ function columnaDia(clave) {
         col.appendChild(tarjetaVisita(visita, columna, columnas));
     });
 
-    // Click en el hueco = crear ahí. Menos clics que abrir el drawer y teclear la hora.
-    col.addEventListener('click', (e) => {
-        if (e.target.closest('.ev')) return;
-        const rect = col.getBoundingClientRect();
-        const horas = (e.clientY - rect.top) / rect.height * (ventana.hasta - ventana.desde);
-        alCrearEn(clave, redondearACuarto(ventana.desde + horas));
-    });
-
+    activarCreacionArrastrando(col, clave);
     return col;
+}
+
+/**
+ * Clic en el hueco = crear con la duración por defecto. Arrastrar de una hora a otra = crear
+ * ya con esa duración: menos clics que abrir el drawer y teclear las dos horas a mano.
+ */
+function activarCreacionArrastrando(col, clave) {
+    col.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0 || e.target.closest('.ev')) return;
+
+        const rect = col.getBoundingClientRect();
+        const horaInicial = yAHora(e.clientY, rect);
+        let arrastrando = false;
+        let ghost = null;
+
+        const rango = (clientY) => {
+            const horaActual = yAHora(clientY, rect);
+            const [desde, hasta] = [horaInicial, horaActual].sort((a, b) => a - b);
+            const ini = redondearACuarto(desde);
+            const fin = redondearACuarto(Math.max(hasta, desde + 0.5));
+            return fin === ini ? [ini, redondearACuarto(desde + 0.5)] : [ini, fin];
+        };
+
+        const mover = (e2) => {
+            if (!arrastrando && Math.abs(e2.clientY - e.clientY) < UMBRAL_ARRASTRE) return;
+            if (!arrastrando) {
+                arrastrando = true;
+                ghost = document.createElement('div');
+                ghost.className = 'ev ev-ghost';
+                ghost.style.setProperty('--col', 0);
+                ghost.style.setProperty('--cols', 1);
+                const t = document.createElement('span');
+                t.className = 'ev-time';
+                ghost.appendChild(t);
+                col.appendChild(ghost);
+            }
+            const [ini, fin] = rango(e2.clientY);
+            ghost.style.setProperty('--s', (horaAMinutos(ini) / 60 - ventana.desde).toFixed(3));
+            ghost.style.setProperty('--dur', ((horaAMinutos(fin) - horaAMinutos(ini)) / 60).toFixed(3));
+            ghost.querySelector('.ev-time').textContent = `${ini}–${fin}`;
+        };
+
+        const soltar = (e2) => {
+            document.removeEventListener('pointermove', mover);
+            document.removeEventListener('pointerup', soltar);
+
+            if (!arrastrando) {
+                alCrearEn(clave, redondearACuarto(horaInicial), null);
+                return;
+            }
+            const [ini, fin] = rango(e2.clientY);
+            ghost.remove();
+            alCrearEn(clave, ini, fin);
+        };
+
+        document.addEventListener('pointermove', mover);
+        document.addEventListener('pointerup', soltar);
+    });
+}
+
+function yAHora(clientY, rect) {
+    return ventana.desde + (clientY - rect.top) / rect.height * (ventana.hasta - ventana.desde);
 }
 
 /** Las visitas reales empiezan en :00 o :30, no en :07. */
@@ -275,15 +338,18 @@ function lineaAhora() {
 }
 
 function tarjetaVisita(visita, columna, columnas) {
-    const estado = estadoDe(visita);
+    const salud = saludDe(visita);
     const dur = duracionHoras(visita);
     const inicio = inicioDe(visita);
     const desplazamiento = inicio ? inicio.getHours() + inicio.getMinutes() / 60 - ventana.desde : 0;
 
     const ev = document.createElement('button');
     ev.type = 'button';
-    ev.className = `ev st-${estado}`;
+    ev.className = `ev st-${salud}`;
     ev.dataset.id = visita.id;
+    ev.dataset.estado = estadoDe(visita);
+    // Late mientras el educador está dentro: es lo único que está pasando AHORA.
+    if (estadoDe(visita) === ESTADOS.EN_PROCESO) ev.classList.add('es-viva');
     ev.style.setProperty('--s', desplazamiento.toFixed(3));
     ev.style.setProperty('--dur', dur.toFixed(3));
     ev.style.setProperty('--col', columna);
@@ -323,19 +389,177 @@ function tarjetaVisita(visita, columna, columnas) {
     if (dur >= 1) {
         const flags = document.createElement('span');
         flags.className = 'ev-flags';
-        flags.append(punto(estado), pastilla(detalleEstado(visita)));
+        flags.append(punto(salud), pastilla(detalleEstado(visita)));
         if (!visita.sincronizado) flags.appendChild(pastilla('↑ En cola', true));
         ev.appendChild(flags);
     }
 
-    ev.addEventListener('click', (e) => { e.stopPropagation(); alAbrirVisita(visita.id); });
+    activarInteraccionTarjeta(ev, visita);
     return ev;
 }
 
-function punto(estado) {
+/**
+ * Clic = abrir. Arrastrar el cuerpo = reagendar (mueve día/hora conservando la duración).
+ * Arrastrar la manija inferior = cambiar solo la duración. Ambas piden motivo: reagendar
+ * sin él no es un campo editable, es un rastro que se borra.
+ *
+ * Una cancelada o ya finalizada no se arrastra: solo se abre. Reagendar esas dos ya está
+ * bloqueado por las reglas de negocio (visita.js), y ofrecer el gesto sería prometer algo
+ * que el guardar va a rechazar.
+ */
+function activarInteraccionTarjeta(ev, visita) {
+    if (estadoDe(visita) === ESTADOS.CANCELADA || tieneCheckOut(visita)) {
+        ev.addEventListener('click', (e) => { e.stopPropagation(); alAbrirVisita(visita.id); });
+        return;
+    }
+
+    const manija = document.createElement('div');
+    manija.className = 'ev-resize';
+    manija.setAttribute('aria-hidden', 'true');
+    ev.appendChild(manija);
+
+    manija.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0) return;
+        e.stopPropagation();
+        iniciarRedimension(e, ev, visita);
+    });
+
+    ev.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0 || e.target === manija) return;
+        iniciarMovimiento(e, ev, visita);
+    });
+}
+
+function horaEnPx() {
+    const v = getComputedStyle(document.documentElement).getPropertyValue('--hour-h').trim();
+    return parseFloat(v) || 46;
+}
+
+const horaADecimal = (hora) => horaAMinutos(hora) / 60;
+const decimalAHora = (dec) => minutosAHora(Math.round(dec * 60));
+const redondearMedia = (dec) => Math.round(dec * 2) / 2;
+
+function clonarComoGhost(ev, col) {
+    const ghost = ev.cloneNode(true);
+    ghost.classList.add('ev-ghost-mover');
+    ghost.querySelector('.ev-resize')?.remove();
+    ghost.style.setProperty('--col', 0);
+    ghost.style.setProperty('--cols', 1);
+    col.appendChild(ghost);
+    return ghost;
+}
+
+function iniciarMovimiento(e, ev, visita) {
+    const inicioX = e.clientX, inicioY = e.clientY;
+    const hourPx = horaEnPx();
+    const duracion = duracionHoras(visita);
+    const inicioDecimal = horaADecimal(visita.hora_inicio);
+    const colOrigen = ev.closest('.col');
+
+    let arrastrando = false;
+    let ghost = null;
+    let colDestino = colOrigen;
+
+    const mover = (e2) => {
+        const dx = e2.clientX - inicioX, dy = e2.clientY - inicioY;
+        if (!arrastrando && Math.hypot(dx, dy) < UMBRAL_ARRASTRE) return;
+        if (!arrastrando) {
+            arrastrando = true;
+            ev.classList.add('es-arrastrando');
+            ghost = clonarComoGhost(ev, colOrigen);
+        }
+
+        const bajoCursor = document.elementFromPoint(e2.clientX, e2.clientY)?.closest('.col');
+        if (bajoCursor && bajoCursor !== colDestino) { colDestino = bajoCursor; colDestino.appendChild(ghost); }
+
+        const nuevaHoraDecimal = redondearMedia(inicioDecimal + dy / hourPx);
+        const nuevoIni = decimalAHora(nuevaHoraDecimal);
+        ghost.style.setProperty('--s', (nuevaHoraDecimal - ventana.desde).toFixed(3));
+        ghost.style.setProperty('--dur', duracion.toFixed(3));
+        ghost.dataset.nuevoDia = colDestino.dataset.dia;
+        ghost.dataset.nuevoInicio = nuevoIni;
+        ghost.dataset.nuevoFin = decimalAHora(nuevaHoraDecimal + duracion);
+    };
+
+    const soltar = () => {
+        document.removeEventListener('pointermove', mover);
+        document.removeEventListener('pointerup', soltar);
+        ev.classList.remove('es-arrastrando');
+
+        if (!arrastrando) { alAbrirVisita(visita.id); return; }
+
+        const { nuevoDia, nuevoInicio, nuevoFin } = ghost.dataset;
+        ghost.remove();
+        if (nuevoDia === visita.dia && nuevoInicio === visita.hora_inicio) return;
+
+        pedirMotivoYReagendar(visita.id,
+            { dia: nuevoDia, hora_inicio: nuevoInicio, hora_fin: nuevoFin },
+            '¿Por qué se mueve esta visita? Queda en el historial.');
+    };
+
+    document.addEventListener('pointermove', mover);
+    document.addEventListener('pointerup', soltar);
+}
+
+function iniciarRedimension(e, ev, visita) {
+    const inicioY = e.clientY;
+    const hourPx = horaEnPx();
+    const inicioDecimal = horaADecimal(visita.hora_inicio);
+    const duracionOriginal = duracionHoras(visita);
+    const col = ev.closest('.col');
+
+    let arrastrando = false;
+    let ghost = null;
+
+    const mover = (e2) => {
+        const dy = e2.clientY - inicioY;
+        if (!arrastrando && Math.abs(dy) < UMBRAL_ARRASTRE) return;
+        if (!arrastrando) {
+            arrastrando = true;
+            ev.classList.add('es-arrastrando');
+            ghost = clonarComoGhost(ev, col);
+            ghost.style.setProperty('--s', (inicioDecimal - ventana.desde).toFixed(3));
+        }
+        const nuevaDuracion = Math.max(0.5, redondearMedia(duracionOriginal + dy / hourPx));
+        ghost.style.setProperty('--dur', nuevaDuracion.toFixed(3));
+        ghost.dataset.nuevoFin = decimalAHora(inicioDecimal + nuevaDuracion);
+    };
+
+    const soltar = () => {
+        document.removeEventListener('pointermove', mover);
+        document.removeEventListener('pointerup', soltar);
+        ev.classList.remove('es-arrastrando');
+
+        if (!arrastrando) { alAbrirVisita(visita.id); return; }
+
+        const nuevoFin = ghost.dataset.nuevoFin;
+        ghost.remove();
+        if (nuevoFin === visita.hora_fin) return;
+
+        pedirMotivoYReagendar(visita.id, { hora_fin: nuevoFin },
+            '¿Por qué cambia la duración? Queda en el historial.');
+    };
+
+    document.addEventListener('pointermove', mover);
+    document.addEventListener('pointerup', soltar);
+}
+
+function pedirMotivoYReagendar(id, cambios, pregunta) {
+    const motivo = prompt(pregunta);
+    if (motivo === null) return; // canceló: nada mutó, la tarjeta ya está en su sitio
+
+    const r = reagendarVisita(id, { ...cambios, motivo });
+    if (!r.ok) return alToast(r.error, { estado: 'sin-registrar' });
+
+    alToast('Visita reagendada. Queda el registro del cambio.', { estado: 'completa' });
+    alCambiar();
+}
+
+/** Relleno = ya ocurrió algo; hueco = todavía no. Forma además de color, por daltonismo. */
+function punto(salud) {
     const d = document.createElement('span');
     d.className = 'dot';
-    if (estado === ESTADOS.PROGRAMADA) d.classList.add('hollow');
+    if (salud === SALUD.NEUTRA || salud === SALUD.CANCELADA) d.classList.add('hollow');
     return d;
 }
 
@@ -396,9 +620,9 @@ function vistaMes() {
 }
 
 function lineaMes(visita) {
-    const estado = estadoDe(visita);
+    const salud = saludDe(visita);
     const linea = document.createElement('span');
-    linea.className = `mes-ev st-${estado}`;
+    linea.className = `mes-ev st-${salud}`;
 
     const t = document.createElement('span');
     t.className = 't';
@@ -408,7 +632,7 @@ function lineaMes(visita) {
     c.className = 'c';
     c.textContent = visita.cliente || 'Sin cliente';
 
-    linea.append(punto(estado), t, c);
+    linea.append(punto(salud), t, c);
     return linea;
 }
 
@@ -439,7 +663,7 @@ function tiraSemana() {
         carga.className = 'carga';
         visitasDe(clave).slice(0, 4).forEach(v => {
             const i = document.createElement('i');
-            i.className = `st-${estadoDe(v)}`;
+            i.className = `st-${saludDe(v)}`;
             carga.appendChild(i);
         });
 
@@ -484,11 +708,13 @@ function agendaMovil() {
 }
 
 function filaAgenda(visita) {
-    const estado = estadoDe(visita);
+    const salud = saludDe(visita);
     const fila = document.createElement('button');
     fila.type = 'button';
-    fila.className = `arow st-${estado}`;
+    fila.className = `arow st-${salud}`;
     fila.dataset.id = visita.id;
+    fila.dataset.estado = estadoDe(visita);
+    if (estadoDe(visita) === ESTADOS.EN_PROCESO) fila.classList.add('es-viva');
 
     const t = document.createElement('span');
     t.className = 'arow-time';
@@ -514,7 +740,7 @@ function filaAgenda(visita) {
 
     const meta = document.createElement('span');
     meta.className = 'arow-meta';
-    meta.append(punto(estado), pastilla(detalleEstado(visita)));
+    meta.append(punto(salud), pastilla(detalleEstado(visita)));
     if (!visita.sincronizado) meta.appendChild(pastilla('↑ En cola', true));
 
     cuerpo.append(cliente, hosp, meta);

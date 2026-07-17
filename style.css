@@ -104,6 +104,20 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
    ============================================================ */
 
 .app { display: flex; flex-direction: column; height: 100dvh; }
+.app[hidden] { display: none; }
+
+/* ---------- pantalla de entrada ---------- */
+.gate {
+  height: 100dvh; display: grid; place-items: center; background: var(--paper); padding: 20px;
+}
+.gate[hidden] { display: none; }
+.gate-caja {
+  display: flex; flex-direction: column; align-items: center; gap: 16px;
+  text-align: center; max-width: 320px;
+}
+.gate-caja .appbar-mark { font-size: 13px; }
+.gate-sub { font-size: 13.5px; color: var(--muted); line-height: 1.5; }
+#gate-boton { min-height: 40px; }
 
 .appbar {
   display: flex; align-items: center; gap: 12px;
@@ -173,6 +187,17 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 .deuda:hover { background: var(--st-part-bg); }
 .deuda[hidden] { display: none; }
 
+.sesion-chip {
+  display: inline-flex; align-items: center; gap: 6px; flex: none;
+  border: 1px solid var(--rule); border-radius: 999px; padding: 3px 10px 3px 3px;
+  background: transparent; cursor: pointer; color: var(--ink-2); font-size: 12px; font-weight: 600;
+  max-width: 160px;
+}
+.sesion-chip:hover { background: var(--surface-2); color: var(--st-miss); }
+.sesion-chip #sesion-foto { width: 20px; height: 20px; border-radius: 50%; flex: none; }
+.sesion-chip #sesion-nombre { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sesion-chip[hidden] { display: none; }
+
 .main { flex: 1; overflow: auto; position: relative; }
 
 /* ---------- FAB ---------- */
@@ -195,10 +220,27 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
    ESTADOS — la única cromía
    ============================================================ */
 
-.st-programada        { --st: var(--st-plan); --st-bg: var(--st-plan-bg); }
+/* El color mide la SALUD del registro y solo existe después del check-in: antes de llegar
+   con el cliente no ha pasado nada que juzgar. */
+.st-neutra            { --st: var(--st-plan); --st-bg: var(--st-plan-bg); }
 .st-sin-registrar     { --st: var(--st-miss); --st-bg: var(--st-miss-bg); }
 .st-faltan-evidencias { --st: var(--st-part); --st-bg: var(--st-part-bg); }
 .st-completa          { --st: var(--st-done); --st-bg: var(--st-done-bg); }
+/* Cancelada no gasta color: no pasó nada que reportar. Se apaga y se tacha. */
+.st-cancelada         { --st: var(--rule); --st-bg: var(--surface-2); }
+/* Compatibilidad con el nombre anterior del estado neutro. */
+.st-programada        { --st: var(--st-plan); --st-bg: var(--st-plan-bg); }
+
+.ev.st-cancelada, .arow.st-cancelada, .mes-ev.st-cancelada { opacity: .5; }
+.ev.st-cancelada .ev-client,
+.arow.st-cancelada .arow-client,
+.mes-ev.st-cancelada .c { text-decoration: line-through; }
+.pill.st-cancelada { color: var(--muted); }
+
+/* "En proceso" es lo único que está pasando AHORA: late, sin gastar un color nuevo. */
+.ev.es-viva, .arow.es-viva { border-left-color: var(--ink); }
+.ev.es-viva .dot, .arow.es-viva .dot { animation: latido 1.6s ease-in-out infinite; }
+@keyframes latido { 50% { opacity: .3; transform: scale(.85); } }
 
 /* Relleno = ya ocurrió; hueco = aún no. Forma además de color, por daltonismo. */
 .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--st); flex: none; display: inline-block; }
@@ -282,6 +324,24 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 .dia .ev { padding: 7px 10px; }
 .dia .ev-client { font-size: 13px; }
 .dia .ev-hosp { font-size: 11.5px; }
+
+/* --- arrastrar: crear, mover, redimensionar --- */
+.col, .ev { touch-action: none; }
+
+/* Manija para redimensionar: franja invisible al pie de la tarjeta. */
+.ev-resize { position: absolute; left: 0; right: 0; bottom: 0; height: 7px; cursor: ns-resize; }
+.compacta .ev-resize { display: none; }
+
+/* La tarjeta original se apaga mientras su fantasma sigue al cursor. */
+.ev.es-arrastrando { opacity: .3; }
+
+/* Fantasmas: ni clic ni hover, para que elementFromPoint vea la columna que hay debajo. */
+.ev-ghost, .ev-ghost-mover {
+  pointer-events: none; cursor: grabbing; z-index: 9;
+  border-style: dashed; border-color: var(--ink); background: var(--surface-2);
+  box-shadow: var(--shadow-lg);
+}
+.ev-ghost .ev-time { font-weight: 700; color: var(--ink); }
 
 /* La línea de ahora es TINTA: el rojo ya está ocupado significando otra cosa. */
 .nowline {
@@ -523,33 +583,47 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 
 /* ---------- sectores ---------- */
 
-.sectores { display: flex; flex-direction: column; gap: 8px; }
+/* ---------- sectores: fila que empuja a su panel ---------- */
 
-.sector-card { border: 1px solid var(--rule); border-radius: 8px; background: var(--surface); }
-.sector-card.cerrado { background: var(--surface-2); }
+.sectores { display: flex; flex-direction: column; gap: 6px; }
 
-.sector-head-fila {
-  display: flex; align-items: center; gap: 4px;
-  padding: 4px 8px 4px 4px; border-bottom: 1px solid var(--rule-soft);
+.sector-fila {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  border: 1px solid var(--rule); border-radius: 8px; background: var(--surface);
+  padding: 10px; cursor: pointer; text-align: left; color: inherit;
+  transition: border-color .15s var(--ease), transform .08s var(--ease);
 }
-.sector-card.cerrado .sector-head-fila { border-bottom: 0; }
+.sector-fila:hover { border-color: var(--ink); transform: translateX(1px); }
 
-.sector-head {
-  flex: 1; display: flex; align-items: center; gap: 8px;
-  padding: 6px; background: none; border: 0; cursor: pointer;
-  color: inherit; text-align: left; border-radius: 6px;
+.sector-fila-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.sector-fila-nombre { font-size: 13px; font-weight: 600; letter-spacing: -.01em; }
+.sector-fila-resumen {
+  font-size: 11.5px; color: var(--muted); line-height: 1.35;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.sector-head:hover { background: var(--surface-2); }
-.sector-head h4 { font-size: 12.5px; flex: 1; }
-.sector-flecha { color: var(--muted); font-size: 10px; width: 10px; flex: none; }
-.sector-cuenta { font-family: var(--mono); font-size: 9.5px; color: var(--muted); flex: none; }
-.sector-head-fila .icon-btn { margin-left: 0; }
+.sector-fila-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; flex: none; }
+.sector-cuenta { font-family: var(--mono); font-size: 9.5px; color: var(--muted); }
+.sector-fila-flecha { color: var(--muted); font-size: 16px; flex: none; line-height: 1; }
 
-.sector-resumen {
-  font-size: 11.5px; color: var(--muted); line-height: 1.4;
-  padding: 0 12px 9px 28px;
+.agregar-sector { margin-top: 8px; }
+
+.icon-btn.volver { margin-left: 0; font-size: 16px; }
+
+.reagendar {
+  display: flex; flex-direction: column; gap: 11px;
+  border: 1px solid var(--ink); border-radius: 8px; padding: 12px; background: var(--surface-2);
 }
-.sector-body { padding: 10px; display: flex; flex-direction: column; gap: 11px; }
+
+.drawer-head-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.drawer-sub { font-size: 12.5px; color: var(--ink-2); line-height: 1.35; }
+.drawer-cuando { font-size: 11px; color: var(--muted); text-transform: capitalize; }
+
+.aviso.es-cancelada {
+  display: flex; align-items: center; gap: 8px;
+  color: var(--muted); background: var(--surface-2);
+  border-left-color: var(--rule);
+}
+.aviso.es-cancelada p { flex: 1; font-size: 12px; }
 
 /* ---------- actividades ---------- */
 
@@ -625,6 +699,29 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 .chip.add { border-style: dashed; color: var(--muted); }
 .chip.add::before { content: "+ "; }
 
+/* ---------- administración ---------- */
+
+.admin-tabs { width: 100%; }
+.admin-tabs button { flex: 1; }
+
+.admin-fila {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 0; border-bottom: 1px solid var(--rule-soft);
+}
+.admin-fila .inp { flex: 1; min-width: 0; }
+.admin-fila .chips { flex: none; }
+.admin-fila .icon-btn { margin-left: 0; }
+
+.admin-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  cursor: default;
+}
+.admin-chip button {
+  background: none; border: 0; color: inherit; cursor: pointer;
+  font-size: 11px; line-height: 1; padding: 0; opacity: .7;
+}
+.admin-chip button:hover { opacity: 1; }
+
 @media (max-width: 720px) {
   /* Sin lado disponible: bottom-sheet, que es el gesto que el pulgar ya conoce. */
   .drawer {
@@ -636,6 +733,149 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
   }
   @keyframes sheet-in { from { transform: translateY(100%); } }
 }
+
+/* ---------- check-in / check-out ---------- */
+
+.check {
+  display: flex; flex-direction: column; gap: 9px;
+  border: 1px solid var(--rule); border-radius: 8px; padding: 12px; background: var(--surface-2);
+}
+.btn-check { width: 100%; padding: 11px; font-size: 14px; }
+.btn-check:disabled { opacity: .4; cursor: not-allowed; filter: none; }
+
+.marca { display: grid; grid-template-columns: 58px 1fr; gap: 2px 10px; align-items: baseline; }
+.marca + .marca { padding-top: 8px; border-top: 1px solid var(--rule); }
+.marca-lbl {
+  font-family: var(--mono); font-size: 9px; letter-spacing: .11em;
+  text-transform: uppercase; color: var(--muted);
+}
+.marca-hora { font-size: 12.5px; font-weight: 600; }
+.marca-ubi { grid-column: 2; font-size: 11px; color: var(--muted); line-height: 1.35; }
+.marca-ubi.es-sin { color: var(--st-miss); }
+
+.permanencia {
+  font-size: 11px; color: var(--muted);
+  padding-top: 8px; border-top: 1px solid var(--rule);
+}
+
+/* ---------- historial de reagendas ---------- */
+
+.historial { border: 1px solid var(--rule); border-radius: 8px; background: var(--surface-2); }
+.historial summary {
+  padding: 8px 10px; cursor: pointer; font-size: 12px; font-weight: 600; color: var(--ink-2);
+}
+.historial-item { padding: 8px 10px; border-top: 1px solid var(--rule); }
+.historial-item p { font-size: 11px; line-height: 1.4; }
+.historial-item .mono { font-size: 10.5px; color: var(--ink); }
+.historial-meta { color: var(--muted); margin-top: 2px; }
+
+/* ---------- estado del sector ---------- */
+
+.sector-estado {
+  font-family: var(--mono); font-size: 8.5px; letter-spacing: .08em; text-transform: uppercase;
+  border: 1px solid var(--rule); border-radius: 4px; padding: 1px 5px; color: var(--muted);
+  white-space: nowrap;
+}
+.sector-estado.es-en-proceso { border-color: var(--ink); color: var(--ink); }
+.sector-estado.es-finalizado { border-color: var(--st-done); color: var(--st-done); background: var(--st-done-bg); }
+
+/* ---------- actividad ---------- */
+
+.act-ctx {
+  font-size: 9px; letter-spacing: .1em; color: var(--muted);
+  padding-bottom: 8px; border-bottom: 1px solid var(--rule-soft);
+}
+.contacto {
+  display: flex; flex-direction: column; gap: 9px;
+  border-left: 2px solid var(--rule); padding-left: 10px;
+}
+
+/* ---------- materiales ---------- */
+
+.mat-fila {
+  display: flex; align-items: center; gap: 8px;
+  border: 1px solid var(--rule); border-radius: 7px; padding: 7px 8px;
+  background: var(--surface-2); margin-bottom: 6px;
+}
+.mat-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.mat-nombre { font-size: 12.5px; font-weight: 600; line-height: 1.3; }
+.mat-meta { font-size: 10px; color: var(--muted); }
+
+.modal {
+  position: absolute; inset: 0; z-index: 20;
+  background: rgba(16, 22, 23, .4);
+  display: grid; place-items: center; padding: 16px;
+  animation: scrim-in .12s var(--ease);
+}
+.modal-caja {
+  width: min(440px, 100%); max-height: 100%;
+  display: flex; flex-direction: column;
+  background: var(--surface); border: 1px solid var(--rule); border-radius: 12px;
+  box-shadow: var(--shadow-lg); overflow: hidden;
+}
+.modal-head {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 12px 14px; border-bottom: 1px solid var(--rule); flex: none;
+}
+.modal-head h3 { font-size: 14px; }
+.modal-body {
+  padding: 14px; display: flex; flex-direction: column; gap: 14px;
+  overflow-y: auto;
+}
+
+.mat-res {
+  display: flex; flex-direction: column;
+  max-height: 190px; overflow-y: auto;
+  border: 1px solid var(--rule); border-radius: 7px;
+}
+.mat-res:empty { display: none; }
+.mat-opt {
+  text-align: left; padding: 8px 10px; font-size: 12.5px;
+  border: 0; border-bottom: 1px solid var(--rule-soft);
+  background: none; color: var(--ink); cursor: pointer;
+}
+.mat-opt:last-child { border-bottom: 0; }
+.mat-opt:hover { background: var(--surface-2); }
+.mat-opt.is-sel { background: var(--ink); color: var(--paper); }
+.mat-opt mark { background: transparent; color: inherit; font-weight: 700; }
+.mat-res .ayuda { padding: 10px; }
+
+.mat-detalle { display: flex; flex-direction: column; gap: 12px; }
+
+/* ============================================================
+   PALETA DE COMANDOS (⌘K)
+   ============================================================ */
+
+.paleta-raiz { position: fixed; inset: 0; z-index: 55; }
+.paleta-raiz[hidden] { display: none; }
+
+.paleta {
+  position: absolute; left: 50%; top: 14%; transform: translateX(-50%);
+  width: min(560px, calc(100% - 32px)); max-height: 60vh;
+  display: flex; flex-direction: column;
+  background: var(--surface); border: 1px solid var(--rule); border-radius: 12px;
+  box-shadow: var(--shadow-lg); overflow: hidden;
+  animation: paleta-in .15s var(--ease);
+}
+@keyframes paleta-in { from { opacity: 0; transform: translateX(-50%) translateY(-6px); } }
+
+.paleta-inp {
+  border: 0; border-bottom: 1px solid var(--rule); background: none;
+  padding: 14px 16px; font-size: 14.5px; color: var(--ink); font-family: var(--sans);
+}
+.paleta-inp:focus { outline: none; }
+.paleta-inp::placeholder { color: var(--muted); }
+
+.paleta-lista { overflow-y: auto; padding: 6px; }
+.paleta-opt {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 9px 10px; border: 0; border-radius: 7px;
+  background: none; color: var(--ink); font-size: 13px; text-align: left; cursor: pointer;
+}
+.paleta-opt:hover, .paleta-opt.is-active { background: var(--surface-2); }
+.paleta-opt .t { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.paleta-opt .m { flex: none; font-size: 10.5px; color: var(--muted); }
+.paleta-vacio { padding: 14px 10px; }
 
 /* ---------- toasts ---------- */
 .toasts {

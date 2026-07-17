@@ -81,6 +81,18 @@ export function diasDeSemana(fecha) {
     return Array.from({ length: 7 }, (_, i) => claveDia(sumarDias(lunes, i)));
 }
 
+// ---------- horas ----------
+
+export function horaAMinutos(hora) {
+    const [h, m] = (hora || '0:0').split(':').map(Number);
+    return (h || 0) * 60 + (m || 0);
+}
+
+export function minutosAHora(min) {
+    const total = Math.max(0, Math.min(min, 23 * 60 + 59));
+    return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+}
+
 // ---------- etiquetas ----------
 
 export function etiquetaDia(clave) {

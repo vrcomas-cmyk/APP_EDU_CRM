@@ -1,6 +1,6 @@
 // 🔴 Subir esta versión SIEMPRE que cambie algún archivo de ASSETS,
 // si no los navegadores que ya instalaron el SW siguen sirviendo la versión vieja.
-const CACHE_NAME = 'visitas-pwa-v6';
+const CACHE_NAME = 'visitas-pwa-v10';
 const ASSETS = [
     './',
     './index.html',
@@ -10,10 +10,17 @@ const ASSETS = [
     './js/app.js',
     './js/storage.js',
     './js/estado.js',
+    './js/visita.js',
+    './js/catalogos.js',
+    './js/eventos.js',
+    './js/geo.js',
     './js/sync.js',
     './js/fechas.js',
     './js/calendario.js',
     './js/drawer.js',
+    './js/paleta.js',
+    './js/auth.js',
+    './js/admin.js',
     './js/evidencias.js'
 ];
 
@@ -46,8 +53,9 @@ self.addEventListener('activate', (e) => {
 
 // Interceptar peticiones
 self.addEventListener('fetch', (e) => {
-    // 1. Si la petición va a Google Script, NO usar caché
-    if (e.request.url.includes('script.google.com')) {
+    // 1. Si la petición va al backend o a Google Identity, NO usar caché: una copia vieja
+    //    del script de sesión podría dejar a alguien atascado con un login que ya no funciona.
+    if (e.request.url.includes('script.google.com') || e.request.url.includes('accounts.google.com')) {
         e.respondWith(fetch(e.request));
         return;
     }

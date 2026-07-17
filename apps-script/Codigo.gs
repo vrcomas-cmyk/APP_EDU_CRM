@@ -60,9 +60,11 @@
  *   - Catálogos (Clientes / Materiales / Educadores): se LEEN de SHEET_DB_ID.
  *   - Visitas: se ESCRIBEN en el documento al que está pegado este script.
  *
- * Modelo de captura: dos pestañas nuevas.
- *   VISITAS (padre)     -> una fila por cada (visita x sector), con su objetivo.
- *   ACTIVIDADES (hija)  -> una fila por actividad, ligada al padre por id_padre.
+ * Modelo de captura: cuatro pestañas nuevas.
+ *   VISITAS (padre)                -> una fila por cada (visita x sector), con check-in/out.
+ *   ACTIVIDADES (hija)             -> una fila por actividad, ligada al padre por id_padre.
+ *   MATERIALES_CAPTURADOS (nieta)  -> una fila por material, ligada a la actividad por id_actividad.
+ *   EVENTOS                        -> bitácora auditable, una fila por evento de negocio.
  *
  * Todas las escrituras son UPSERT por id: la PWA reenvía la misma visita cada vez que se
  * edita (se agenda, se ejecuta, se completa), así que insertar a ciegas duplicaría filas.
@@ -93,11 +95,16 @@ const HOJA_EDUCADORES = 'Educadores';
 // Pestañas de captura. Se crean solas con sus encabezados si no existen.
 const HOJA_VISITAS = 'Visitas';
 const HOJA_ACTIVIDADES = 'Actividades';
+const HOJA_MATERIALES_CAPTURA = 'Materiales_Capturados';
+const HOJA_EVENTOS = 'Eventos';
+
+// Catálogo de materiales que lee el buscador de la app (filtrado por sector).
+const COL_MATERIAL = 'Material y Nombre';
 
 // Carpeta raíz de las evidencias. Dentro, el script crea una subcarpeta por cliente.
 //
 // DÉJALO VACÍO. Con el permiso "drive.file" el script solo alcanza los archivos que él mismo
-// crea: si pones aquí el id de tu carpeta "Evidencias" (hecha a mano) no podrá abrirla.
+// crea: si pones aquí el id de una carpeta hecha a mano (como "Evidencias") no podrá abrirla.
 // La crea sola la primera vez; luego TÚ la mueves dentro de "Evidencias" y listo (ver el
 // paso 4d de arriba).
 //
@@ -118,23 +125,59 @@ const HOJA_TIPOS = 'TiposActividad';
 const HOJA_ORIGENES = 'Origenes';
 const HOJA_ADMINS = 'Admins';
 
+// ---------- IDENTIDAD (Google Sign-In) ----------
+//
+// La PWA manda el id_token que le dio Google Identity Services en cada escritura. Confiar en
+// el correo que MANDA EL CLIENTE sería aceptar la palabra de quien sea: cualquiera con las
+// herramientas de desarrollador puede escribir el JSON que quiera. Este script llama a Google
+// para que verifique la firma y devuelva los datos ya validados — es la app la que no confía,
+// no el usuario.
+
+// El mismo Client ID configurado en js/auth.js. Si no coincide con el "aud" del token, alguien
+// mandó un token de OTRA aplicación.
+const CLIENT_ID = '698264876096-35bqu62bnsfb7v8tnph6m8p7pr7v56r9.apps.googleusercontent.com';
+
+// Solo cuentas de este dominio pueden escribir. Déjalo vacío ('') para aceptar cualquier
+// cuenta de Google verificada (no recomendado fuera de pruebas).
+const DOMINIO_PERMITIDO = 'degasa.com';
+
 /**
- * Columnas de captura.
+ * Columnas de captura — modelo v4.
  *
- * OJO si vienes de la versión anterior: cambiaron. `fecha` se partió en `dia` + `hora_inicio`
- * + `hora_fin`, y entraron hospital, origen y solicitado_por. Las pestañas viejas NO se
- * migran solas —tienen otro orden de columnas— así que hay que renombrarlas y dejar que el
- * script cree las nuevas. El error que verás te lo dice con nombre y apellido.
+ * OJO si vienes de la versión anterior (v3): cambiaron otra vez. Ya no hay `solicitado_por`
+ * (no existe en v4), y entran check-in/check-out con GPS, dirección aproximada y permanencia.
+ * `Actividades` pierde el texto libre y `materiales`/`folio`/`gerente`: el detalle ahora es
+ * tipo + área visitada + contacto, y los materiales viven en su propia pestaña.
+ *
+ * Las pestañas viejas NO se migran solas —tienen otro orden de columnas— así que hay que
+ * renombrarlas a "*_anterior" y dejar que el script cree las nuevas. El error que verás te lo
+ * dice con nombre y apellido.
  */
 const ENCABEZADOS_VISITAS = [
     'id_padre', 'id_visita', 'educador', 'correo', 'cliente', 'hospital',
     'dia', 'hora_inicio', 'hora_fin', 'sector', 'objetivo', 'origen',
-    'solicitado_por', 'estado', 'actualizado'
+    'estado', 'motivo_cancelacion',
+    'checkin_momento', 'checkin_lat', 'checkin_lng', 'checkin_precision_m', 'checkin_direccion',
+    'checkin_usuario', 'checkin_dispositivo', 'checkin_sin_ubicacion',
+    'checkout_momento', 'checkout_lat', 'checkout_lng', 'checkout_precision_m', 'checkout_direccion',
+    'checkout_usuario', 'checkout_sin_ubicacion',
+    'permanencia_min', 'reagendas', 'actualizado'
 ];
 
 const ENCABEZADOS_ACTIVIDADES = [
-    'id_actividad', 'id_padre', 'id_visita', 'sector', 'tipo', 'actividad',
-    'materiales', 'folio', 'gerente', 'evidencia_url', 'creada', 'actualizado'
+    'id_actividad', 'id_padre', 'id_visita', 'sector', 'tipo', 'area_visitada',
+    'contacto_nombre', 'contacto_cargo', 'contacto_servicio',
+    'evidencia_url', 'evidencia_estado', 'creada', 'actualizado'
+];
+
+const ENCABEZADOS_MATERIALES_CAPTURA = [
+    'id_material', 'id_actividad', 'id_padre', 'id_visita', 'sector',
+    'material', 'cantidad', 'unidad', 'origen', 'actualizado'
+];
+
+const ENCABEZADOS_EVENTOS = [
+    'id', 'tipo', 'momento', 'id_visita', 'cliente', 'hospital',
+    'educador', 'educador_correo', 'dispositivo', 'datos', 'actualizado'
 ];
 
 // ---------- ENTRADA HTTP ----------
@@ -150,12 +193,18 @@ function doGet() {
             // por defecto: la app funciona desde el primer día, sin configurar nada.
             tipos_actividad: leerTipos(),
             origenes: leerOrigenes(db),
-            admins: leerAdmins(db)
+            admins: leerAdmins(db),
+            materiales: leerMateriales(db)
         });
     } catch (err) {
         return json({ status: 'error', message: String(err) });
     }
 }
+
+// Todas las escrituras requieren identidad verificada. Antes esto era anónimo por diseño
+// (el webapp es "CUALQUIER PERSONA" para que la PWA no necesite un OAuth propio); ahora la
+// identidad viaja en el body en vez de en el webapp, y este script la valida él mismo.
+var ACCIONES_CON_IDENTIDAD = ['guardarVisitas', 'subirEvidencia', 'guardarEventos', 'guardarCatalogosAdmin'];
 
 function doPost(e) {
     // La PWA manda Content-Type: text/plain para evitar el preflight OPTIONS,
@@ -165,11 +214,21 @@ function doPost(e) {
         lock.waitLock(30000);
         var body = JSON.parse(e.postData.contents);
 
+        var identidad = null;
+        if (ACCIONES_CON_IDENTIDAD.indexOf(body.action) !== -1) {
+            identidad = verificarIdentidad(body.id_token);
+            if (!identidad.ok) return json({ status: 'error', message: identidad.error });
+        }
+
         switch (body.action) {
             case 'guardarVisitas':
-                return json(guardarVisitas(body.visitas || []));
+                return json(guardarVisitas(body.visitas || [], identidad));
             case 'subirEvidencia':
                 return json(subirEvidencia(body));
+            case 'guardarEventos':
+                return json(guardarEventos(body.eventos || [], identidad));
+            case 'guardarCatalogosAdmin':
+                return json(guardarCatalogosAdmin(body, identidad));
             default:
                 return json({ status: 'error', message: 'action desconocida: ' + body.action });
         }
@@ -178,6 +237,44 @@ function doPost(e) {
     } finally {
         lock.releaseLock();
     }
+}
+
+/**
+ * Le pide a Google que verifique el id_token: firma, expiración y a quién pertenece.
+ * Es más simple que validar la firma RS256 a mano (Apps Script no trae una librería de
+ * criptografía lista para eso) y es el propio método que documenta Google para volúmenes
+ * bajos como este. Nunca deja pasar nada sin marcar 'ok: true' explícitamente.
+ */
+function verificarIdentidad(idToken) {
+    if (!idToken) return { ok: false, error: 'Sesión no encontrada. Vuelve a iniciar sesión.' };
+
+    var resp;
+    try {
+        resp = UrlFetchApp.fetch(
+            'https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(idToken),
+            { muteHttpExceptions: true }
+        );
+    } catch (err) {
+        return { ok: false, error: 'No se pudo verificar la sesión: ' + err };
+    }
+
+    if (resp.getResponseCode() !== 200) {
+        return { ok: false, error: 'Tu sesión expiró. Vuelve a iniciar sesión.' };
+    }
+
+    var datos = JSON.parse(resp.getContentText());
+    if (datos.aud !== CLIENT_ID) return { ok: false, error: 'Token de otra aplicación.' };
+    if (String(datos.email_verified) !== 'true') {
+        return { ok: false, error: 'Tu correo no está verificado por Google.' };
+    }
+
+    var correo = String(datos.email || '').toLowerCase();
+    var dominio = correo.slice(correo.indexOf('@') + 1);
+    if (DOMINIO_PERMITIDO && dominio !== DOMINIO_PERMITIDO) {
+        return { ok: false, error: 'Solo cuentas @' + DOMINIO_PERMITIDO + ' pueden usar esta app.' };
+    }
+
+    return { ok: true, correo: correo, nombre: datos.name || correo };
 }
 
 function json(obj) {
@@ -221,6 +318,31 @@ function leerClientes(db) {
 /** Los sectores son las líneas de producto de "Materiales", sin repetir. */
 function leerSectores(db) {
     return leerColumnaUnica(db, HOJA_MATERIALES, COL_SECTOR);
+}
+
+/**
+ * Catálogo de materiales para el buscador de la app, filtrado por sector.
+ * Misma pestaña que `leerSectores` (HOJA_MATERIALES = 'Materiales'), pero aquí se conserva
+ * cada fila —no se deduplica— porque cada una es un material distinto.
+ */
+function leerMateriales(db) {
+    var hoja = db.getSheetByName(HOJA_MATERIALES);
+    if (!hoja) return [];
+
+    var datos = hoja.getDataRange().getValues();
+    if (datos.length < 2) return [];
+
+    var iMaterial = datos[0].indexOf(COL_MATERIAL);
+    var iSector = datos[0].indexOf(COL_SECTOR);
+    if (iMaterial === -1 || iSector === -1) return [];
+
+    var salida = [];
+    for (var i = 1; i < datos.length; i++) {
+        var material = String(datos[i][iMaterial]).trim();
+        if (material === '') continue;
+        salida.push({ material: material, sector: String(datos[i][iSector]).trim() });
+    }
+    return salida;
 }
 
 /**
@@ -301,21 +423,27 @@ function leerEducadores(db) {
 // ---------- UPSERT DE VISITAS ----------
 
 /**
- * Recibe el árbol de visitas de la PWA y lo aplana en las dos pestañas.
+ * Recibe el árbol de visitas de la PWA (modelo v4) y lo aplana en tres pestañas: Visitas
+ * (padre = visita x sector), Actividades (hija) y Materiales_Capturados (nieta).
  * Devuelve los ids procesados para que la app marque lo sincronizado.
  */
-function guardarVisitas(visitas) {
+function guardarVisitas(visitas, identidad) {
     var hojaVisitas = obtenerHoja(HOJA_VISITAS, ENCABEZADOS_VISITAS);
     var hojaActividades = obtenerHoja(HOJA_ACTIVIDADES, ENCABEZADOS_ACTIVIDADES);
+    var hojaMateriales = obtenerHoja(HOJA_MATERIALES_CAPTURA, ENCABEZADOS_MATERIALES_CAPTURA);
 
     var filasPadre = [];
     var filasHija = [];
+    var filasMateriales = [];
     var ahora = new Date();
 
     visitas.forEach(function (visita) {
-        // El estado ya no lo declara nadie: se calcula igual que en la app, para que la hoja
-        // diga lo mismo que la pantalla del educador.
-        var estado = estadoDeVisita(visita);
+        // El estado ya no se deriva: es un dato que manda la app (programada/en-proceso/
+        // finalizada/cancelada). La hoja registra lo que pasó, no lo recalcula.
+        var estado = visita.estado || 'programada';
+        var checkIn = visita.check_in || {};
+        var checkOut = visita.check_out || {};
+        var permanencia = permanenciaMinutos(checkIn, checkOut);
 
         (visita.sectores || []).forEach(function (sector) {
             var idPadre = visita.id + '::' + sector.id;
@@ -323,81 +451,180 @@ function guardarVisitas(visitas) {
             filasPadre.push({
                 id: idPadre,
                 valores: [
-                    idPadre, visita.id, visita.educador || '', visita.educador_correo || '',
+                    // El correo SIEMPRE es el de la identidad verificada, nunca el que mande
+                    // el cliente: es la garantía real de que "quién" no se puede falsificar
+                    // editando el localStorage. El nombre sí puede venir de ahí de respaldo.
+                    idPadre, visita.id, identidad.nombre || visita.educador || '', identidad.correo,
                     visita.cliente || '', visita.hospital || '',
                     visita.dia || '', visita.hora_inicio || '', visita.hora_fin || '',
-                    sector.nombre || '', sector.objetivo || '',
-                    (sector.origen || []).join(', '), sector.solicitado_por || '',
-                    estado, ahora
+                    sector.nombre || '', sector.objetivo || '', (sector.origen || []).join(', '),
+                    estado, visita.motivo_cancelacion || '',
+                    checkIn.momento || '', checkIn.lat != null ? checkIn.lat : '',
+                    checkIn.lng != null ? checkIn.lng : '', checkIn.precision_m != null ? checkIn.precision_m : '',
+                    direccionDe(checkIn), checkIn.usuario || '', checkIn.dispositivo || '',
+                    checkIn.error || '',
+                    checkOut.momento || '', checkOut.lat != null ? checkOut.lat : '',
+                    checkOut.lng != null ? checkOut.lng : '', checkOut.precision_m != null ? checkOut.precision_m : '',
+                    direccionDe(checkOut), checkOut.usuario || '', checkOut.error || '',
+                    permanencia != null ? permanencia : '', (visita.reagendas || []).length, ahora
                 ]
             });
 
             (sector.actividades || []).forEach(function (act) {
+                var contacto = act.contacto || {};
+                var evidencia = act.evidencia || {};
+
                 filasHija.push({
                     id: act.id,
                     valores: [
                         act.id, idPadre, visita.id, sector.nombre || '',
-                        act.tipo || '', act.texto || '',
-                        (act.materiales || []).join(', '), act.folio || '', act.gerente || '',
-                        (act.evidencia && act.evidencia.url) || '',
+                        act.tipo || '', act.area_visitada || '',
+                        contacto.nombre || '', contacto.cargo || '', contacto.servicio || '',
+                        evidencia.url || '', evidencia.estado || '',
                         act.creada || '', ahora
                     ]
+                });
+
+                (act.materiales || []).forEach(function (mat) {
+                    filasMateriales.push({
+                        id: mat.id,
+                        valores: [
+                            mat.id, act.id, idPadre, visita.id, sector.nombre || '',
+                            mat.material || '', mat.cantidad || '', mat.unidad || '',
+                            mat.origen || '', ahora
+                        ]
+                    });
                 });
             });
         });
     });
 
-    // La columna de evidencia se preserva: la app suele mandarla vacía porque la foto
-    // se sube después, y sin esto un re-sync borraría la URL que ya está en la hoja.
-    upsert(hojaVisitas, ENCABEZADOS_VISITAS, filasPadre, []);
-    upsert(hojaActividades, ENCABEZADOS_ACTIVIDADES, filasHija, ['evidencia_url']);
+    // Estas columnas se preservan: la app suele mandarlas vacías (evidencia sube después,
+    // dirección se cachea aquí) y un re-sync sin esto borraría lo que ya está en la hoja.
+    upsert(hojaVisitas, ENCABEZADOS_VISITAS, filasPadre, ['checkin_direccion', 'checkout_direccion']);
+    upsert(hojaActividades, ENCABEZADOS_ACTIVIDADES, filasHija, ['evidencia_url', 'evidencia_estado']);
+    upsert(hojaMateriales, ENCABEZADOS_MATERIALES_CAPTURA, filasMateriales, []);
 
     return {
         status: 'ok',
         ids: visitas.map(function (v) { return v.id; }),
         padres: filasPadre.length,
-        actividades: filasHija.length
+        actividades: filasHija.length,
+        materiales: filasMateriales.length
     };
 }
 
-/**
- * Estado derivado, espejo de js/estado.js. Se recalcula aquí en vez de confiar en lo que
- * mande la app: la hoja es el registro, y un cliente viejo en caché podría mandar basura.
- *
- *   programada         aún no llega su hora, sin actividades
- *   sin-registrar      YA pasó y sigue vacía  <- lo único que es una alerta
- *   faltan-evidencias  hay actividades, falta soporte
- *   completa           todo listo
- */
-function estadoDeVisita(visita) {
-    var actividades = [];
-    (visita.sectores || []).forEach(function (s) {
-        actividades = actividades.concat(s.actividades || []);
-    });
+/** Minutos entre check-in y check-out. null si falta cualquiera de los dos momentos. */
+function permanenciaMinutos(checkIn, checkOut) {
+    if (!checkIn.momento || !checkOut.momento) return null;
+    var ms = new Date(checkOut.momento).getTime() - new Date(checkIn.momento).getTime();
+    return Math.round(ms / 60000);
+}
 
-    if (actividades.length === 0) {
-        return yaTermino(visita) ? 'sin-registrar' : 'programada';
+/** Dirección aproximada de un check: la que ya trae la app, o geocodificada aquí y cacheada. */
+function direccionDe(check) {
+    if (check.direccion) return check.direccion;
+    if (check.lat == null || check.lng == null) return '';
+    return direccionAprox(check.lat, check.lng);
+}
+
+/**
+ * Convierte lat/lng en una dirección legible con el servicio Maps de Apps Script.
+ * Se cachea por coordenada (redondeada a ~1m) en ScriptProperties: evita gastar cuota de
+ * Maps re-geocodificando la misma visita en cada sincronización.
+ *
+ * NUNCA lanza: si Maps falla, no hay cuota o no hay red, se devuelve '' y la sincronización
+ * de visitas sigue su curso. La dirección es un dato de cortesía, no un requisito.
+ */
+function direccionAprox(lat, lng) {
+    var clave = 'GEOCODE_' + lat.toFixed(5) + '_' + lng.toFixed(5);
+    var props = PropertiesService.getScriptProperties();
+
+    var cacheada = props.getProperty(clave);
+    if (cacheada !== null) return cacheada; // incluye '' cacheado (ya se intentó y no hubo resultado)
+
+    var direccion = '';
+    try {
+        var resultado = Maps.newGeocoder().reverseGeocode(lat, lng);
+        if (resultado && resultado.results && resultado.results.length > 0) {
+            direccion = resultado.results[0].formatted_address || '';
+        }
+    } catch (err) {
+        console.warn('Geocodificación falló para ' + lat + ',' + lng + ': ' + err);
     }
 
-    var faltan = actividades.filter(function (a) {
-        return requiereEvidencia(a.tipo) && !(a.evidencia && a.evidencia.estado === 'subida');
+    props.setProperty(clave, direccion);
+    return direccion;
+}
+
+/** Upsert de eventos auditables. Son inmutables: esto solo hace idempotente un reenvío. */
+function guardarEventos(eventos, identidad) {
+    var hoja = obtenerHoja(HOJA_EVENTOS, ENCABEZADOS_EVENTOS);
+    var ahora = new Date();
+
+    var filas = eventos.map(function (ev) {
+        return {
+            id: ev.id,
+            valores: [
+                ev.id, ev.tipo || '', ev.momento || '', ev.id_visita || '',
+                ev.cliente || '', ev.hospital || '',
+                identidad.nombre || ev.educador || '', identidad.correo,
+                ev.dispositivo || '', JSON.stringify(ev.datos || {}), ahora
+            ]
+        };
     });
-    return faltan.length === 0 ? 'completa' : 'faltan-evidencias';
+
+    upsert(hoja, ENCABEZADOS_EVENTOS, filas, []);
+    return { status: 'ok', ids: eventos.map(function (e) { return e.id; }) };
 }
 
-function yaTermino(visita) {
-    if (!visita.dia || !visita.hora_fin) return false;
-    var p = String(visita.dia).split('-');
-    var h = String(visita.hora_fin).split(':');
-    var fin = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]), Number(h[0]), Number(h[1]));
-    return fin < new Date();
+/**
+ * Reemplaza los catálogos administrables (Tipos de actividad, Orígenes, Educadores, Admins).
+ * Gated por identidad: solo un correo que YA esté en la hoja "Admins" puede llamar esto. Es
+ * un reemplazo completo, no un upsert por fila — son catálogos de decenas de filas como mucho,
+ * y el módulo admin siempre manda la lista entera, así que un upsert parcial solo complicaría
+ * borrar algo (¿cómo le dices al upsert "esta fila ya no debe existir"?).
+ */
+function guardarCatalogosAdmin(body, identidad) {
+    var db = SpreadsheetApp.openById(SHEET_DB_ID);
+    if (!esAdmin(db, identidad.correo)) {
+        return { status: 'error', message: 'Tu cuenta (' + identidad.correo + ') no tiene permisos de administrador.' };
+    }
+
+    if (Array.isArray(body.tipos_actividad)) {
+        reemplazarHoja(db, HOJA_TIPOS, ['tipo', 'evidencia', 'materiales', 'folio', 'gerente'],
+            body.tipos_actividad.map(function (t) {
+                return [t.nombre || '', t.evidencia ? 'si' : 'no', t.materiales ? 'si' : 'no', '', ''];
+            }));
+        _tiposCache = null; // se cachea por request; esto invalida la de la próxima llamada
+    }
+    if (Array.isArray(body.origenes)) {
+        reemplazarHoja(db, HOJA_ORIGENES, ['origen'], body.origenes.map(function (o) { return [o]; }));
+    }
+    if (Array.isArray(body.educadores)) {
+        reemplazarHoja(db, HOJA_EDUCADORES, ['nombre', 'correo'],
+            body.educadores.map(function (e) { return [e.nombre || '', e.correo || '']; }));
+    }
+    if (Array.isArray(body.admins)) {
+        reemplazarHoja(db, HOJA_ADMINS, ['correo'], body.admins.map(function (a) { return [a]; }));
+    }
+
+    return { status: 'ok' };
 }
 
-/** Un tipo desconocido exige evidencia: el default seguro es pedir, no perdonar. */
-function requiereEvidencia(tipo) {
-    if (!tipo) return true;
-    var regla = leerTipos().filter(function (t) { return t.nombre === tipo; })[0];
-    return regla ? regla.evidencia !== false : true;
+/** Vacía la pestaña y la vuelve a escribir completa, con encabezados. */
+function reemplazarHoja(libro, nombre, encabezados, filas) {
+    var hoja = libro.getSheetByName(nombre);
+    if (!hoja) hoja = libro.insertSheet(nombre);
+    else hoja.clear();
+
+    hoja.getRange(1, 1, 1, encabezados.length).setValues([encabezados]).setFontWeight('bold');
+    hoja.setFrozenRows(1);
+    if (filas.length > 0) hoja.getRange(2, 1, filas.length, encabezados.length).setValues(filas);
+}
+
+function esAdmin(db, correo) {
+    return leerAdmins(db).indexOf(String(correo || '').toLowerCase()) !== -1;
 }
 
 /**
@@ -689,12 +916,15 @@ function revisarConfiguracion() {
     Logger.log('  clientes:   %s', leerClientes(db).length);
     Logger.log('  sectores:   %s  -> %s', leerSectores(db).length, leerSectores(db).join(', '));
     Logger.log('  educadores: %s', leerEducadores(db).length);
+    Logger.log('  materiales: %s', leerMateriales(db).length);
 
     var libro = libroVisitas();
     Logger.log('Visitas hacia: "%s"', libro.getName());
 
-    [[HOJA_VISITAS, ENCABEZADOS_VISITAS], [HOJA_ACTIVIDADES, ENCABEZADOS_ACTIVIDADES]]
-        .forEach(function (par) {
+    [
+        [HOJA_VISITAS, ENCABEZADOS_VISITAS], [HOJA_ACTIVIDADES, ENCABEZADOS_ACTIVIDADES],
+        [HOJA_MATERIALES_CAPTURA, ENCABEZADOS_MATERIALES_CAPTURA], [HOJA_EVENTOS, ENCABEZADOS_EVENTOS]
+    ].forEach(function (par) {
             var hoja = libro.getSheetByName(par[0]);
             if (!hoja) {
                 Logger.log('  "%s": no existe, se creará sola. OK.', par[0]);

@@ -11,24 +11,33 @@ const CLAVE_VISITAS = 'visitas';
 const CLAVE_CATALOGO = 'datosPWA';
 const CLAVE_BACKUP = 'visitas_backup_v1';
 const CLAVE_VERSION_MODELO = 'modelo_version';
-const VERSION_MODELO = 3;
+const VERSION_MODELO = 4;
 
 /**
- * Modelo v3. Cambios contra v2:
- *   - `fecha` ('2026-07-15T09:00') se parte en `dia` + `hora_inicio` + `hora_fin`.
- *     Una visita ocupa un rango, no un instante: el calendario la dibuja a escala.
- *   - `hospital`: dónde ocurre. El cliente es la cuenta; no son lo mismo.
- *   - Por sector: `origen[]` y `solicitado_por`.
- *   - Por actividad: `tipo` (del catálogo) y los condicionales `materiales[]`, `folio`, `gerente`.
- *   - Se va `estado`: ahora se deriva (ver js/estado.js).
+ * Modelo v4.
+ *
+ * v4 separa el CICLO DE VIDA (un dato: programada → en-proceso → finalizada, o cancelada)
+ * de la SALUD del registro (un cálculo: rojo/azul/verde, y solo después del check-in).
+ * El estado es una cadena a propósito: agregar uno nuevo no debe obligar a tocar la lógica.
  *
  * visita = {
  *   id, educador, educador_correo, cliente, hospital,
  *   dia: '2026-07-15', hora_inicio: '09:00', hora_fin: '11:00',
- *   sectores: [{ id, nombre, objetivo, origen: [], solicitado_por, actividades: [
- *     { id, tipo, texto, creada, materiales: [], folio, gerente,
- *       evidencia: { estado: 'pendiente'|'local'|'subida', nombre, mime, url } }
- *   ]}],
+ *   estado: 'programada' | 'en-proceso' | 'finalizada' | 'cancelada',
+ *
+ *   check_in:  { momento: ISO, lat, lng, precision_m, direccion, usuario, dispositivo },
+ *   check_out: { momento: ISO, lat, lng, precision_m, direccion, usuario },
+ *   // Ambos son inmutables una vez escritos: son el hecho de haber estado ahí.
+ *
+ *   reagendas: [{ momento, usuario, motivo, antes: {dia,hora_inicio,hora_fin}, despues: {...} }],
+ *   motivo_cancelacion,
+ *
+ *   sectores: [{ id, nombre, objetivo, origen: [], actividades: [{
+ *     id, tipo, area_visitada, creada,
+ *     contacto: { nombre, cargo, servicio },       // uno POR ACTIVIDAD, no por visita
+ *     materiales: [{ id, material, cantidad, unidad, origen }],
+ *     evidencia: { estado, nombre, mime, url }
+ *   }] }],
  *   sincronizado: false
  * }
  */
@@ -236,7 +245,7 @@ export function migrarSiHaceFalta() {
     }
 
     const desde = versionDe(datos[0]);
-    if (desde === 3) {
+    if (desde === VERSION_MODELO) {
         localStorage.setItem(CLAVE_VERSION_MODELO, String(VERSION_MODELO));
         return null;
     }
@@ -246,7 +255,8 @@ export function migrarSiHaceFalta() {
 
     const filasV1 = desde === 1 ? datos.length : 0;
     let visitas = desde === 1 ? migrarV1aV2(datos) : datos;
-    visitas = visitas.map(migrarV2aV3);
+    if (desde <= 2) visitas = visitas.map(migrarV2aV3);
+    visitas = visitas.map(migrarV3aV4);
 
     guardarVisitas(visitas);
     localStorage.setItem(CLAVE_VERSION_MODELO, String(VERSION_MODELO));
@@ -256,9 +266,10 @@ export function migrarSiHaceFalta() {
 }
 
 function versionDe(visita) {
-    if (!visita || !Array.isArray(visita.sectores)) return 1;  // fila plana
-    if (visita.dia !== undefined) return 3;
-    return 2;                                                   // árbol con `fecha`
+    if (!visita || !Array.isArray(visita.sectores)) return 1;   // fila plana
+    if (visita.dia === undefined) return 2;                     // árbol con `fecha`
+    if (visita.estado === undefined) return 3;                  // v3: el estado se derivaba
+    return 4;
 }
 
 /**
@@ -347,6 +358,56 @@ function migrarV2aV3(visita) {
     // El estado ahora se deriva; conservarlo invitaría a que algo lo leyera por error.
     delete nueva.fecha;
     delete nueva.estado;
+    return nueva;
+}
+
+/**
+ * v3 -> v4: el estado deja de derivarse y pasa a ser un dato.
+ *
+ * Lo capturado antes de que existiera el check-in no puede inventarse uno: sería afirmar que
+ * alguien estuvo en un lugar a una hora, y eso es justo lo que el check-in prueba. Así que
+ * las visitas viejas con actividades se dan por finalizadas SIN check-in, y su color queda
+ * neutro. Es menos bonito que fabricar el dato, pero es lo único honesto.
+ */
+function migrarV3aV4(visita) {
+    const tieneActividades = (visita.sectores || [])
+        .some(s => (s.actividades || []).length > 0);
+
+    const nueva = {
+        ...visita,
+        estado: visita.cancelada ? 'cancelada' : (tieneActividades ? 'finalizada' : 'programada'),
+        reagendas: visita.reagendas || [],
+        sectores: (visita.sectores || []).map(sector => ({
+            ...sector,
+            actividades: (sector.actividades || []).map(act => ({
+                ...act,
+                area_visitada: act.area_visitada || '',
+                contacto: act.contacto || { nombre: '', cargo: '', servicio: '' },
+                // `materiales` era una lista de textos; ahora cada uno es un registro con
+                // cantidad, unidad y origen. Lo viejo se conserva como nombre.
+                materiales: (act.materiales || []).map(m =>
+                    typeof m === 'string'
+                        ? { id: nuevoId('m'), material: m, cantidad: '', unidad: '', origen: '' }
+                        : m
+                )
+            }))
+        }))
+    };
+
+    // `folio` y `gerente` vivían en la actividad; ahora el origen es de cada MATERIAL, que es
+    // donde de verdad aplica. Si había algo, se arrastra al primer material para no perderlo.
+    (nueva.sectores || []).forEach(s => (s.actividades || []).forEach(a => {
+        const heredado = [a.folio, a.gerente].filter(Boolean).join(' · ');
+        if (heredado && a.materiales.length) {
+            a.materiales.forEach(m => { if (!m.origen) m.origen = heredado; });
+        }
+        delete a.folio;
+        delete a.gerente;
+        delete a.texto;          // el detalle libre se fue: el tipo + área + contacto lo dicen
+    }));
+
+    delete nueva.cancelada;      // ahora vive en `estado`
+    delete nueva.duracion_estimada;
     return nueva;
 }
 
