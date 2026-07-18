@@ -182,6 +182,65 @@
       "js_visita_reagendarvisita"
     ],
     "2": [
+      "js_dashboard",
+      "js_dashboard_abrirdashboard",
+      "js_dashboard_altoast",
+      "js_dashboard_barrafiltros",
+      "js_dashboard_barras",
+      "js_dashboard_campofecha",
+      "js_dashboard_cerrar",
+      "js_dashboard_cuerpo",
+      "js_dashboard_el",
+      "js_dashboard_etiquetarol",
+      "js_dashboard_evidenciasrechazadas",
+      "js_dashboard_filasestado",
+      "js_dashboard_filasevidencias",
+      "js_dashboard_filtro",
+      "js_dashboard_haydashboardabierto",
+      "js_dashboard_initdashboard",
+      "js_dashboard_pintar",
+      "js_dashboard_puedeverdashboard",
+      "js_dashboard_redondear",
+      "js_dashboard_salud",
+      "js_dashboard_seccion",
+      "js_dashboard_selectfiltro",
+      "js_dashboard_tablaeducadores",
+      "js_dashboard_tile",
+      "js_dashboard_tiles",
+      "js_dashboard_tonocumplimiento",
+      "js_dashboard_vacio",
+      "js_datos",
+      "js_datos_aplicarfiltro",
+      "js_datos_calcularindicadores",
+      "js_datos_consultarvisitas",
+      "js_datos_filtro_vacio",
+      "js_datos_filtrovacio",
+      "js_datos_fuentes",
+      "js_datos_fuentesregistradas",
+      "js_datos_hayequipocargado",
+      "js_datos_hayfiltro",
+      "js_datos_indicadoresporeducador",
+      "js_datos_listarvisitas",
+      "js_datos_norm",
+      "js_datos_olvidarvisitasequipo",
+      "js_datos_opcionesdefiltro",
+      "js_datos_ponervisitasequipo",
+      "js_datos_registrarfuente",
+      "js_datos_top",
+      "js_datos_urlevidencia",
+      "js_datos_visiblepara",
+      "js_datos_visitasequipo",
+      "js_vistaprevia",
+      "js_vistaprevia_abrirvisor",
+      "js_vistaprevia_cuerpominiatura",
+      "js_vistaprevia_cuerpovisor",
+      "js_vistaprevia_esimagen",
+      "js_vistaprevia_espdf",
+      "js_vistaprevia_esvideo",
+      "js_vistaprevia_miniaturaevidencia",
+      "js_vistaprevia_resolver"
+    ],
+    "3": [
       "js_revision",
       "js_revision_abrirrevision",
       "js_revision_acciones",
@@ -235,7 +294,7 @@
       "js_revisiones_todaslasrevisiones",
       "js_revisiones_todoslosflujos"
     ],
-    "3": [
+    "4": [
       "js_campos",
       "js_campos_cabeceramodal",
       "js_campos_campotexto",
@@ -285,55 +344,6 @@
       "js_sector_faltaensector",
       "js_sector_sectorcompleto",
       "js_storage_leercatalogo"
-    ],
-    "4": [
-      "js_dashboard",
-      "js_dashboard_abrirdashboard",
-      "js_dashboard_altoast",
-      "js_dashboard_barrafiltros",
-      "js_dashboard_barras",
-      "js_dashboard_campofecha",
-      "js_dashboard_cerrar",
-      "js_dashboard_cuerpo",
-      "js_dashboard_el",
-      "js_dashboard_etiquetarol",
-      "js_dashboard_evidenciasrechazadas",
-      "js_dashboard_filasestado",
-      "js_dashboard_filasevidencias",
-      "js_dashboard_filtro",
-      "js_dashboard_haydashboardabierto",
-      "js_dashboard_initdashboard",
-      "js_dashboard_pintar",
-      "js_dashboard_puedeverdashboard",
-      "js_dashboard_redondear",
-      "js_dashboard_salud",
-      "js_dashboard_seccion",
-      "js_dashboard_selectfiltro",
-      "js_dashboard_tablaeducadores",
-      "js_dashboard_tile",
-      "js_dashboard_tiles",
-      "js_dashboard_tonocumplimiento",
-      "js_dashboard_vacio",
-      "js_datos",
-      "js_datos_aplicarfiltro",
-      "js_datos_calcularindicadores",
-      "js_datos_consultarvisitas",
-      "js_datos_filtro_vacio",
-      "js_datos_filtrovacio",
-      "js_datos_fuentes",
-      "js_datos_fuentesregistradas",
-      "js_datos_hayequipocargado",
-      "js_datos_hayfiltro",
-      "js_datos_indicadoresporeducador",
-      "js_datos_listarvisitas",
-      "js_datos_norm",
-      "js_datos_olvidarvisitasequipo",
-      "js_datos_opcionesdefiltro",
-      "js_datos_ponervisitasequipo",
-      "js_datos_registrarfuente",
-      "js_datos_top",
-      "js_datos_visiblepara",
-      "js_datos_visitasequipo"
     ],
     "5": [
       "src_core_puente_buscarsolapes",
@@ -755,7 +765,6 @@
     "17": [
       "src_core_puente_avisar",
       "src_core_puente_sesionactual",
-      "src_modules_actividades_components_ventanaactividad_ventanaactividad",
       "src_modules_actividades_montaractividad",
       "src_modules_actividades_montaractividad_abriractividad",
       "src_modules_actividades_montaractividad_opcionesactividad",
@@ -773,24 +782,9 @@
       "src_modules_visitas_montardrawer_pintar"
     ],
     "18": [
-      "src_core_puente_areas",
-      "src_core_puente_campoeditable",
-      "src_core_puente_camposextra",
       "src_core_puente_modos",
-      "src_core_puente_tiposactividad",
-      "src_core_puente_tiposevidencia",
       "src_core_tipos_modocampo",
-      "src_modules_actividades_components_formularioactividad",
-      "src_modules_actividades_components_formularioactividad_barraregla",
-      "src_modules_actividades_components_formularioactividad_bloquecontacto",
-      "src_modules_actividades_components_formularioactividad_bloquemateriales",
-      "src_modules_actividades_components_formularioactividad_campo",
-      "src_modules_actividades_components_formularioactividad_contextoautomatico",
-      "src_modules_actividades_components_formularioactividad_formularioactividad",
-      "src_modules_actividades_components_formularioactividad_selecttipo"
-    ],
-    "19": [
-      "src_core_puente_configuracioncampos",
+      "src_modules_actividades_components_ventanaactividad_ventanaactividad",
       "src_modules_actividades_validators_requisitos",
       "src_modules_actividades_validators_requisitos_estavacia",
       "src_modules_actividades_validators_requisitos_faltante",
@@ -804,6 +798,22 @@
       "tests_actividades_dominio_test_ponercatalogo",
       "tests_actividades_dominio_test_tipoconcampos",
       "tests_actividades_dominio_test_todos_los_campos"
+    ],
+    "19": [
+      "src_core_puente_areas",
+      "src_core_puente_campoeditable",
+      "src_core_puente_camposextra",
+      "src_core_puente_configuracioncampos",
+      "src_core_puente_tiposactividad",
+      "src_core_puente_tiposevidencia",
+      "src_modules_actividades_components_formularioactividad",
+      "src_modules_actividades_components_formularioactividad_barraregla",
+      "src_modules_actividades_components_formularioactividad_bloquecontacto",
+      "src_modules_actividades_components_formularioactividad_bloquemateriales",
+      "src_modules_actividades_components_formularioactividad_campo",
+      "src_modules_actividades_components_formularioactividad_contextoautomatico",
+      "src_modules_actividades_components_formularioactividad_formularioactividad",
+      "src_modules_actividades_components_formularioactividad_selecttipo"
     ],
     "20": [
       "apps_script_appsscript",
@@ -859,18 +869,6 @@
       "js_auth_sesionactual"
     ],
     "24": [
-      "js_datos_urlevidencia",
-      "js_vistaprevia",
-      "js_vistaprevia_abrirvisor",
-      "js_vistaprevia_cuerpominiatura",
-      "js_vistaprevia_cuerpovisor",
-      "js_vistaprevia_esimagen",
-      "js_vistaprevia_espdf",
-      "js_vistaprevia_esvideo",
-      "js_vistaprevia_miniaturaevidencia",
-      "js_vistaprevia_resolver"
-    ],
-    "25": [
       "src_app_generarsw",
       "src_app_generarsw_generarsw",
       "src_app_generarsw_listadeassets",
@@ -882,7 +880,7 @@
       "vite_config_ruta",
       "vite_config_serviceworkergenerado"
     ],
-    "26": [
+    "25": [
       "src_core_puente_describirdispositivo",
       "src_core_puente_registrar",
       "src_core_puente_tipos_evento",
@@ -894,7 +892,7 @@
       "src_modules_actividades_components_ventanaactividad",
       "src_modules_actividades_components_ventanaactividad_propsventana"
     ],
-    "27": [
+    "26": [
       "tests_ayuda_fixtures",
       "tests_ayuda_fixtures_actividad",
       "tests_ayuda_fixtures_borrador",
@@ -906,7 +904,7 @@
       "tests_ayuda_fixtures_visita",
       "tests_ayuda_fixtures_visitacompleta"
     ],
-    "28": [
+    "27": [
       "public_manifest",
       "public_manifest_background_color",
       "public_manifest_display",
@@ -917,7 +915,7 @@
       "public_manifest_start_url",
       "public_manifest_theme_color"
     ],
-    "29": [
+    "28": [
       "js_evidencias",
       "js_evidencias_adjuntarevidencia",
       "js_evidencias_comprimirimagen",
@@ -927,7 +925,7 @@
       "js_evidencias_quitarevidencia",
       "js_evidencias_selectorarchivo"
     ],
-    "30": [
+    "29": [
       "tests_calendario_test",
       "tests_calendario_test_arrastrar",
       "tests_calendario_test_darletama\u00f1oalascolumnas",
@@ -937,7 +935,7 @@
       "tests_calendario_test_nada",
       "tests_calendario_test_visita"
     ],
-    "31": [
+    "30": [
       "tests_ventanaactividad_test",
       "tests_ventanaactividad_test_abrir",
       "tests_ventanaactividad_test_actividadde",
@@ -947,44 +945,44 @@
       "tests_ventanaactividad_test_conactividadsellada",
       "tests_ventanaactividad_test_visitabase"
     ],
-    "32": [
+    "31": [
       "tests_flujo_nueva_visita_test",
       "tests_flujo_nueva_visita_test_abrirnueva",
       "tests_flujo_nueva_visita_test_avisos",
       "tests_flujo_nueva_visita_test_boton"
     ],
-    "33": [
+    "32": [
       "tests_modulos_test",
       "tests_modulos_test_modulos",
       "tests_modulos_test_raiz"
     ],
-    "34": [
+    "33": [
       "tests_revisiones_test",
       "tests_revisiones_test_comousuario",
       "tests_revisiones_test_rev"
     ],
-    "35": [
+    "34": [
       "tests_storage_test",
       "tests_storage_test_sembrar",
       "tests_storage_test_todaslasacts"
     ],
-    "36": [
+    "35": [
       "tests_catalogos_test",
       "tests_catalogos_test_ponercatalogo"
     ],
-    "37": [
+    "36": [
       "tests_datos_test"
     ],
-    "38": [
+    "37": [
       "tests_estado_test"
     ]
   },
   "cohesion": {
     "0": 0.05605124685426676,
     "1": 0.06288568909785483,
-    "2": 0.083710407239819,
-    "3": 0.0824829931972789,
-    "4": 0.08325624421831637,
+    "2": 0.07017543859649122,
+    "3": 0.083710407239819,
+    "4": 0.0824829931972789,
     "5": 0.07676767676767676,
     "6": 0.046511627906976744,
     "7": 0.12010796221322537,
@@ -997,28 +995,27 @@
     "14": 0.09523809523809523,
     "15": 0.11052631578947368,
     "16": 0.23976608187134502,
-    "17": 0.1895424836601307,
-    "18": 0.19047619047619047,
-    "19": 0.25274725274725274,
+    "17": 0.20588235294117646,
+    "18": 0.2,
+    "19": 0.21978021978021978,
     "20": 0.16666666666666666,
     "21": 0.18181818181818182,
     "22": 0.23636363636363636,
     "23": 0.4,
-    "24": 0.4444444444444444,
-    "25": 0.3111111111111111,
-    "26": 0.3333333333333333,
-    "27": 0.37777777777777777,
-    "28": 0.2222222222222222,
-    "29": 0.5,
-    "30": 0.32142857142857145,
-    "31": 0.35714285714285715,
-    "32": 0.5,
+    "24": 0.3111111111111111,
+    "25": 0.3333333333333333,
+    "26": 0.37777777777777777,
+    "27": 0.2222222222222222,
+    "28": 0.5,
+    "29": 0.32142857142857145,
+    "30": 0.35714285714285715,
+    "31": 0.5,
+    "32": 0.6666666666666666,
     "33": 0.6666666666666666,
     "34": 0.6666666666666666,
-    "35": 0.6666666666666666,
+    "35": 1.0,
     "36": 1.0,
-    "37": 1.0,
-    "38": 1.0
+    "37": 1.0
   },
   "gods": [
     {

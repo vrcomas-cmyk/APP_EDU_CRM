@@ -92,6 +92,31 @@ export function VisitaDrawer({
     useEffect(() => { refrescar(); }, [version, refrescar]);
 
     /**
+     * Rellena el educador de un BORRADOR cuando la sesión llegó tarde.
+     *
+     * Google Identity resuelve de forma asíncrona: una visita creada en esa ventana nace sin
+     * educador. Y eso no es un detalle cosmético — el educador es uno de los siete requisitos
+     * para guardar, y NO es un campo escribible (dejarlo escribir permitiría registrar a
+     * nombre de otra persona). Sin esto, ese borrador queda imposible de guardar y sin ninguna
+     * forma de arreglarlo desde la pantalla: trabajo muerto.
+     *
+     * Solo aplica a borradores. Una visita ya guardada afirmó quién la hizo, y reescribirlo
+     * cambiaría de quién es el trabajo.
+     */
+    useEffect(() => {
+        if (!visita?.borrador) return;
+        if ((visita.educador || '').trim()) return;
+
+        const sesion = sesionActual();
+        if (!sesion?.nombre) return;
+
+        editar(v => {
+            v.educador = sesion.nombre || '';
+            v.educador_correo = sesion.correo || '';
+        }, { silencioso: true });
+    }, [visita, editar]);
+
+    /**
      * Cerrar sin guardar DESCARTA el borrador.
      *
      * Es lo contrario de lo que hace la actividad, que sí conserva el suyo. La diferencia es

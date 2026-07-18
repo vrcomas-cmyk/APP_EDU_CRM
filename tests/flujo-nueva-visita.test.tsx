@@ -63,6 +63,60 @@ function boton(texto: string | RegExp): HTMLButtonElement | undefined {
     return $$('button').find(b => casa(b.textContent || '')) as HTMLButtonElement | undefined;
 }
 
+describe('el educador sale de la sesión', () => {
+    test('una visita nueva toma el nombre de quien tiene la sesión abierta', () => {
+        abrirNueva();
+
+        assert.equal(repo.leerVisitas()[0]!.educador, 'Ana López');
+        assert.equal(repo.leerVisitas()[0]!.educador_correo, 'ana@x.com');
+        assert.ok(!/No se pudo leer tu nombre/.test(document.body.textContent!));
+    });
+
+    test('el nombre se muestra en el formulario', () => {
+        abrirNueva();
+        assert.match($('.campo')!.parentElement!.textContent!, /Ana López/);
+    });
+
+    test('sin sesión avisa, pero NO deja la visita en un callejón sin salida', () => {
+        // Un borrador sin educador no se puede guardar —es uno de los siete requisitos— y el
+        // educador no es un campo escribible, así que no habría forma de arreglarlo desde la
+        // pantalla: el borrador quedaría muerto. Mientras siga siendo borrador, el nombre se
+        // rellena en cuanto la sesión aparezca.
+        localStorage.removeItem('sesion');
+        abrirNueva();
+
+        const id = repo.leerVisitas()[0]!.id;
+        assert.equal(repo.obtenerVisita(id)!.educador, '', 'sin sesión no se inventa un nombre');
+        assert.match(document.body.textContent!, /No se pudo leer tu nombre/);
+
+        // Llega la sesión (GSI resuelve tarde, o el usuario vuelve a entrar).
+        localStorage.setItem('sesion', JSON.stringify({
+            correo: 'ana@x.com', nombre: 'Ana López', id_token: 'x'
+        }));
+        act(() => { drawer.abrirVisita(id); });
+
+        assert.equal(repo.obtenerVisita(id)!.educador, 'Ana López',
+            'el borrador debe recuperarse solo; si no, queda imposible de guardar');
+    });
+
+    test('una visita YA GUARDADA nunca se le reescribe el educador', () => {
+        abrirNueva();
+        const id = repo.leerVisitas()[0]!.id;
+
+        act(() => {
+            repo.actualizarVisita(id, v => {
+                delete v.borrador;
+                v.educador = 'Beto Ruiz';
+                v.educador_correo = 'beto@x.com';
+            });
+        });
+        act(() => { drawer.abrirVisita(id); });
+
+        assert.equal(repo.obtenerVisita(id)!.educador, 'Beto Ruiz',
+            'ya afirmó quién la hizo: sobrescribirlo cambiaría de quién es el trabajo');
+    });
+});
+
 describe('agregar sectores a una visita nueva', () => {
     test('el drawer se abre en modo borrador', () => {
         abrirNueva();

@@ -280,9 +280,9 @@
     "semantic_hash": "a625976fdaf27e0ed9f88360f327e2a2"
   },
   "src/modules/visitas/components/VisitaDrawer.tsx": {
-    "mtime": 1784403415.9895415,
-    "ast_hash": "328de73e69de275fa0735c2d81acc211",
-    "semantic_hash": "328de73e69de275fa0735c2d81acc211"
+    "mtime": 1784404514.3605344,
+    "ast_hash": "ed9ef907b4315e427a86dad5da83e1ec",
+    "semantic_hash": "ed9ef907b4315e427a86dad5da83e1ec"
   },
   "src/modules/visitas/hooks/useVisita.ts": {
     "mtime": 1784401529.8365533,
@@ -405,9 +405,9 @@
     "semantic_hash": "838fb2be078e1a3c5280ff80db1adcb6"
   },
   "tests/flujo-nueva-visita.test.tsx": {
-    "mtime": 1784403459.8355412,
-    "ast_hash": "0879987133a0cbf45293df36be954118",
-    "semantic_hash": "0879987133a0cbf45293df36be954118"
+    "mtime": 1784404491.5775347,
+    "ast_hash": "8a182eb5f6b5b6e5258102e414137b44",
+    "semantic_hash": "8a182eb5f6b5b6e5258102e414137b44"
   },
   "src/modules/actividades/components/ActividadSellada.tsx": {
     "mtime": 1784403763.9045393,
