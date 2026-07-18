@@ -40,6 +40,8 @@ import { registrar, TIPOS } from './eventos.js';
 import { abrirActividad } from './actividad.js';
 import { abrirSector } from './sector.js';
 import { envolver, resaltar, dato } from './campos.js';
+import { hiloComentarios, pastillaComentarios, AMBITOS } from './hilo.js';
+import { historicoDeHospital } from './comentarios.js';
 import { describirUbicacion, precisionDudosa } from './geo.js';
 import { etiquetaDiaLarga, horaAMinutos as aMinutos, minutosAHora } from './fechas.js';
 import { sesionActual } from './auth.js';
@@ -304,11 +306,14 @@ function cuerpoVisita(visita) {
     if (visita.borrador) {
         body.append(campoEducador(visita), campoCliente(visita), campoHospital(visita),
                     campoFecha(visita), campoHoras(visita));
+        const antecedentes = bloqueHistorico(visita);
+        if (antecedentes) body.appendChild(antecedentes);
     } else {
         if (estadoDe(visita) === ESTADOS.CANCELADA) body.appendChild(avisoCancelada(visita));
         else body.appendChild(bloqueCheck(visita));
 
         body.appendChild(panelInformacion(visita));
+        body.appendChild(bloqueComentarios(visita));
 
         if (reagendando) body.appendChild(bloqueReagendar(visita));
         if ((visita.reagendas || []).length) body.appendChild(historialReagendas(visita));
@@ -351,6 +356,71 @@ function panelInformacion(visita) {
     nota.className = 'ayuda';
     nota.textContent = 'Estos datos identifican la visita y no se editan. Usa Reagendar o Cancelar.';
     caja.appendChild(nota);
+
+    return caja;
+}
+
+/** Conversación de la visita. Se agrega, nunca se corrige. */
+function bloqueComentarios(visita) {
+    const caja = document.createElement('div');
+    caja.className = 'campo';
+
+    const lbl = document.createElement('span');
+    lbl.className = 'campo-lbl';
+    lbl.textContent = 'Comentarios';
+    caja.appendChild(lbl);
+
+    caja.appendChild(hiloComentarios({
+        ambito: AMBITOS.VISITA,
+        idAmbito: visita.id,
+        visita,
+        alToast
+    }));
+    return caja;
+}
+
+/**
+ * Lo que ya se dijo de este hospital, mientras se programa la visita.
+ *
+ * Un hospital con observaciones repetidas es contexto que hoy se pierde entre visitas: lo
+ * escribe quien fue en marzo y lo necesita quien va en julio, que suele ser otra persona.
+ * Aparece durante la CAPTURA, no después: leerlo cuando ya estás en el hospital llega tarde.
+ */
+function bloqueHistorico(visita) {
+    const previos = historicoDeHospital(visita.hospital, { excluirVisita: visita.id, limite: 3 });
+    if (previos.length === 0) return null;
+
+    const caja = document.createElement('div');
+    caja.className = 'historico';
+
+    const lbl = document.createElement('span');
+    lbl.className = 'campo-lbl';
+    lbl.textContent = `Antes se dijo de ${visita.hospital}`;
+    caja.appendChild(lbl);
+
+    previos.forEach(c => {
+        const item = document.createElement('div');
+        item.className = 'coment';
+
+        const meta = document.createElement('div');
+        meta.className = 'coment-meta';
+        const quien = document.createElement('span');
+        quien.className = 'coment-autor';
+        quien.textContent = c.usuario || 'Sin autor';
+        const cuando = document.createElement('span');
+        cuando.className = 'coment-fecha mono';
+        cuando.textContent = new Date(c.momento).toLocaleDateString('es-MX', {
+            day: '2-digit', month: 'short', year: '2-digit'
+        });
+        meta.append(quien, cuando);
+
+        const txt = document.createElement('p');
+        txt.className = 'coment-txt';
+        txt.textContent = c.texto;
+
+        item.append(meta, txt);
+        caja.appendChild(item);
+    });
 
     return caja;
 }
@@ -653,6 +723,8 @@ function tarjetaSector(visita, sector) {
         p.textContent = `${r.evidenciasPendientes} evid.`;
         meta.appendChild(p);
     }
+    const charla = pastillaComentarios(AMBITOS.SECTOR, sector.id);
+    if (charla) meta.appendChild(charla);
 
     card.append(head, cuerpo, meta);
 

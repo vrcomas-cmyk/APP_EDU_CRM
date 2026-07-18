@@ -41,6 +41,8 @@ import { abrirModalMaterial } from './materiales.js';
 import {
     campoTexto, selectSimple, dato, envolver, cabeceraModal, marcarError, cerrarConEscape
 } from './campos.js';
+import { hiloComentarios, AMBITOS } from './hilo.js';
+import { miniaturaEvidencia } from './vistaprevia.js';
 
 /**
  * Abre la ventana de una actividad. Sin `actividadId` crea un borrador nuevo.
@@ -409,9 +411,25 @@ export function abrirActividad({ host, visitaId, sectorId, actividadId = null, a
         // La evidencia sigue viva después del sello: respalda el hecho, no lo cambia.
         if (campoVisible(act.tipo, 'evidencia')) {
             body.appendChild(seccion('Evidencia', (caja) => {
-                caja.appendChild(controlEvidencia(act, { alCambiar: () => { alCambiar(); pintar(); }, alToast }));
+                const fila = document.createElement('div');
+                fila.className = 'evid';
+
+                // La miniatura primero: quien revisa quiere VER el archivo, no leer su nombre.
+                const mini = miniaturaEvidencia(act);
+                if (mini) fila.appendChild(mini);
+
+                fila.appendChild(controlEvidencia(act, {
+                    alCambiar: () => { alCambiar(); pintar(); }, alToast
+                }));
+                caja.appendChild(fila);
             }));
         }
+
+        body.appendChild(seccion('Comentarios', (caja) => {
+            caja.appendChild(hiloComentarios({
+                ambito: AMBITOS.ACTIVIDAD, idAmbito: act.id, visita, alToast, compacto: true
+            }));
+        }));
 
         const foot = document.createElement('div');
         foot.className = 'modal-foot';

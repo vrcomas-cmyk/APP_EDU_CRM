@@ -113,6 +113,7 @@ const HOJA_VISITAS = 'Visitas';
 const HOJA_ACTIVIDADES = 'Actividades';
 const HOJA_MATERIALES_CAPTURA = 'Materiales_Capturados';
 const HOJA_EVENTOS = 'Eventos';
+const HOJA_COMENTARIOS = 'Comentarios';
 
 // Catálogo de materiales que lee el buscador de la app (filtrado por sector).
 const COL_MATERIAL = 'Material y Nombre';
@@ -175,6 +176,57 @@ const DOMINIO_PERMITIDO = 'degasa.com';
 // que expone nada más un booleano por correo). El resto de la sincronización —visitas,
 // actividades, materiales, eventos, catálogos— se queda igual, en Sheets.
 const SUPABASE_URL = 'https://fiplfsuhsqibzrpvjvbx.supabase.co';
+
+/**
+ * Clave de SERVICIO de Supabase. NO se escribe aquí: vive en las propiedades del proyecto.
+ *
+ *   Configuración del proyecto → Propiedades del script → Agregar
+ *   Propiedad: SUPABASE_SERVICE_KEY
+ *   Valor:     la "service_role secret" del panel de Supabase (Settings → API)
+ *
+ * Va en el servidor y no en la PWA porque el service_role SALTA las políticas de seguridad
+ * por fila. Si viajara en el bundle de la app, cualquiera podría leer las visitas de
+ * cualquier educador. Apps Script sí puede guardarla: nadie ve su código.
+ *
+ * Si la propiedad no está, el espejo simplemente no se escribe y la app sigue funcionando
+ * igual que antes contra Sheets. El espejo es un extra, no un requisito.
+ */
+const PROP_SUPABASE_KEY = 'SUPABASE_SERVICE_KEY';
+
+function claveServicioSupabase() {
+    return PropertiesService.getScriptProperties().getProperty(PROP_SUPABASE_KEY) || '';
+}
+
+/**
+ * Llama a una función de Postgres. Devuelve el JSON o null si algo falló.
+ *
+ * NUNCA lanza: el espejo no puede tumbar una sincronización. Si Supabase no responde, la
+ * visita ya quedó en Sheets —que es la fuente operativa— y el espejo se pone al día en el
+ * siguiente envío, porque la PWA reenvía toda visita que siga marcada como no sincronizada.
+ */
+function supabaseRPC(funcion, carga) {
+    var clave = claveServicioSupabase();
+    if (!clave) return null;
+
+    try {
+        var resp = UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/rpc/' + funcion, {
+            method: 'post',
+            contentType: 'application/json',
+            headers: { apikey: clave, Authorization: 'Bearer ' + clave },
+            payload: JSON.stringify(carga),
+            muteHttpExceptions: true
+        });
+        if (resp.getResponseCode() !== 200) {
+            Logger.log('Supabase %s respondió %s: %s',
+                       funcion, resp.getResponseCode(), resp.getContentText());
+            return null;
+        }
+        return JSON.parse(resp.getContentText());
+    } catch (err) {
+        Logger.log('Supabase %s falló: %s', funcion, err);
+        return null;
+    }
+}
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpcGxmc3Voc3FpYnpycHZqdmJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyODAyNjgsImV4cCI6MjA4OTg1NjI2OH0.YG3Fk8XJ_n9PGIYUHtoiy-MJNuWqJTsFBwooKnt1X5s';
 
 /**
@@ -218,6 +270,14 @@ const ENCABEZADOS_MATERIALES_CAPTURA = [
     'material', 'cantidad', 'unidad', 'origen', 'actualizado'
 ];
 
+// Un comentario es inmutable: se inserta y no se vuelve a tocar. Las columnas guardan a qué
+// se refiere (ámbito + id) y también cliente/hospital, para poder responder "¿qué se ha dicho
+// de este hospital?" sin recorrer el árbol completo de visitas.
+const ENCABEZADOS_COMENTARIOS = [
+    'id', 'momento', 'ambito', 'id_ambito', 'id_visita',
+    'cliente', 'hospital', 'usuario', 'usuario_correo', 'texto', 'actualizado'
+];
+
 const ENCABEZADOS_EVENTOS = [
     'id', 'tipo', 'momento', 'id_visita', 'cliente', 'hospital',
     'educador', 'educador_correo', 'dispositivo', 'datos', 'actualizado'
@@ -251,7 +311,9 @@ function doGet() {
 // Todas las escrituras requieren identidad verificada. Antes esto era anónimo por diseño
 // (el webapp es "CUALQUIER PERSONA" para que la PWA no necesite un OAuth propio); ahora la
 // identidad viaja en el body en vez de en el webapp, y este script la valida él mismo.
-var ACCIONES_CON_IDENTIDAD = ['guardarVisitas', 'subirEvidencia', 'guardarEventos', 'guardarCatalogosAdmin'];
+var ACCIONES_CON_IDENTIDAD = ['guardarVisitas', 'subirEvidencia', 'guardarEventos',
+                              'guardarCatalogosAdmin', 'guardarComentarios',
+                              'leerVisitasEquipo'];
 
 function doPost(e) {
     // La PWA manda Content-Type: text/plain para evitar el preflight OPTIONS,
@@ -274,6 +336,10 @@ function doPost(e) {
                 return json(subirEvidencia(body));
             case 'guardarEventos':
                 return json(guardarEventos(body.eventos || [], identidad));
+            case 'leerVisitasEquipo':
+                return json(leerVisitasEquipo(body, identidad));
+            case 'guardarComentarios':
+                return json(guardarComentarios(body.comentarios || [], identidad));
             case 'guardarCatalogosAdmin':
                 return json(guardarCatalogosAdmin(body, identidad));
             default:
@@ -603,8 +669,17 @@ function guardarVisitas(visitas, identidad) {
     upsert(hojaActividades, ENCABEZADOS_ACTIVIDADES, filasHija, ['evidencia_url', 'evidencia_estado']);
     upsert(hojaMateriales, ENCABEZADOS_MATERIALES_CAPTURA, filasMateriales, []);
 
+    // ESPEJO. Va DESPUÉS de escribir en Sheets y a propósito: Sheets es la fuente operativa
+    // y no debe depender de que Supabase esté arriba. Si el espejo falla, la visita sigue
+    // marcada como no sincronizada en la PWA y se reintenta sola en el siguiente envío.
+    var espejo = supabaseRPC('pdt_espejo_guardar', {
+        p_correo: identidad.correo,
+        p_visitas: visitas
+    });
+
     return {
         status: 'ok',
+        espejo: espejo !== null,
         ids: visitas.map(function (v) { return v.id; }),
         padres: filasPadre.length,
         actividades: filasHija.length,
@@ -683,6 +758,73 @@ function guardarEventos(eventos, identidad) {
  * y el módulo admin siempre manda la lista entera, así que un upsert parcial solo complicaría
  * borrar algo (¿cómo le dices al upsert "esta fila ya no debe existir"?).
  */
+/**
+ * Visitas del EQUIPO, leídas del espejo de Supabase.
+ *
+ * Pasa por aquí y no directo desde la PWA por una razón concreta: la app solo tiene la clave
+ * anónima, que es pública —viaja en su propio JavaScript—. Con ella, cualquiera podría pedir
+ * las visitas de cualquier correo. Aquí la identidad ya fue verificada contra Google, así que
+ * el correo que se le pasa a Postgres es real y el recorte por jerarquía significa algo.
+ */
+function leerVisitasEquipo(body, identidad) {
+    var datos = supabaseRPC('pdt_visitas_en_alcance', {
+        p_correo: identidad.correo,
+        p_desde: body.desde || null,
+        p_hasta: body.hasta || null,
+        p_limite: body.limite || 2000
+    });
+
+    if (datos === null) {
+        return {
+            status: 'ok', visitas: [], espejo: false,
+            mensaje: 'El espejo no está configurado o no respondió.'
+        };
+    }
+    return { status: 'ok', visitas: datos, espejo: true };
+}
+
+/**
+ * Comentarios. Se INSERTAN, nunca se hace upsert: un comentario que se puede reescribir deja
+ * de servir para reconstruir una conversación. El id sirve para no duplicar si el mismo lote
+ * se reenvía tras una falla de red.
+ */
+function guardarComentarios(comentarios, identidad) {
+    if (comentarios.length === 0) return { status: 'ok', ids: [] };
+
+    var hoja = obtenerHoja(HOJA_COMENTARIOS, ENCABEZADOS_COMENTARIOS);
+    var ahora = new Date();
+
+    // Los ids que ya están en la hoja: un reenvío no debe escribir dos veces lo mismo.
+    var existentes = {};
+    if (hoja.getLastRow() > 1) {
+        var previos = hoja.getRange(2, 1, hoja.getLastRow() - 1, 1).getValues();
+        for (var i = 0; i < previos.length; i++) existentes[String(previos[i][0])] = true;
+    }
+
+    var filas = [];
+    comentarios.forEach(function (c) {
+        if (!c || !c.id || existentes[String(c.id)]) return;
+        filas.push([
+            c.id, c.momento || '', c.ambito || '', c.id_ambito || '', c.id_visita || '',
+            c.cliente || '', c.hospital || '',
+            // El autor SIEMPRE es la identidad verificada, nunca la que mande el cliente.
+            identidad.nombre || c.usuario || '', identidad.correo,
+            c.texto || '', ahora
+        ]);
+    });
+
+    if (filas.length > 0) {
+        hoja.getRange(hoja.getLastRow() + 1, 1, filas.length, ENCABEZADOS_COMENTARIOS.length)
+            .setValues(filas);
+    }
+
+    return {
+        status: 'ok',
+        ids: comentarios.map(function (c) { return c.id; }),
+        insertados: filas.length
+    };
+}
+
 function guardarCatalogosAdmin(body, identidad) {
     var db = SpreadsheetApp.openById(SHEET_DB_ID);
     if (!esAdmin(db, identidad.correo)) {

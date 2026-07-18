@@ -18,7 +18,7 @@
 
 import { leerCatalogo } from './storage.js';
 import { guardarCatalogosAdmin, descargarCatalogo } from './sync.js';
-import { sesionActual } from './auth.js';
+import { esAdministrador } from './permisos.js';
 import {
     CAMPOS_ACTIVIDAD, MODOS, ETIQUETAS_MODO, IDS_CAMPOS,
     configuracionCampos, sectoresDelCatalogo
@@ -43,31 +43,12 @@ const LISTAS = [
       ayuda: 'Solo aparecen si algún tipo de actividad muestra el campo.' }
 ];
 
-// El rol de administrador vive en Supabase (tabla pdt_admins, consultada por este RPC que
-// solo expone un booleano por correo — nunca la lista completa). El resto de la app sigue
-// sincronizando con Sheets/Apps Script sin cambios; esto es exclusivamente para el gate de
-// "quién puede administrar".
-const SUPABASE_URL = 'https://fiplfsuhsqibzrpvjvbx.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpcGxmc3Voc3FpYnpycHZqdmJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyODAyNjgsImV4cCI6MjA4OTg1NjI2OH0.YG3Fk8XJ_n9PGIYUHtoiy-MJNuWqJTsFBwooKnt1X5s';
-const CLAVE_CACHE_ADMIN = 'pdt_admin_cache';
-
 let el = {};
 let tab = 'tipos';
 let tipoAbierto = null;
 let borrador = null;
 let guardando = false;
 let alToast = () => {};
-let cacheAdmin = cargarCacheAdmin();
-
-function cargarCacheAdmin() {
-    try { return JSON.parse(localStorage.getItem(CLAVE_CACHE_ADMIN)) || {}; }
-    catch { return {}; }
-}
-
-function guardarCacheAdmin(correo, esAdmin) {
-    cacheAdmin = { correo, esAdmin, obtenido: Date.now() };
-    try { localStorage.setItem(CLAVE_CACHE_ADMIN, JSON.stringify(cacheAdmin)); } catch { /* cuota llena: no es crítico */ }
-}
 
 export function initAdmin({ onToast } = {}) {
     alToast = onToast || (() => {});
@@ -98,43 +79,11 @@ export function initAdmin({ onToast } = {}) {
 export function hayAdminAbierto() { return el.raiz && !el.raiz.hidden; }
 
 /**
- * Solo puede administrar quien esté dado de alta como admin en Supabase. Se consulta async
- * y se cachea (mismo patrón que la sesión): la respuesta de red no bloquea el render, se
- * confía en la última respuesta conocida y se refresca en segundo plano al recuperar señal.
- * Se conserva el catálogo "Admins" de Sheets como respaldo, por si Supabase no responde y ya
- * había administradores dados de alta ahí antes de este cambio.
+ * Quién puede administrar lo decide `permisos.js`, que lo lee de Supabase. Antes esa consulta
+ * vivía aquí duplicada; ahora es una sola, compartida con el resto de la aplicación, y así no
+ * pueden contestar cosas distintas.
  */
-export function puedeAdministrar() {
-    const sesion = sesionActual();
-    if (!sesion) return false;
-    if (((leerCatalogo() || {}).admins || []).includes(sesion.correo)) return true;
-    return cacheAdmin.correo === sesion.correo && cacheAdmin.esAdmin === true;
-}
-
-/** Refresca el estado de admin contra Supabase. Nunca lanza: sin red, se queda con la caché. */
-export async function actualizarEstadoAdmin() {
-    const sesion = sesionActual();
-    if (!sesion || !navigator.onLine) return null;
-
-    try {
-        const resp = await fetch(`${SUPABASE_URL}/rest/v1/rpc/pdt_es_admin`, {
-            method: 'POST',
-            headers: {
-                apikey: SUPABASE_ANON_KEY,
-                Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ p_correo: sesion.correo })
-        });
-        if (!resp.ok) throw new Error(`Supabase respondió ${resp.status}`);
-        const esAdmin = (await resp.json()) === true;
-        guardarCacheAdmin(sesion.correo, esAdmin);
-        return esAdmin;
-    } catch (err) {
-        console.error('No se pudo verificar el rol de administrador en Supabase:', err);
-        return null;
-    }
-}
+export function puedeAdministrar() { return esAdministrador(); }
 
 export function abrirAdmin() {
     if (!puedeAdministrar() || !el.raiz) return;

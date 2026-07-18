@@ -7,12 +7,18 @@
  */
 
 import { migrarSiHaceFalta, leerCatalogo } from './storage.js';
-import { descargarCatalogo, sincronizarTodo } from './sync.js';
+import { descargarCatalogo, sincronizarTodo, descargarVisitasEquipo } from './sync.js';
 import { deudaGlobal } from './estado.js';
 import { initCalendario, refrescarCalendario, irAHoy, setModo, irADia } from './calendario.js';
 import { initDrawer, abrirNuevaVisita, abrirVisita, hayDrawerAbierto } from './drawer.js';
 import { initPaleta, abrirPaleta, hayPaletaAbierta } from './paleta.js';
-import { initAdmin, abrirAdmin, puedeAdministrar, actualizarEstadoAdmin, hayAdminAbierto } from './admin.js';
+import { initAdmin, abrirAdmin, hayAdminAbierto } from './admin.js';
+import {
+    initPermisos, actualizarPerfil, esAdministrador, olvidarPerfil,
+    accesoBloqueado, aceptarInvitacion, tieneEquipo
+} from './permisos.js';
+import { ponerVisitasEquipo, olvidarVisitasEquipo } from './datos.js';
+import { initDashboard, abrirDashboard, puedeVerDashboard, hayDashboardAbierto } from './dashboard.js';
 import { initAuth, sesionActual, pintarBotonEntrada, intentarRefresco, cerrarSesion } from './auth.js';
 
 let el = {};
@@ -22,6 +28,9 @@ let appIniciada = false;
 document.addEventListener('DOMContentLoaded', () => {
     el = {
         gate: document.getElementById('gate'),
+        sinInvitacion: document.getElementById('sin-invitacion'),
+        sinInvitacionCorreo: document.getElementById('sin-invitacion-correo'),
+        sinInvitacionSalir: document.getElementById('sin-invitacion-salir'),
         gateBoton: document.getElementById('gate-boton'),
         app: document.getElementById('app'),
         sync: document.getElementById('btn-sync'),
@@ -29,6 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
         deuda: document.getElementById('btn-deuda'),
         deudaN: document.getElementById('deuda-n'),
         admin: document.getElementById('btn-admin'),
+        dashboard: document.getElementById('btn-dashboard'),
         sesion: document.getElementById('btn-sesion'),
         sesionFoto: document.getElementById('sesion-foto'),
         sesionNombre: document.getElementById('sesion-nombre'),
@@ -37,21 +47,37 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     el.sesion.addEventListener('click', () => {
-        if (confirm('¿Cerrar sesión en este dispositivo?')) cerrarSesion();
+        if (!confirm('¿Cerrar sesión en este dispositivo?')) return;
+        // El perfil cacheado es de quien se va: dejarlo daría sus permisos a quien entre.
+        olvidarPerfil();
+        cerrarSesion();
     });
 
+    el.sinInvitacionSalir.addEventListener('click', () => {
+        olvidarPerfil();
+        olvidarVisitasEquipo();
+        cerrarSesion();
+    });
+
+    initPermisos();
     initAuth({ onSesion: alCambiarSesion });
     pintarBotonEntrada(el.gateBoton);
 
     const sesion = sesionActual();
-    if (sesion) { pintarSesion(sesion); mostrarApp(); iniciarApp(); }
-    else mostrarGate();
+    if (!sesion) return mostrarGate();
+
+    pintarSesion(sesion);
+    // El bloqueo cacheado se respeta desde el arranque: si ya se supo que no hay invitación,
+    // no tiene sentido armar la app entera para cerrarla medio segundo después.
+    if (accesoBloqueado()) mostrarSinInvitacion(sesion);
+    else { mostrarApp(); iniciarApp(); }
 });
 
 /** Login (primera vez en esta carga) o logout: no hay estado intermedio a medio armar. */
 function alCambiarSesion(sesion) {
     pintarSesion(sesion);
     if (sesion) {
+        if (accesoBloqueado()) return mostrarSinInvitacion(sesion);
         if (!appIniciada) { mostrarApp(); iniciarApp(); }
         return;
     }
@@ -60,8 +86,29 @@ function alCambiarSesion(sesion) {
     location.reload();
 }
 
-function mostrarGate() { el.gate.hidden = false; el.app.hidden = true; }
-function mostrarApp() { el.gate.hidden = true; el.app.hidden = false; }
+function mostrarGate() {
+    el.gate.hidden = false;
+    el.app.hidden = true;
+    el.sinInvitacion.hidden = true;
+}
+
+function mostrarApp() {
+    el.gate.hidden = true;
+    el.sinInvitacion.hidden = true;
+    el.app.hidden = false;
+}
+
+/**
+ * Puerta cerrada. Solo se llega aquí con un NO explícito del servidor —nunca por falta de
+ * red— porque bloquear a alguien por no haber podido preguntar convertiría cada bache de
+ * señal en un educador que no puede trabajar.
+ */
+function mostrarSinInvitacion(sesion) {
+    el.gate.hidden = true;
+    el.app.hidden = true;
+    el.sinInvitacion.hidden = false;
+    el.sinInvitacionCorreo.textContent = sesion?.correo || '';
+}
 
 function pintarSesion(sesion) {
     el.sesion.hidden = !sesion;
@@ -69,16 +116,43 @@ function pintarSesion(sesion) {
     el.sesionNombre.textContent = sesion.nombre;
     el.sesionFoto.hidden = !sesion.foto;
     if (sesion.foto) el.sesionFoto.src = sesion.foto;
-    pintarAdminBoton();
+    pintarAccesos();
 }
 
-function pintarAdminBoton() {
-    el.admin.hidden = !puedeAdministrar();
+/** Lo que la barra ofrece depende del rol, y el rol vive en la base de datos. */
+function pintarAccesos() {
+    el.admin.hidden = !esAdministrador();
+    el.dashboard.hidden = !puedeVerDashboard();
 }
 
-/** Consulta Supabase en segundo plano; repinta el botón solo si trajo una respuesta real. */
-function refrescarAdmin() {
-    actualizarEstadoAdmin().then((res) => { if (res !== null) pintarAdminBoton(); });
+/**
+ * Consulta Supabase en segundo plano. Si vuelve con que no hay invitación, se cierra la
+ * puerta aunque la app ya estuviera armada: una invitación revocada tiene que surtir efecto
+ * sin esperar a que la persona decida recargar.
+ */
+function refrescarPerfil() {
+    actualizarPerfil().then((res) => {
+        if (res === null) return;
+        if (accesoBloqueado()) return mostrarSinInvitacion(sesionActual());
+
+        aceptarInvitacion();      // trámite silencioso la primera vez
+        pintarAccesos();
+        cargarEquipo();
+    });
+}
+
+/**
+ * Trae las visitas del equipo al espejo en memoria. Solo para quien tenga a alguien a cargo:
+ * pedirlas para un educador sería una petición que siempre vuelve con lo que ya tiene.
+ */
+function cargarEquipo() {
+    if (!tieneEquipo()) return;
+
+    descargarVisitasEquipo().then(({ visitas, espejo }) => {
+        if (!espejo) return;      // el espejo no está configurado: se sigue con lo local
+        ponerVisitasEquipo(visitas);
+        refrescarTodo();
+    });
 }
 
 /** Todo lo que antes vivía suelto en DOMContentLoaded: ahora espera a que haya sesión. */
@@ -105,11 +179,13 @@ function iniciarApp() {
         onIrADia: irADia
     });
     initAdmin({ onToast: toast });
+    initDashboard({ onToast: toast });
 
     el.fab.addEventListener('click', () => abrirNuevaVisita());
     el.sync.addEventListener('click', () => sincronizar({ manual: true }));
     el.deuda.addEventListener('click', () => toast('La bandeja de evidencias llega en el paso siguiente.'));
     el.admin.addEventListener('click', abrirAdmin);
+    el.dashboard.addEventListener('click', abrirDashboard);
 
     document.addEventListener('keydown', atajos);
     document.addEventListener('keydown', atajoPaleta);
@@ -137,14 +213,15 @@ function atajos(e) {
     if (escribiendo) return;
 
     if (e.key === 'Escape') return;              // el drawer se cierra solo
-    if (hayDrawerAbierto() || hayAdminAbierto()) return;
+    if (hayDrawerAbierto() || hayAdminAbierto() || hayDashboardAbierto()) return;
 
     const acciones = {
         n: () => abrirNuevaVisita(),
         t: () => irAHoy(),
         d: () => setModo('dia'),
         s: () => setModo('semana'),
-        m: () => setModo('mes')
+        m: () => setModo('mes'),
+        i: () => { if (puedeVerDashboard()) abrirDashboard(); }
     };
     const accion = acciones[e.key.toLowerCase()];
     if (accion) { e.preventDefault(); accion(); }
@@ -154,7 +231,7 @@ function atajos(e) {
 function atajoPaleta(e) {
     if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'k') return;
     e.preventDefault();
-    if (hayDrawerAbierto() || hayAdminAbierto() || hayPaletaAbierta()) return;
+    if (hayDrawerAbierto() || hayAdminAbierto() || hayDashboardAbierto() || hayPaletaAbierta()) return;
     abrirPaleta();
 }
 
@@ -219,7 +296,7 @@ function alCambiarConexion() {
         intentarRefresco();
         sincronizar();
         descargarCatalogoSiSePuede();
-        refrescarAdmin();
+        refrescarPerfil();
     } else {
         pintarSync('is-off', 'Sin conexión');
     }
@@ -280,7 +357,7 @@ async function sincronizar({ manual = false } = {}) {
 async function descargarCatalogoSiSePuede() {
     try {
         await descargarCatalogo();
-        pintarAdminBoton(); // el catálogo de admins pudo cambiar
+        pintarAccesos();   // el catálogo pudo cambiar
         refrescarTodo();
     } catch (err) {
         // Silencioso a propósito: el catálogo cacheado sirve, y no hay nada que el

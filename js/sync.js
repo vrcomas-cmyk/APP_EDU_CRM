@@ -13,6 +13,9 @@ import {
     leerArchivo, borrarArchivo, todasLasActividades
 } from './storage.js';
 import { eventosPendientes, marcarSincronizados } from './eventos.js';
+import {
+    comentariosPendientes, marcarSincronizados as marcarComentarios
+} from './comentarios.js';
 import { sesionActual } from './auth.js';
 
 export const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyRdGq_Tef6GGg8MWr7_VNLS-VLvx439MTWPpmjJQ3kjXk_6OvtrFc19ehh7_GoVBZZ/exec";
@@ -165,6 +168,33 @@ export async function subirEvidenciasPendientes() {
     return { subidas, fallidas };
 }
 
+// ---------- espejo de lectura ----------
+
+/**
+ * Visitas del equipo, traídas del espejo.
+ *
+ * Pasa por Apps Script y no directo a Supabase porque la PWA solo tiene la clave anónima,
+ * que es pública: con ella cualquiera podría pedir las visitas de cualquier correo. Apps
+ * Script ya verifica el id_token de Google, así que ahí el correo sí es de fiar.
+ *
+ * Devuelve [] en vez de lanzar: el equipo es información adicional. Que no llegue no puede
+ * romper la pantalla de quien está capturando lo suyo.
+ */
+export async function descargarVisitasEquipo({ desde = null, hasta = null, limite = 2000 } = {}) {
+    if (!navigator.onLine) return { visitas: [], espejo: false };
+
+    try {
+        const r = await postear({ action: 'leerVisitasEquipo', desde, hasta, limite });
+        return {
+            visitas: Array.isArray(r?.visitas) ? r.visitas : [],
+            espejo: r?.espejo === true
+        };
+    } catch (err) {
+        console.error('No se pudieron leer las visitas del equipo:', err);
+        return { visitas: [], espejo: false };
+    }
+}
+
 // ---------- administración ----------
 
 /** Reemplaza los catálogos compartidos. Requiere ser admin: el servidor lo vuelve a revisar. */
@@ -184,11 +214,25 @@ export async function sincronizarEventos() {
     return { enviados: pendientes.length };
 }
 
+/**
+ * Bitácora de comentarios. Van al final, junto con los eventos: referencian visitas que ya
+ * subieron y ninguno de los dos bloquea la captura si falla.
+ */
+export async function sincronizarComentarios() {
+    const pendientes = comentariosPendientes();
+    if (pendientes.length === 0) return { enviados: 0 };
+
+    await postear({ action: 'guardarComentarios', comentarios: pendientes });
+    marcarComentarios(pendientes.map(c => c.id));
+    return { enviados: pendientes.length };
+}
+
 /** Orden importante: primero las filas, luego los archivos, y al final se reenvían las URLs. */
 export async function sincronizarTodo() {
     const visitas = await sincronizarVisitas();
     const evidencias = await subirEvidenciasPendientes();
     if (evidencias.subidas > 0) await sincronizarVisitas();
     const eventos = await sincronizarEventos();
-    return { visitas, evidencias, eventos };
+    const comentarios = await sincronizarComentarios();
+    return { visitas, evidencias, eventos, comentarios };
 }
