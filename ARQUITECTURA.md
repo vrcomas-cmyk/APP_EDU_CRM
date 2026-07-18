@@ -17,8 +17,20 @@ llama:
 
 | Original | Ahora | Mayor archivo |
 |---|---|---|
-| `js/drawer.js` (1,390 líneas) | `modules/visitas/` — 9 archivos | ~290 |
+| `js/drawer.js` (1,390 líneas) | `modules/visitas/` — 10 archivos | ~290 |
 | `js/calendario.js` (759 líneas) | `modules/agenda/` — 10 archivos | ~255 |
+| `js/actividad.js` (662 líneas) | `modules/actividades/` — 6 archivos | ~265 |
+
+### Las ventanas cuelgan del `host` que reciben, nunca de `document.body`
+
+`.drawer-raiz` es `z-index: 50` y crea su propio contexto de apilado; `.modal` es `z-index: 20`.
+Una ventana montada FUERA de ese contexto queda por debajo del drawer: se ve a medias y los
+clics se los come el scrim, cuya respuesta es ofrecer descartar la visita.
+
+Ya ocurrió una vez, con la ventana de sector, y el síntoma reportado fue que no se podían
+agregar sectores a una visita nueva. Por eso el drawer renderiza un `<div>` que React deja
+siempre vacío —y que por tanto nunca reconcilia— dentro de `.drawer-raiz`, y todas las ventanas
+se cuelgan de ahí.
 
 ### El arrastre no pasa por el estado de React
 
@@ -176,7 +188,9 @@ publicar en internet una clave que se salta todas las políticas de la base.
 
 ## Lo que todavía no está hecho
 
-- `actividad.js`, `sector.js`, `dashboard.js`, `admin.js` y `app.js` siguen siendo vanilla.
+- `sector.js`, `dashboard.js`, `admin.js`, `revision.js` y `app.js` siguen siendo vanilla.
+- `materiales.js`, `evidencias.js`, `vistaprevia.js` e `hilo.js` devuelven nodos DOM y se
+  montan con `NodoVanilla`. Ese componente debe quedarse sin usos y desaparecer.
 - La barra de navegación del calendario vive en `index.html`, fuera del árbol de React, y se
   enlaza con un hook (`useControlesExternos`) que pone `textContent` a mano. Es un artefacto
   de la migración; desaparece cuando se porte el shell.

@@ -68,7 +68,15 @@ export interface Reagenda {
 
 // ---------- el árbol ----------
 
-export type EstadoEvidencia = 'local' | 'subida';
+/**
+ * `pendiente` = todavía no se eligió archivo. `local` = hay archivo en el teléfono esperando
+ * señal. `subida` = ya está en Drive.
+ *
+ * Los tres estados importan: `pendiente` y `local` se ven igual en la lista —falta evidencia—
+ * pero solo `local` significa que hay algo que subir, y confundirlos haría que la cola
+ * intentara enviar archivos que no existen.
+ */
+export type EstadoEvidencia = 'pendiente' | 'local' | 'subida';
 
 /** Una evidencia es un ARCHIVO. Dónde vive lo decide el repositorio, no quien la muestra. */
 export interface Evidencia {

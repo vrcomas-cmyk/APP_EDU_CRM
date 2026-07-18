@@ -19,7 +19,9 @@ import * as _geo from '../../js/geo.js';
 import * as _auth from '../../js/auth.js';
 import * as _eventos from '../../js/eventos.js';
 
-import type { Visita, Sector, Actividad, Marca, Sesion, SaludVisita, EstadoSector } from './tipos';
+import type {
+    Visita, Sector, Actividad, Marca, Sesion, SaludVisita, EstadoSector, ModoCampo
+} from './tipos';
 
 // ---------- estado (salud, ciclo de vida, tiempo) ----------
 
@@ -42,6 +44,19 @@ export const buscarSolapes = _estado.buscarSolapes as (
 // ---------- catálogos ----------
 
 export const requiereEvidencia = _catalogos.requiereEvidencia as (a: Actividad) => boolean;
+
+export const MODOS = _catalogos.MODOS as Record<string, ModoCampo>;
+export const configuracionCampos = _catalogos.configuracionCampos as (
+    tipo?: string
+) => Record<string, ModoCampo>;
+export const campoVisible = _catalogos.campoVisible as (tipo: string | undefined, campo: string) => boolean;
+export const campoEditable = _catalogos.campoEditable as (tipo: string | undefined, campo: string) => boolean;
+export const camposExtra = _catalogos.camposExtra as (tipo?: string) => string[];
+export const tiposActividad = _catalogos.tiposActividad as () => Array<{ nombre: string }>;
+export const areas = _catalogos.areas as () => string[];
+export const tiposEvidencia = _catalogos.tiposEvidencia as () => string[];
+
+export const describirDispositivo = _geo.describirDispositivo as () => string;
 
 // ---------- acciones de negocio ----------
 

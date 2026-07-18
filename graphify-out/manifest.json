@@ -69,11 +69,6 @@
     "ast_hash": "e6d53698c3db320b1c25fa39f7017143",
     "semantic_hash": "e6d53698c3db320b1c25fa39f7017143"
   },
-  "js/actividad.js": {
-    "mtime": 1784371270.712445,
-    "ast_hash": "f8a41068b71deb437b0d1d8f0f9bc5b0",
-    "semantic_hash": "f8a41068b71deb437b0d1d8f0f9bc5b0"
-  },
   "js/campos.js": {
     "mtime": 1784364288.6534894,
     "ast_hash": "2ee553f4bf0a3104fa7b90fcdf02c4ca",
@@ -190,9 +185,9 @@
     "semantic_hash": "78989117e4dd54fe38e37198cb84a967"
   },
   "src/core/tipos.ts": {
-    "mtime": 1784400859.4445577,
-    "ast_hash": "c1ad53411726b576e1f4722448dbfd49",
-    "semantic_hash": "c1ad53411726b576e1f4722448dbfd49"
+    "mtime": 1784403597.4295404,
+    "ast_hash": "889a00de919e048fa1ac459b4ca145e6",
+    "semantic_hash": "889a00de919e048fa1ac459b4ca145e6"
   },
   "src/modules/usuarios/permissions/can.ts": {
     "mtime": 1784400976.494557,
@@ -250,9 +245,9 @@
     "semantic_hash": "20f0b6fac47bb364e64cad17dd2a0274"
   },
   "src/core/puente.ts": {
-    "mtime": 1784402550.4585469,
-    "ast_hash": "95bb62a5dc6e750c93d8a3c50339b7dd",
-    "semantic_hash": "95bb62a5dc6e750c93d8a3c50339b7dd"
+    "mtime": 1784403547.5585406,
+    "ast_hash": "12267fd1065a0fb4f0dfb29b0d2418e9",
+    "semantic_hash": "12267fd1065a0fb4f0dfb29b0d2418e9"
   },
   "src/modules/visitas/components/BloqueCheck.tsx": {
     "mtime": 1784401633.3495529,
@@ -295,9 +290,9 @@
     "semantic_hash": "0bbeaeb93773d4efae1446709b133877"
   },
   "src/modules/visitas/montarDrawer.tsx": {
-    "mtime": 1784403431.2755413,
-    "ast_hash": "30f77ba85d12e24092b4ca8ee7c0e8de",
-    "semantic_hash": "30f77ba85d12e24092b4ca8ee7c0e8de"
+    "mtime": 1784403855.5715387,
+    "ast_hash": "efc3a155325ebbf4b19e77e2e240ee9a",
+    "semantic_hash": "efc3a155325ebbf4b19e77e2e240ee9a"
   },
   "src/modules/visitas/repository/visitasRepo.ts": {
     "mtime": 1784401797.5585518,
@@ -413,5 +408,50 @@
     "mtime": 1784403459.8355412,
     "ast_hash": "0879987133a0cbf45293df36be954118",
     "semantic_hash": "0879987133a0cbf45293df36be954118"
+  },
+  "src/modules/actividades/components/ActividadSellada.tsx": {
+    "mtime": 1784403763.9045393,
+    "ast_hash": "73e562b4b66fb9674b6cee83049fa83c",
+    "semantic_hash": "73e562b4b66fb9674b6cee83049fa83c"
+  },
+  "src/modules/actividades/components/FormularioActividad.tsx": {
+    "mtime": 1784403745.1995394,
+    "ast_hash": "bc646d1ef9d86925a71672a60815c9b6",
+    "semantic_hash": "bc646d1ef9d86925a71672a60815c9b6"
+  },
+  "src/modules/actividades/components/VentanaActividad.tsx": {
+    "mtime": 1784403821.282539,
+    "ast_hash": "a7d497fa5a6245876b30e2da51bb6754",
+    "semantic_hash": "a7d497fa5a6245876b30e2da51bb6754"
+  },
+  "src/modules/actividades/montarActividad.tsx": {
+    "mtime": 1784403869.8505385,
+    "ast_hash": "8e2497db671f444108d663490d66fbba",
+    "semantic_hash": "8e2497db671f444108d663490d66fbba"
+  },
+  "src/modules/actividades/services/fabricas.ts": {
+    "mtime": 1784403597.4335403,
+    "ast_hash": "c1267106f04b700acc87228ea0ed9e37",
+    "semantic_hash": "c1267106f04b700acc87228ea0ed9e37"
+  },
+  "src/modules/actividades/validators/requisitos.ts": {
+    "mtime": 1784403573.5635405,
+    "ast_hash": "55512ba39ef47dc5e4cc89cbd55b3601",
+    "semantic_hash": "55512ba39ef47dc5e4cc89cbd55b3601"
+  },
+  "src/shared/components/NodoVanilla.tsx": {
+    "mtime": 1784403705.1155396,
+    "ast_hash": "93bbd6132f74d546b5747ad8a5f6545e",
+    "semantic_hash": "93bbd6132f74d546b5747ad8a5f6545e"
+  },
+  "tests/VentanaActividad.test.tsx": {
+    "mtime": 1784403992.3465378,
+    "ast_hash": "38a82fb5b190aad720c68257319a735b",
+    "semantic_hash": "38a82fb5b190aad720c68257319a735b"
+  },
+  "tests/actividades-dominio.test.ts": {
+    "mtime": 1784403685.5355399,
+    "ast_hash": "a28a0052fd7e5cbc7fa95a5253b42b26",
+    "semantic_hash": "a28a0052fd7e5cbc7fa95a5253b42b26"
   }
 }

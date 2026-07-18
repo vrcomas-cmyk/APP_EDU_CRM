@@ -19,7 +19,7 @@ import * as repo from './repository/visitasRepo';
 import { sesionActual, type Avisar } from '@core/puente';
 
 import { abrirSector } from '../../../js/sector.js';
-import { abrirActividad } from '../../../js/actividad.js';
+import { abrirActividad } from '@modules/actividades/montarActividad';
 
 let raiz: Root | null = null;
 let contenedor: HTMLDivElement | null = null;
@@ -111,13 +111,13 @@ function pintar(): void {
                 }}
                 abrirVentanaActividad={(sectorId, actividadId, alTerminar, anfitrion) => {
                     abrirActividad({
-                        host: anfitrion ?? contenedor,
-                        visitaId: visitaAbierta,
+                        host: (anfitrion ?? contenedor)!,
+                        visitaId: visitaAbierta!,
                         sectorId,
                         actividadId,
                         alToast: avisar,
                         alCambiar: () => { version++; alTerminar(); alCambiar(); pintar(); }
-                    } as never);
+                    });
                 }}
             />
         </StrictMode>
