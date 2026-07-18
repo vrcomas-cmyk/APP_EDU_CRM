@@ -18,7 +18,7 @@ import { nuevaVisita, type DatosNuevaVisita } from './services/fabricas';
 import * as repo from './repository/visitasRepo';
 import { sesionActual, type Avisar } from '@core/puente';
 
-import { abrirSector } from '../../../js/sector.js';
+import { abrirSector } from '@modules/sectores/montarSector';
 import { abrirActividad } from '@modules/actividades/montarActividad';
 
 let raiz: Root | null = null;
@@ -96,18 +96,16 @@ function pintar(): void {
                 onCerrar={cerrar}
                 abrirOtraVisita={abrirVisita}
                 abrirVentanaSector={(sectorId, alTerminar, anfitrion) => {
-                    // Las ventanas vanilla infieren su firma de los valores por defecto del
-                    // JS, que son más estrechos que lo que de verdad aceptan.
                     abrirSector({
                         // El anfitrión va DENTRO de `.drawer-raiz` por el apilado; ver el
                         // comentario en VisitaDrawer. Nunca `contenedor`.
-                        host: anfitrion ?? contenedor,
-                        visitaId: visitaAbierta,
+                        host: (anfitrion ?? contenedor)!,
+                        visitaId: visitaAbierta!,
                         sectorId,
                         alToast: avisar,
                         alCambiar: () => { version++; alCambiar(); pintar(); },
                         alCerrar: () => { version++; alTerminar(); }
-                    } as never);
+                    });
                 }}
                 abrirVentanaActividad={(sectorId, actividadId, alTerminar, anfitrion) => {
                     abrirActividad({

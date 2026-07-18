@@ -55,6 +55,8 @@ export const camposExtra = _catalogos.camposExtra as (tipo?: string) => string[]
 export const tiposActividad = _catalogos.tiposActividad as () => Array<{ nombre: string }>;
 export const areas = _catalogos.areas as () => string[];
 export const tiposEvidencia = _catalogos.tiposEvidencia as () => string[];
+export const sectores = _catalogos.sectores as () => string[];
+export const origenes = _catalogos.origenes as () => string[];
 
 export const describirDispositivo = _geo.describirDispositivo as () => string;
 

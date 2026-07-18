@@ -20,6 +20,7 @@ llama:
 | `js/drawer.js` (1,390 líneas) | `modules/visitas/` — 10 archivos | ~290 |
 | `js/calendario.js` (759 líneas) | `modules/agenda/` — 10 archivos | ~255 |
 | `js/actividad.js` (662 líneas) | `modules/actividades/` — 6 archivos | ~265 |
+| `js/sector.js` (406 líneas) | `modules/sectores/` — 4 archivos | ~330 |
 
 ### Las ventanas cuelgan del `host` que reciben, nunca de `document.body`
 
@@ -188,7 +189,7 @@ publicar en internet una clave que se salta todas las políticas de la base.
 
 ## Lo que todavía no está hecho
 
-- `sector.js`, `dashboard.js`, `admin.js`, `revision.js` y `app.js` siguen siendo vanilla.
+- `dashboard.js`, `admin.js`, `revision.js`, `paleta.js` y `app.js` siguen siendo vanilla.
 - `materiales.js`, `evidencias.js`, `vistaprevia.js` e `hilo.js` devuelven nodos DOM y se
   montan con `NodoVanilla`. Ese componente debe quedarse sin usos y desaparecer.
 - La barra de navegación del calendario vive en `index.html`, fuera del árbol de React, y se

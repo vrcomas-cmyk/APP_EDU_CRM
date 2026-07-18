@@ -79,11 +79,6 @@
     "ast_hash": "9fb1772efc04ed6ac552eb9980224b4e",
     "semantic_hash": "9fb1772efc04ed6ac552eb9980224b4e"
   },
-  "js/sector.js": {
-    "mtime": 1784368236.3594644,
-    "ast_hash": "fb620edc8b08f15c0c34293064084064",
-    "semantic_hash": "fb620edc8b08f15c0c34293064084064"
-  },
   "js/comentarios.js": {
     "mtime": 1784370933.4264472,
     "ast_hash": "1c1f7a1f3695ce2fbb6cd7e3226b3d01",
@@ -245,9 +240,9 @@
     "semantic_hash": "20f0b6fac47bb364e64cad17dd2a0274"
   },
   "src/core/puente.ts": {
-    "mtime": 1784403547.5585406,
-    "ast_hash": "12267fd1065a0fb4f0dfb29b0d2418e9",
-    "semantic_hash": "12267fd1065a0fb4f0dfb29b0d2418e9"
+    "mtime": 1784404641.1905336,
+    "ast_hash": "c589a518f638c205986801d4a1baed49",
+    "semantic_hash": "c589a518f638c205986801d4a1baed49"
   },
   "src/modules/visitas/components/BloqueCheck.tsx": {
     "mtime": 1784401633.3495529,
@@ -290,9 +285,9 @@
     "semantic_hash": "0bbeaeb93773d4efae1446709b133877"
   },
   "src/modules/visitas/montarDrawer.tsx": {
-    "mtime": 1784403855.5715387,
-    "ast_hash": "efc3a155325ebbf4b19e77e2e240ee9a",
-    "semantic_hash": "efc3a155325ebbf4b19e77e2e240ee9a"
+    "mtime": 1784404641.2235336,
+    "ast_hash": "563abc01f1e3aa7438ef2e54f6ce2dbd",
+    "semantic_hash": "563abc01f1e3aa7438ef2e54f6ce2dbd"
   },
   "src/modules/visitas/repository/visitasRepo.ts": {
     "mtime": 1784401797.5585518,
@@ -453,5 +448,30 @@
     "mtime": 1784403685.5355399,
     "ast_hash": "a28a0052fd7e5cbc7fa95a5253b42b26",
     "semantic_hash": "a28a0052fd7e5cbc7fa95a5253b42b26"
+  },
+  "src/modules/sectores/components/VentanaSector.tsx": {
+    "mtime": 1784404620.5005338,
+    "ast_hash": "106a400b33468a9aa1a3ddbe3023c52a",
+    "semantic_hash": "106a400b33468a9aa1a3ddbe3023c52a"
+  },
+  "src/modules/sectores/montarSector.tsx": {
+    "mtime": 1784404641.2015338,
+    "ast_hash": "13b735324da08218abb502319d111186",
+    "semantic_hash": "13b735324da08218abb502319d111186"
+  },
+  "src/modules/sectores/services/busqueda.ts": {
+    "mtime": 1784404575.1535342,
+    "ast_hash": "4ee7feab8dba014d9c8ffef030aef059",
+    "semantic_hash": "4ee7feab8dba014d9c8ffef030aef059"
+  },
+  "src/modules/sectores/validators/requisitos.ts": {
+    "mtime": 1784404571.0775342,
+    "ast_hash": "f6770cdd5734fc0bb46ce0a945941dac",
+    "semantic_hash": "f6770cdd5734fc0bb46ce0a945941dac"
+  },
+  "tests/sectores.test.tsx": {
+    "mtime": 1784404758.258533,
+    "ast_hash": "e58d8f613092aba976fc5af3720f7618",
+    "semantic_hash": "e58d8f613092aba976fc5af3720f7618"
   }
 }
