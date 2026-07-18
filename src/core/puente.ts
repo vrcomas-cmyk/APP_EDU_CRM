@@ -73,6 +73,26 @@ export const bloqueoParaActividades = _visita.bloqueoParaActividades as (v: Visi
 // ---------- fechas, ubicación, sesión ----------
 
 export const etiquetaDiaLarga = _fechas.etiquetaDiaLarga as (dia?: string) => string;
+export const claveDia = _fechas.claveDia as (d: Date | string) => string;
+export const claveHoy = _fechas.claveHoy as () => string;
+export const desdeClave = _fechas.desdeClave as (clave: string) => Date;
+export const sumarDias = _fechas.sumarDias as (d: Date, n: number) => Date;
+export const sumarMeses = _fechas.sumarMeses as (d: Date, n: number) => Date;
+export const diasDeSemana = _fechas.diasDeSemana as (d: Date) => string[];
+export const diasDeCuadriculaMes = _fechas.diasDeCuadriculaMes as (d: Date) => string[];
+export const etiquetaMes = _fechas.etiquetaMes as (d: Date) => string;
+export const etiquetaRangoSemana = _fechas.etiquetaRangoSemana as (d: Date) => string;
+export const inicialesDias = _fechas.inicialesDias as () => string[];
+export const DIAS_ABREV = _fechas.DIAS_ABREV as string[];
+export const hora = _fechas.hora as (h: string) => string;
+
+export const SALUD = _estado.SALUD as Record<string, string>;
+export const duracionHoras = _estado.duracionHoras as (v: Visita) => number;
+export const inicioDe = _estado.inicioDe as (v: Visita) => Date | null;
+export const finDe = _estado.finDe as (v: Visita) => Date | null;
+export const repartirEnColumnas = _estado.repartirEnColumnas as (
+    visitas: Visita[]
+) => Array<{ visita: Visita; columna: number; columnas: number }>;
 export const describirUbicacion = _geo.describirUbicacion as (m: Marca) => string;
 export const precisionDudosa = _geo.precisionDudosa as (u: unknown) => boolean;
 export const sesionActual = _auth.sesionActual as () => Sesion | null;

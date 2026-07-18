@@ -1,13 +1,8 @@
 {
   "js/app.js": {
-    "mtime": 1784401870.2265513,
-    "ast_hash": "557805cc1bbb9e916da62d75ddb7d6e9",
-    "semantic_hash": "557805cc1bbb9e916da62d75ddb7d6e9"
-  },
-  "js/calendario.js": {
-    "mtime": 1784366228.778477,
-    "ast_hash": "9c517f04fa05bb718b9e94a2f654850b",
-    "semantic_hash": "9c517f04fa05bb718b9e94a2f654850b"
+    "mtime": 1784402768.0905457,
+    "ast_hash": "420731aee656a61b7ae898ecd13f7bac",
+    "semantic_hash": "420731aee656a61b7ae898ecd13f7bac"
   },
   "js/evidencias.js": {
     "mtime": 1784315048.3109472,
@@ -255,9 +250,9 @@
     "semantic_hash": "20f0b6fac47bb364e64cad17dd2a0274"
   },
   "src/core/puente.ts": {
-    "mtime": 1784402177.9005494,
-    "ast_hash": "d60a9068d62519080e3146773affaa59",
-    "semantic_hash": "d60a9068d62519080e3146773affaa59"
+    "mtime": 1784402550.4585469,
+    "ast_hash": "95bb62a5dc6e750c93d8a3c50339b7dd",
+    "semantic_hash": "95bb62a5dc6e750c93d8a3c50339b7dd"
   },
   "src/modules/visitas/components/BloqueCheck.tsx": {
     "mtime": 1784401633.3495529,
@@ -320,9 +315,9 @@
     "semantic_hash": "af41b85106d4d23056a5459fd3dc15ce"
   },
   "src/modules/visitas/validators/requisitos.ts": {
-    "mtime": 1784401393.4495542,
-    "ast_hash": "21a9dad9aa06d6fe5f1ca08a25023e7d",
-    "semantic_hash": "21a9dad9aa06d6fe5f1ca08a25023e7d"
+    "mtime": 1784402481.7345474,
+    "ast_hash": "d20fae1b27e239411c42f2f6e0e6bf45",
+    "semantic_hash": "d20fae1b27e239411c42f2f6e0e6bf45"
   },
   "src/shared/components/Combo.tsx": {
     "mtime": 1784401557.2455533,
@@ -348,5 +343,70 @@
     "mtime": 1784401486.7575536,
     "ast_hash": "1b33dbfd4ba091c59b92a776f8979095",
     "semantic_hash": "1b33dbfd4ba091c59b92a776f8979095"
+  },
+  "src/modules/agenda/components/AgendaMovil.tsx": {
+    "mtime": 1784402687.258546,
+    "ast_hash": "f1c03e38aa6327811b332f6c1905c95f",
+    "semantic_hash": "f1c03e38aa6327811b332f6c1905c95f"
+  },
+  "src/modules/agenda/components/Calendario.tsx": {
+    "mtime": 1784402768.0775456,
+    "ast_hash": "968090f51ed4414243b912096878a155",
+    "semantic_hash": "968090f51ed4414243b912096878a155"
+  },
+  "src/modules/agenda/components/RejillaHoras.tsx": {
+    "mtime": 1784402659.0035462,
+    "ast_hash": "2c04f341e75560738909ede163c1a6d0",
+    "semantic_hash": "2c04f341e75560738909ede163c1a6d0"
+  },
+  "src/modules/agenda/components/TarjetaVisita.tsx": {
+    "mtime": 1784402637.0405464,
+    "ast_hash": "cbd187b0141d2963bd8cccb858b62b5c",
+    "semantic_hash": "cbd187b0141d2963bd8cccb858b62b5c"
+  },
+  "src/modules/agenda/components/VistaMes.tsx": {
+    "mtime": 1784402672.6115463,
+    "ast_hash": "7931689973ee53a1978ca97861ddb68f",
+    "semantic_hash": "7931689973ee53a1978ca97861ddb68f"
+  },
+  "src/modules/agenda/hooks/useArrastre.ts": {
+    "mtime": 1784402595.8015466,
+    "ast_hash": "67348ed1b309a85fef2757aeaddca989",
+    "semantic_hash": "67348ed1b309a85fef2757aeaddca989"
+  },
+  "src/modules/agenda/hooks/useCalendario.ts": {
+    "mtime": 1784402611.6985466,
+    "ast_hash": "9f64b0ec3d7ac8c60312ac05ffc22c8e",
+    "semantic_hash": "9f64b0ec3d7ac8c60312ac05ffc22c8e"
+  },
+  "src/modules/agenda/montarCalendario.tsx": {
+    "mtime": 1784402753.0135458,
+    "ast_hash": "3d98ed208d3a161d570c0e8ade5133ea",
+    "semantic_hash": "3d98ed208d3a161d570c0e8ade5133ea"
+  },
+  "src/modules/agenda/services/arrastre.ts": {
+    "mtime": 1784402456.1925476,
+    "ast_hash": "cec9ddc4dbc23ee231befbb2a560e9fb",
+    "semantic_hash": "cec9ddc4dbc23ee231befbb2a560e9fb"
+  },
+  "src/modules/agenda/services/ventana.ts": {
+    "mtime": 1784402438.9485476,
+    "ast_hash": "d0c59b31d6e504eb174a83cb17c088ce",
+    "semantic_hash": "d0c59b31d6e504eb174a83cb17c088ce"
+  },
+  "src/shared/components/Indicadores.tsx": {
+    "mtime": 1784402621.7475464,
+    "ast_hash": "557c03f03e08aa1de0955171e15b9681",
+    "semantic_hash": "557c03f03e08aa1de0955171e15b9681"
+  },
+  "tests/Calendario.test.tsx": {
+    "mtime": 1784402897.0835447,
+    "ast_hash": "8bb7a39778c7020fe7c21bacff47b8f9",
+    "semantic_hash": "8bb7a39778c7020fe7c21bacff47b8f9"
+  },
+  "tests/agenda-dominio.test.ts": {
+    "mtime": 1784402525.4705472,
+    "ast_hash": "838fb2be078e1a3c5280ff80db1adcb6",
+    "semantic_hash": "838fb2be078e1a3c5280ff80db1adcb6"
   }
 }

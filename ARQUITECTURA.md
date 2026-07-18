@@ -12,9 +12,26 @@ js/*.js          ← lo que todavía no se porta. Encoge con cada iteración.
 src/             ← la arquitectura nueva. Crece módulo a módulo.
 ```
 
-**Portado hasta ahora:** el drawer de visitas (`js/drawer.js`, 1,390 líneas → 9 archivos, el
-mayor de ~290). Expone la misma API que antes desde `montarDrawer.tsx`, así que `app.js` y
-`calendario.js` no cambiaron.
+**Portado hasta ahora**, ambos exponiendo la misma API que antes para no tocar a quien los
+llama:
+
+| Original | Ahora | Mayor archivo |
+|---|---|---|
+| `js/drawer.js` (1,390 líneas) | `modules/visitas/` — 9 archivos | ~290 |
+| `js/calendario.js` (759 líneas) | `modules/agenda/` — 10 archivos | ~255 |
+
+### El arrastre no pasa por el estado de React
+
+Los tres gestos del calendario —crear arrastrando, mover, redimensionar— mutan directamente un
+elemento **fantasma** durante el gesto, y solo tocan el estado al soltar.
+
+Un `setState` por `pointermove` re-renderizaría el calendario entero sesenta veces por segundo,
+con sus tarjetas y su reparto en columnas; en un teléfono de gama media eso se siente como que
+el arrastre "se pega". El fantasma además deja la tarjeta original quieta, que es lo que
+permite cancelar el gesto sin haber movido nada.
+
+Era la técnica del calendario anterior. No era un atajo: era la decisión correcta, y se
+conserva.
 
 Vite consume los módulos ES actuales sin modificarlos, así que el paquete que se construye hoy
 es la misma aplicación de siempre. Lo que se va moviendo a `src/` deja de existir en `js/`; lo
@@ -159,8 +176,10 @@ publicar en internet una clave que se salta todas las políticas de la base.
 
 ## Lo que todavía no está hecho
 
-- `calendario.js`, `actividad.js`, `sector.js`, `dashboard.js` y `admin.js` siguen siendo
-  vanilla. El drawer los invoca a través de `montarDrawer.tsx`.
+- `actividad.js`, `sector.js`, `dashboard.js`, `admin.js` y `app.js` siguen siendo vanilla.
+- La barra de navegación del calendario vive en `index.html`, fuera del árbol de React, y se
+  enlaza con un hook (`useControlesExternos`) que pone `textContent` a mano. Es un artefacto
+  de la migración; desaparece cuando se porte el shell.
 - `js/sync.js` y `js/permisos.js` aún tienen su propio `fetch`; la capa de servicios existe y
   está probada, pero todavía no está conectada a ellos.
 - **Costo del cambio a React: ~60 kB gzip.** El paquete pasó de 39 kB a ~100 kB. En la red de

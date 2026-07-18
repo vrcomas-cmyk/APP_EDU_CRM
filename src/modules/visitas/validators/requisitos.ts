@@ -33,6 +33,17 @@ export function faltaParaGuardar(visita: Visita): string[] {
     if (!visita.dia) falta.push('Fecha');
     if (!visita.hora_inicio) falta.push('Hora de inicio');
     if (!visita.hora_fin) falta.push('Hora de término');
+
+    // El horario no solo tiene que estar: tiene que tener sentido.
+    //
+    // El formulario ya impide teclear un fin anterior al inicio, pero un rango puede llegar
+    // YA invertido desde fuera —el calendario lo producía al arrastrar contra el borde
+    // inferior de la rejilla— y entonces esa validación nunca llega a correr. Comprobarlo
+    // aquí lo cubre venga de donde venga.
+    if (visita.hora_inicio && visita.hora_fin && visita.hora_fin <= visita.hora_inicio) {
+        falta.push('Un horario válido (el término debe ser posterior al inicio)');
+    }
+
     if (!(visita.sectores || []).length) falta.push('Al menos un sector');
 
     return falta;
