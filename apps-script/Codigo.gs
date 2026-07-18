@@ -46,7 +46,23 @@
  *         https://myaccount.google.com/permissions, quita el acceso de este proyecto y
  *         repite el paso (c).
  *
- *   5. Implementar → Gestionar implementaciones → editar la existente (icono del lápiz) →
+ *   5. PERMISO DE CONEXIÓN EXTERNA (el mismo problema que el de Drive, pero con otro permiso):
+ *      Desde que el login verifica el id_token con Google y ahora también consulta Supabase
+ *      para saber quién es admin, el script necesita "script.external_request". Si ves el
+ *      error "Los permisos especificados no son suficientes para llamar a UrlFetchApp.fetch",
+ *      es este paso el que falta — y NO se arregla corriendo "autorizar" ni
+ *      "revisarConfiguracion": ninguna de las dos toca UrlFetchApp, así que ejecutarlas no
+ *      pide este permiso aunque ya esté en el manifiesto.
+ *
+ *      a) Confirma que "oauthScopes" en appsscript.json incluya también:
+ *              "https://www.googleapis.com/auth/script.external_request"
+ *      b) Selecciona la función "probarConexionExterna" (no otra) y dale Ejecutar. Esa sí
+ *         llama a UrlFetchApp, así que ahora SÍ te va a pedir el permiso nuevo. Acepta.
+ *      c) El registro debe decir "✅ Conexión externa OK".
+ *      d) Igual que con Drive: si no te vuelve a pedir permisos, quita el acceso en
+ *         https://myaccount.google.com/permissions y repite (b).
+ *
+ *   6. Implementar → Gestionar implementaciones → editar la existente (icono del lápiz) →
  *      Versión: Nueva → Implementar.
  *        - Ejecutar como: Yo
  *        - Quién tiene acceso: CUALQUIER PERSONA   <-- indispensable, si no la PWA recibe 401
@@ -124,6 +140,20 @@ const PROP_CLIENTE = 'CARPETA_CLIENTE_';
 const HOJA_TIPOS = 'TiposActividad';
 const HOJA_ORIGENES = 'Origenes';
 const HOJA_ADMINS = 'Admins';
+const HOJA_AREAS = 'Areas';
+const HOJA_UNIDADES = 'Unidades';
+const HOJA_TIPOS_EVIDENCIA = 'TiposEvidencia';
+
+// Sectores que Administración decidió NO ofrecer. Se guarda la lista de EXCLUIDOS y no la de
+// activos a propósito: los sectores salen de la hoja de Materiales, que cambia sola cuando
+// Comercial da de alta producto. Guardando los activos, cada sector nuevo nacería invisible
+// hasta que alguien se acordara de encenderlo; guardando los ocultos, nace disponible.
+const HOJA_SECTORES_OCULTOS = 'SectoresOcultos';
+
+// Un renglón por (tipo, campo): qué pide cada tipo de actividad. Es la tabla que arma los
+// formularios de la PWA. Se guarda así —y no como JSON en una celda— para que siga siendo
+// legible y editable a mano desde la hoja, como el resto de los catálogos.
+const HOJA_CAMPOS = 'CamposActividad';
 
 // ---------- IDENTIDAD (Google Sign-In) ----------
 //
@@ -167,13 +197,20 @@ const ENCABEZADOS_VISITAS = [
     'checkin_usuario', 'checkin_dispositivo', 'checkin_sin_ubicacion',
     'checkout_momento', 'checkout_lat', 'checkout_lng', 'checkout_precision_m', 'checkout_direccion',
     'checkout_usuario', 'checkout_sin_ubicacion',
-    'permanencia_min', 'reagendas', 'actualizado'
+    'permanencia_min', 'reagendas', 'actualizado',
+    // Se agregan AL FINAL, nunca junto a la columna con la que se leen. `obtenerHoja` exige
+    // que las columnas ya existentes coincidan en nombre Y posición: meter una en medio haría
+    // tronar la sincronización de todas las hojas que ya están en producción.
+    'solicitado_por', 'sector_guardado_momento', 'sector_guardado_usuario'
 ];
 
 const ENCABEZADOS_ACTIVIDADES = [
     'id_actividad', 'id_padre', 'id_visita', 'sector', 'tipo', 'area_visitada',
     'contacto_nombre', 'contacto_cargo', 'contacto_servicio',
-    'evidencia_url', 'evidencia_estado', 'creada', 'actualizado'
+    'evidencia_url', 'evidencia_estado', 'creada', 'actualizado',
+    // El sello de guardado. La PWA solo manda actividades selladas, así que estas tres nunca
+    // deberían llegar vacías; si alguna lo está, esa fila viene de datos migrados.
+    'guardada_momento', 'guardada_usuario', 'guardada_dispositivo'
 ];
 
 const ENCABEZADOS_MATERIALES_CAPTURA = [
@@ -199,6 +236,10 @@ function doGet() {
             // por defecto: la app funciona desde el primer día, sin configurar nada.
             tipos_actividad: leerTipos(),
             origenes: leerOrigenes(db),
+            areas: leerAreas(db),
+            unidades: leerUnidades(db),
+            tipos_evidencia: leerTiposEvidencia(db),
+            sectores_ocultos: leerSectoresOcultos(db),
             admins: leerAdmins(db),
             materiales: leerMateriales(db)
         });
@@ -366,8 +407,11 @@ var _tiposCache = null;
 function leerTipos() {
     if (_tiposCache) return _tiposCache;
 
-    var hoja = SpreadsheetApp.openById(SHEET_DB_ID).getSheetByName(HOJA_TIPOS);
+    var db = SpreadsheetApp.openById(SHEET_DB_ID);
+    var hoja = db.getSheetByName(HOJA_TIPOS);
     if (!hoja || hoja.getLastRow() < 2) return (_tiposCache = []);
+
+    var campos = leerCamposActividad(db);
 
     var datos = hoja.getDataRange().getValues();
     var col = function (nombre) { return datos[0].indexOf(nombre); };
@@ -383,7 +427,8 @@ function leerTipos() {
             evidencia: siNo(datos[i][iEvid], true),   // por defecto SÍ pide evidencia
             materiales: siNo(datos[i][iMat], false),
             folio: siNo(datos[i][iFol], false),
-            gerente: siNo(datos[i][iGer], false)
+            gerente: siNo(datos[i][iGer], false),
+            campos: campos[nombre] || {}
         });
     }
     return _tiposCache;
@@ -400,6 +445,49 @@ function siNo(valor, porDefecto) {
 
 function leerOrigenes(db) {
     return leerColumnaUnica(db, HOJA_ORIGENES, 'origen');
+}
+
+function leerAreas(db) {
+    return leerColumnaUnica(db, HOJA_AREAS, 'area');
+}
+
+function leerUnidades(db) {
+    return leerColumnaUnica(db, HOJA_UNIDADES, 'unidad');
+}
+
+function leerTiposEvidencia(db) {
+    return leerColumnaUnica(db, HOJA_TIPOS_EVIDENCIA, 'tipo_evidencia');
+}
+
+function leerSectoresOcultos(db) {
+    return leerColumnaUnica(db, HOJA_SECTORES_OCULTOS, 'sector');
+}
+
+/**
+ * Configuración de campos: { 'Capacitación': { area_visitada: 'obligatorio', ... }, ... }
+ *
+ * Lo que no esté aquí la PWA lo resuelve con sus defaults, así que una pestaña vacía o
+ * inexistente NO deja los formularios sin campos: los deja como venían.
+ */
+function leerCamposActividad(db) {
+    var hoja = db.getSheetByName(HOJA_CAMPOS);
+    if (!hoja || hoja.getLastRow() < 2) return {};
+
+    var datos = hoja.getDataRange().getValues();
+    var col = function (nombre) { return datos[0].indexOf(nombre); };
+    var iTipo = col('tipo'), iCampo = col('campo'), iModo = col('modo');
+    if (iTipo === -1 || iCampo === -1 || iModo === -1) return {};
+
+    var salida = {};
+    for (var i = 1; i < datos.length; i++) {
+        var tipo = String(datos[i][iTipo]).trim();
+        var campo = String(datos[i][iCampo]).trim();
+        var modo = String(datos[i][iModo]).trim().toLowerCase();
+        if (!tipo || !campo || !modo) continue;
+        if (!salida[tipo]) salida[tipo] = {};
+        salida[tipo][campo] = modo;
+    }
+    return salida;
 }
 
 /** Correos con acceso al módulo de administración. */
@@ -472,13 +560,16 @@ function guardarVisitas(visitas, identidad) {
                     checkOut.momento || '', checkOut.lat != null ? checkOut.lat : '',
                     checkOut.lng != null ? checkOut.lng : '', checkOut.precision_m != null ? checkOut.precision_m : '',
                     direccionDe(checkOut), checkOut.usuario || '', checkOut.error || '',
-                    permanencia != null ? permanencia : '', (visita.reagendas || []).length, ahora
+                    permanencia != null ? permanencia : '', (visita.reagendas || []).length, ahora,
+                    sector.solicitado_por || '',
+                    (sector.guardado || {}).momento || '', (sector.guardado || {}).usuario || ''
                 ]
             });
 
             (sector.actividades || []).forEach(function (act) {
                 var contacto = act.contacto || {};
                 var evidencia = act.evidencia || {};
+                var sello = act.guardada || {};
 
                 filasHija.push({
                     id: act.id,
@@ -487,7 +578,8 @@ function guardarVisitas(visitas, identidad) {
                         act.tipo || '', act.area_visitada || '',
                         contacto.nombre || '', contacto.cargo || '', contacto.servicio || '',
                         evidencia.url || '', evidencia.estado || '',
-                        act.creada || '', ahora
+                        act.creada || '', ahora,
+                        sello.momento || '', sello.usuario || '', sello.dispositivo || ''
                     ]
                 });
 
@@ -602,10 +694,38 @@ function guardarCatalogosAdmin(body, identidad) {
             body.tipos_actividad.map(function (t) {
                 return [t.nombre || '', t.evidencia ? 'si' : 'no', t.materiales ? 'si' : 'no', '', ''];
             }));
+
+        // La matriz de campos se reescribe entera junto con los tipos: si un tipo se borró,
+        // sus renglones de campos tienen que irse con él o quedarían huérfanos configurando
+        // un tipo que ya no existe.
+        var filasCampos = [];
+        body.tipos_actividad.forEach(function (t) {
+            var campos = t.campos || {};
+            Object.keys(campos).forEach(function (campo) {
+                if (!t.nombre || !campos[campo]) return;
+                filasCampos.push([t.nombre, campo, campos[campo]]);
+            });
+        });
+        reemplazarHoja(db, HOJA_CAMPOS, ['tipo', 'campo', 'modo'], filasCampos);
+
         _tiposCache = null; // se cachea por request; esto invalida la de la próxima llamada
     }
     if (Array.isArray(body.origenes)) {
         reemplazarHoja(db, HOJA_ORIGENES, ['origen'], body.origenes.map(function (o) { return [o]; }));
+    }
+    if (Array.isArray(body.areas)) {
+        reemplazarHoja(db, HOJA_AREAS, ['area'], body.areas.map(function (a) { return [a]; }));
+    }
+    if (Array.isArray(body.unidades)) {
+        reemplazarHoja(db, HOJA_UNIDADES, ['unidad'], body.unidades.map(function (u) { return [u]; }));
+    }
+    if (Array.isArray(body.tipos_evidencia)) {
+        reemplazarHoja(db, HOJA_TIPOS_EVIDENCIA, ['tipo_evidencia'],
+            body.tipos_evidencia.map(function (t) { return [t]; }));
+    }
+    if (Array.isArray(body.sectores_ocultos)) {
+        reemplazarHoja(db, HOJA_SECTORES_OCULTOS, ['sector'],
+            body.sectores_ocultos.map(function (x) { return [x]; }));
     }
     if (Array.isArray(body.educadores)) {
         reemplazarHoja(db, HOJA_EDUCADORES, ['nombre', 'correo'],
@@ -935,6 +1055,31 @@ function autorizar() {
     }
 
     Logger.log('✅ Todo listo. Ya puedes crear la NUEVA VERSIÓN de la implementación.');
+}
+
+/**
+ * Corre ESTA función (no "autorizar" ni "revisarConfiguracion") para activar el permiso de
+ * conexión externa. Apps Script solo pide un permiso cuando la ejecución REALMENTE lo usa;
+ * ni "autorizar" (solo toca Drive) ni "revisarConfiguracion" (solo lee Sheets) llaman a
+ * UrlFetchApp, así que ejecutarlas nunca dispara el consentimiento de este permiso, aunque
+ * ya esté listado en el manifiesto. Ver el paso 4b de arriba.
+ */
+function probarConexionExterna() {
+    var resp = UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/rpc/pdt_es_admin', {
+        method: 'post',
+        contentType: 'application/json',
+        headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY },
+        payload: JSON.stringify({ p_correo: 'nadie@degasa.com' }),
+        muteHttpExceptions: true
+    });
+    Logger.log('Código HTTP: %s', resp.getResponseCode());
+    Logger.log('Respuesta: %s', resp.getContentText());
+    if (resp.getResponseCode() === 200) {
+        Logger.log('✅ Conexión externa OK. Ya puedes crear la NUEVA VERSIÓN de la implementación.');
+    } else {
+        Logger.log('⚠ Se pudo conectar (el permiso ya quedó autorizado) pero Supabase no ' +
+                   'respondió 200 — revisa la URL/clave si esto no es solo una prueba.');
+    }
 }
 
 /**

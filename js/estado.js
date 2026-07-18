@@ -64,7 +64,9 @@ export function saludDe(visita) {
     if (estadoDe(visita) === ESTADOS.CANCELADA) return SALUD.CANCELADA;
     if (!tieneCheckIn(visita)) return SALUD.NEUTRA;
 
-    const actividades = actividadesDe(visita);
+    // Solo lo guardado cuenta: un borrador a medio escribir no es trabajo registrado, y
+    // pintar la visita de verde por él afirmaría algo que todavía no ocurrió.
+    const actividades = actividadesGuardadasDe(visita);
     if (actividades.length === 0) return SALUD.SIN_REGISTRAR;
 
     return evidenciasPendientesDe(visita).length === 0
@@ -81,11 +83,16 @@ export function detalleEstado(visita) {
     }
     if (!tieneCheckIn(visita)) return 'Programada';
 
-    const actividades = actividadesDe(visita);
+    const actividades = actividadesGuardadasDe(visita);
     const faltan = evidenciasPendientesDe(visita).length;
     const prefijo = etiquetaEstado(estado);
 
-    if (actividades.length === 0) return `${prefijo} · sin actividades`;
+    if (actividades.length === 0) {
+        const borradores = actividadesDe(visita).length;
+        return borradores > 0
+            ? `${prefijo} · ${borradores} sin guardar`
+            : `${prefijo} · sin actividades`;
+    }
 
     const n = `${actividades.length} actividad${actividades.length === 1 ? '' : 'es'}`;
     if (faltan === 0) return `${prefijo} · ${n}`;
@@ -99,12 +106,26 @@ export function actividadesDe(visita) {
 }
 
 /**
+ * Una actividad cuenta como registro cuando tiene su sello de guardado. Antes de eso es
+ * captura en curso: existe en el teléfono para no perderse, pero todavía no afirma nada.
+ *
+ * La distinción no es cosmética. Un borrador no sube, no suma a la salud de la visita y no
+ * genera deuda de evidencia — pedir la foto de algo que aún no se termina de escribir es
+ * deuda que nadie puede saldar.
+ */
+export function estaGuardada(actividad) { return !!actividad?.guardada; }
+
+export function actividadesGuardadasDe(visita) {
+    return actividadesDe(visita).filter(estaGuardada);
+}
+
+/**
  * Deuda real: solo cuentan las actividades cuyo TIPO exige evidencia. Marcar una
  * "Revisión de anaquel" como pendiente sería deuda imposible de saldar, y una bandeja llena
  * de cosas que no se pueden cerrar se deja de mirar.
  */
 export function evidenciasPendientesDe(visita) {
-    return actividadesDe(visita)
+    return actividadesGuardadasDe(visita)
         .filter(a => requiereEvidencia(a) && a.evidencia?.estado !== 'subida');
 }
 
@@ -116,7 +137,8 @@ export function evidenciasPendientesDe(visita) {
 export function deudaGlobal(visitas = leerVisitas()) {
     const vivas = visitas.filter(v => estadoDe(v) !== ESTADOS.CANCELADA && tieneCheckIn(v));
     return todasLasActividades(vivas)
-        .filter(({ actividad }) => requiereEvidencia(actividad) && actividad.evidencia?.estado !== 'subida');
+        .filter(({ actividad }) => estaGuardada(actividad)
+            && requiereEvidencia(actividad) && actividad.evidencia?.estado !== 'subida');
 }
 
 // ---------- estado de un sector ----------

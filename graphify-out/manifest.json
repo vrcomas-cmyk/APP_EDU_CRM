@@ -5,19 +5,19 @@
     "semantic_hash": "22c2f0e5e919eacb9203afd3d700ce1d"
   },
   "sw.js": {
-    "mtime": 1784317813.311829,
-    "ast_hash": "4dca46dcbc4ca67ef5c2b06069e84ea0",
-    "semantic_hash": "4dca46dcbc4ca67ef5c2b06069e84ea0"
+    "mtime": 1784368518.6604626,
+    "ast_hash": "d2c6dbc3c176d95c6be6f6d3eefa8dc3",
+    "semantic_hash": "d2c6dbc3c176d95c6be6f6d3eefa8dc3"
   },
   "js/app.js": {
-    "mtime": 1784317682.9328346,
-    "ast_hash": "0832ffa57af6aa9beb8194544267ebb6",
-    "semantic_hash": "0832ffa57af6aa9beb8194544267ebb6"
+    "mtime": 1784366255.002477,
+    "ast_hash": "1e2ea1026cec818cda303c578b3d72db",
+    "semantic_hash": "1e2ea1026cec818cda303c578b3d72db"
   },
   "js/calendario.js": {
-    "mtime": 1784297019.517486,
-    "ast_hash": "0a838a03c2a553de47d092591e3f067f",
-    "semantic_hash": "0a838a03c2a553de47d092591e3f067f"
+    "mtime": 1784366228.778477,
+    "ast_hash": "9c517f04fa05bb718b9e94a2f654850b",
+    "semantic_hash": "9c517f04fa05bb718b9e94a2f654850b"
   },
   "js/evidencias.js": {
     "mtime": 1784315048.3109472,
@@ -30,14 +30,14 @@
     "semantic_hash": "9ad099bd7815756c01b896bcc402825e"
   },
   "js/storage.js": {
-    "mtime": 1784275204.7032316,
-    "ast_hash": "a32236aa6cf5f86c762f9279f43f0894",
-    "semantic_hash": "a32236aa6cf5f86c762f9279f43f0894"
+    "mtime": 1784365953.3764787,
+    "ast_hash": "834b5679b7985ff8310ddc603a0a35a7",
+    "semantic_hash": "834b5679b7985ff8310ddc603a0a35a7"
   },
   "js/sync.js": {
-    "mtime": 1784300292.9442534,
-    "ast_hash": "e46220bd961cc6743f093c6a79fa947f",
-    "semantic_hash": "e46220bd961cc6743f093c6a79fa947f"
+    "mtime": 1784366228.778477,
+    "ast_hash": "200477ba1d78a68219dd1866fa7932d9",
+    "semantic_hash": "200477ba1d78a68219dd1866fa7932d9"
   },
   "apps-script/appsscript.json": {
     "mtime": 1784300658.4472275,
@@ -45,24 +45,24 @@
     "semantic_hash": "db0a4cd920e3e343ea65019754e17221"
   },
   "js/estado.js": {
-    "mtime": 1784275128.01423,
-    "ast_hash": "4f6e84cb78c44c60383ca569e4588366",
-    "semantic_hash": "4f6e84cb78c44c60383ca569e4588366"
+    "mtime": 1784364056.6804907,
+    "ast_hash": "d7b0d4e54685f541d70b47e656181201",
+    "semantic_hash": "d7b0d4e54685f541d70b47e656181201"
   },
   "js/catalogos.js": {
-    "mtime": 1784275228.3812318,
-    "ast_hash": "a315787c13028f215997621f991f1c03",
-    "semantic_hash": "a315787c13028f215997621f991f1c03"
+    "mtime": 1784368563.8824623,
+    "ast_hash": "f0789f0f283972b12a53f02e84b96ac1",
+    "semantic_hash": "f0789f0f283972b12a53f02e84b96ac1"
   },
   "js/drawer.js": {
-    "mtime": 1784315031.5309477,
-    "ast_hash": "59ab8ce7eefa9b744fbdd584a4115295",
-    "semantic_hash": "59ab8ce7eefa9b744fbdd584a4115295"
+    "mtime": 1784368553.1064622,
+    "ast_hash": "507613ff48c328157cba8ba7796fd717",
+    "semantic_hash": "507613ff48c328157cba8ba7796fd717"
   },
   "js/admin.js": {
-    "mtime": 1784317671.490835,
-    "ast_hash": "46fbcd389c537f616292682050fc1c10",
-    "semantic_hash": "46fbcd389c537f616292682050fc1c10"
+    "mtime": 1784368429.348463,
+    "ast_hash": "9de9d200d779f03a78de361bd2f4e507",
+    "semantic_hash": "9de9d200d779f03a78de361bd2f4e507"
   },
   "js/auth.js": {
     "mtime": 1784300199.94926,
@@ -88,5 +88,25 @@
     "mtime": 1784275265.9412327,
     "ast_hash": "e6d53698c3db320b1c25fa39f7017143",
     "semantic_hash": "e6d53698c3db320b1c25fa39f7017143"
+  },
+  "js/actividad.js": {
+    "mtime": 1784368334.0224638,
+    "ast_hash": "dc7a104b0d4709448b7e95c7d0fb1941",
+    "semantic_hash": "dc7a104b0d4709448b7e95c7d0fb1941"
+  },
+  "js/campos.js": {
+    "mtime": 1784364288.6534894,
+    "ast_hash": "2ee553f4bf0a3104fa7b90fcdf02c4ca",
+    "semantic_hash": "2ee553f4bf0a3104fa7b90fcdf02c4ca"
+  },
+  "js/materiales.js": {
+    "mtime": 1784364305.0664892,
+    "ast_hash": "9fb1772efc04ed6ac552eb9980224b4e",
+    "semantic_hash": "9fb1772efc04ed6ac552eb9980224b4e"
+  },
+  "js/sector.js": {
+    "mtime": 1784368236.3594644,
+    "ast_hash": "fb620edc8b08f15c0c34293064084064",
+    "semantic_hash": "fb620edc8b08f15c0c34293064084064"
   }
 }

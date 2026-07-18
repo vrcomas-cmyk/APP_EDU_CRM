@@ -2,13 +2,24 @@
  * Drawer. Lateral en escritorio, bottom-sheet a altura completa en móvil. Nunca modal
  * centrado: al agendar la pregunta real es "¿dónde cabe esto?", y un modal tapa la respuesta.
  *
- * Tres niveles que se empujan:
- *   VISITA    agendar (todo editable) o ver una ya creada (congelada, con check-in/out).
- *   SECTOR    su objetivo, su origen y sus actividades.
- *   MATERIAL  ventana propia para buscar y capturar un material.
+ * Dos niveles que se empujan:
+ *   VISITA    capturarla (borrador) o ver una ya guardada (congelada, con check-in/out).
+ *   SECTOR    sus datos ya sellados y la lista de sus actividades. Solo en visitas guardadas.
  *
- * Una vez creada, la visita se CONGELA: cliente, hospital, fecha y horario la identifican.
- * Para moverla está Reagendar, que deja historial; editarlos en silencio borraría el rastro.
+ * El SECTOR, la ACTIVIDAD y el MATERIAL no se capturan aquí: cada uno abre su ventana propia
+ * (sector.js, actividad.js, materiales.js). El drawer los lista y los cuenta.
+ *
+ * ── Las dos vidas de la visita ───────────────────────────────────────────────────────
+ *
+ *   BORRADOR   Nada existe todavía. Fecha y horario nacen VACÍOS —un valor por defecto se
+ *              acepta sin leerlo— y el botón Guardar no se habilita hasta que estén los siete
+ *              obligatorios, sectores incluidos. Cerrar sin guardar descarta.
+ *
+ *   GUARDADA   Cliente, hospital, educador, fecha y horario la identifican, así que se
+ *              congelan; sus sectores se sellan en el mismo acto. Para moverla está
+ *              Reagendar, que deja historial: editarlos en silencio borraría el rastro.
+ *              Lo que sigue abierto son las acciones — check-in/out, agregar sector,
+ *              registrar actividades — nunca la edición de lo ya afirmado.
  */
 
 import {
@@ -16,20 +27,19 @@ import {
     eliminarVisita, nuevoId, historialHospitales
 } from './storage.js';
 import {
-    buscarSolapes, saludDe, estadoDe, detalleEstado, etiquetaEstado, ESTADOS,
+    buscarSolapes, saludDe, estadoDe, detalleEstado, ESTADOS,
     duracionTexto, permanenciaTexto, tieneCheckIn, tieneCheckOut,
-    estadoSector, etiquetaSector
+    estadoSector, etiquetaSector, estaGuardada
 } from './estado.js';
-import {
-    tiposActividad, origenes, areas, unidades, reglaDe, camposExtra,
-    requiereMateriales, buscarMateriales, hayMateriales
-} from './catalogos.js';
+import { requiereEvidencia } from './catalogos.js';
 import {
     iniciarVisita, finalizarVisita, reagendarVisita, cancelarVisita, reactivarVisita,
-    bloqueoParaActividades, puedeIniciar, puedeFinalizar
+    bloqueoParaActividades, puedeIniciar
 } from './visita.js';
 import { registrar, TIPOS } from './eventos.js';
-import { controlEvidencia, quitarEvidencia } from './evidencias.js';
+import { abrirActividad } from './actividad.js';
+import { abrirSector } from './sector.js';
+import { envolver, resaltar, dato } from './campos.js';
 import { describirUbicacion, precisionDudosa } from './geo.js';
 import { etiquetaDiaLarga, horaAMinutos as aMinutos, minutosAHora } from './fechas.js';
 import { sesionActual } from './auth.js';
@@ -54,7 +64,7 @@ export function initDrawer({ onCambio, onToast } = {}) {
 
     const scrim = document.createElement('div');
     scrim.className = 'scrim';
-    scrim.addEventListener('click', cerrar);
+    scrim.addEventListener('click', () => cerrar());
 
     const panel = document.createElement('aside');
     panel.className = 'drawer';
@@ -76,16 +86,24 @@ export function initDrawer({ onCambio, onToast } = {}) {
 
 export function hayDrawerAbierto() { return el.raiz && !el.raiz.hidden; }
 
-/** `hora_fin` la trae el drag-to-create del calendario; sin ella, la duración por defecto es 1h. */
-export function abrirNuevaVisita({ dia, hora_inicio = '09:00', hora_fin } = {}) {
+/**
+ * Nueva visita, siempre como BORRADOR: no existe para nadie hasta que se guarde.
+ *
+ * Fecha y horario llegan vacíos a propósito. Antes se sembraban con hoy y 09:00, y una visita
+ * quedaba registrada con una fecha que nadie eligió — abrir el formulario sin querer bastaba
+ * para ensuciar el calendario. Un campo vacío obliga a decidir; uno prellenado se acepta sin
+ * leerlo.
+ *
+ * La excepción es arrastrar sobre el calendario: ahí el gesto YA eligió día y horas, así que
+ * llegan puestas. Eso no es un valor por defecto, es lo que el usuario acaba de señalar.
+ */
+export function abrirNuevaVisita({ dia = '', hora_inicio = '', hora_fin = '' } = {}) {
     const sesion = sesionActual();
     const visita = agregarVisita({
         id: nuevoId('v'),
         educador: sesion?.nombre || '', educador_correo: sesion?.correo || '',
         cliente: '', hospital: '',
-        dia: dia || hoyISO(),
-        hora_inicio,
-        hora_fin: hora_fin || sumarMinutos(hora_inicio, 60),
+        dia, hora_inicio, hora_fin,
         estado: ESTADOS.PROGRAMADA,
         reagendas: [],
         sectores: [],
@@ -107,16 +125,28 @@ function abrir(id) {
     el.panel.querySelector('input, button')?.focus({ preventScroll: true });
 }
 
+/**
+ * Cerrar sin guardar DESCARTA el borrador.
+ *
+ * Es deliberado y es lo contrario de lo que hace la actividad, que sí conserva su borrador.
+ * La diferencia es que la actividad cuelga de una visita que ya existe y se ve en su lista;
+ * una visita a medias no colgaría de nada. Guardarla la pondría en el calendario como una cita
+ * real que nadie confirmó, y no guardarla pero conservarla la volvería invisible: trabajo
+ * atrapado en un registro que ya no aparece por ningún lado.
+ *
+ * Si hay algo escrito se pregunta antes; un clic de más no debe costar la captura.
+ */
 function cerrar() {
     const visita = obtenerVisita(visitaId);
     if (visita?.borrador) {
-        // Un borrador sin cliente no es una visita: es un clic accidental.
-        if (!visita.cliente?.trim()) {
-            eliminarVisita(visita.id);
-        } else {
-            // Llegó con datos (p. ej. duplicada) y se cierra sin tocar nada más: ya es real.
-            registrarProgramada(actualizarVisita(visita.id, v => { delete v.borrador; }));
+        const tieneAlgo = !!(visita.cliente?.trim() || visita.hospital?.trim()
+            || visita.dia || (visita.sectores || []).length);
+
+        if (tieneAlgo
+            && !confirm('Esta visita no se ha guardado.\n\n¿Descartarla? Lo capturado se pierde.')) {
+            return;
         }
+        eliminarVisita(visita.id);
     }
 
     el.raiz.hidden = true;
@@ -128,20 +158,76 @@ function cerrar() {
 
 // ---------- guardado ----------
 
-/** El borrador deja de serlo en su primer edit real: ahí nace la visita para efectos del spec. */
+/** Lo que la visita exige para poder existir. Devuelve [] cuando ya se puede guardar. */
+function faltaParaGuardar(visita) {
+    const falta = [];
+    if (!(visita.educador || '').trim()) falta.push('Educador');
+    if (!(visita.cliente || '').trim()) falta.push('Cliente');
+    if (!(visita.hospital || '').trim()) falta.push('Hospital');
+    if (!visita.dia) falta.push('Fecha');
+    if (!visita.hora_inicio) falta.push('Hora de inicio');
+    if (!visita.hora_fin) falta.push('Hora de término');
+    if (!(visita.sectores || []).length) falta.push('Al menos un sector');
+    return falta;
+}
+
+/**
+ * Aquí nace la visita. Se valida, se le quita el borrador y se sellan sus sectores de paso:
+ * a partir de este clic, objetivo, origen y solicitado_por dejan de editarse.
+ */
+function guardarVisita() {
+    const visita = obtenerVisita(visitaId);
+    if (!visita) return;
+
+    const falta = faltaParaGuardar(visita);
+    if (falta.length > 0) {
+        return alToast(`Falta ${falta.join(' · ')}.`, { estado: 'sin-registrar', ms: 6000 });
+    }
+
+    const sesion = sesionActual();
+    const sello = { momento: new Date().toISOString(), usuario: sesion?.nombre || '' };
+
+    const guardada = actualizarVisita(visitaId, v => {
+        delete v.borrador;
+        (v.sectores || []).forEach(s => { if (!s.guardado) s.guardado = { ...sello }; });
+    });
+
+    registrarProgramada(guardada);
+    alToast('Visita guardada. Sus sectores quedan registrados y ya no se editan.',
+        { estado: 'completa', ms: 5000 });
+    alCambiar();
+    pintar();
+}
+
 function registrarProgramada(visita) {
     registrar(TIPOS.VISITA_PROGRAMADA, visita, {
-        dia: visita.dia, hora_inicio: visita.hora_inicio, hora_fin: visita.hora_fin
+        dia: visita.dia, hora_inicio: visita.hora_inicio, hora_fin: visita.hora_fin,
+        sectores: (visita.sectores || []).map(s => s.nombre).join(', ')
     });
 }
 
+/**
+ * Guarda el cambio en el borrador. NO lo convierte en visita: eso solo lo hace Guardar visita.
+ * El autoguardado es una red contra perder lo escrito, no un registro.
+ */
 function editar(mutador, { repintar = false } = {}) {
-    const eraBorrador = !!obtenerVisita(visitaId)?.borrador;
-    const actualizada = actualizarVisita(visitaId, (v) => { mutador(v); delete v.borrador; });
-    if (eraBorrador) registrarProgramada(actualizada);
+    actualizarVisita(visitaId, mutador);
     marcarGuardado();
     alCambiar();
     if (repintar) pintar();
+    else refrescarPie();
+}
+
+/**
+ * Repinta SOLO el pie. Escribir el nombre del cliente puede ser lo último que faltaba para
+ * poder guardar, así que el botón tiene que reaccionar tecla a tecla — pero repintar el panel
+ * entero en cada letra sacaría el cursor del campo en el que se está escribiendo.
+ */
+function refrescarPie() {
+    if (sectorId) return;
+    const visita = obtenerVisita(visitaId);
+    if (!visita?.borrador) return;
+    el.panel.querySelector('.drawer-foot')?.replaceWith(pie(visita));
 }
 
 function marcarGuardado() {
@@ -205,7 +291,7 @@ function cabeceraVisita(visita) {
     x.className = 'icon-btn';
     x.setAttribute('aria-label', 'Cerrar');
     x.textContent = '✕';
-    x.addEventListener('click', cerrar);
+    x.addEventListener('click', () => cerrar());
 
     head.append(izq, x);
     return head;
@@ -216,11 +302,13 @@ function cuerpoVisita(visita) {
     body.className = 'drawer-body';
 
     if (visita.borrador) {
-        body.append(campoCliente(visita), campoHospital(visita),
+        body.append(campoEducador(visita), campoCliente(visita), campoHospital(visita),
                     campoFecha(visita), campoHoras(visita));
     } else {
         if (estadoDe(visita) === ESTADOS.CANCELADA) body.appendChild(avisoCancelada(visita));
         else body.appendChild(bloqueCheck(visita));
+
+        body.appendChild(panelInformacion(visita));
 
         if (reagendando) body.appendChild(bloqueReagendar(visita));
         if ((visita.reagendas || []).length) body.appendChild(historialReagendas(visita));
@@ -228,6 +316,43 @@ function cuerpoVisita(visita) {
 
     body.appendChild(listaSectores(visita));
     return body;
+}
+
+/**
+ * Panel de información: lo que identifica a la visita, en frío.
+ *
+ * Nunca lleva botón de editar, y no porque se haya olvidado: cliente, hospital, educador,
+ * fecha y horario son lo que la visita AFIRMA. Cambiarlos en silencio la convertiría en otra
+ * visita conservando su historial —su check-in, sus actividades— que ya no le corresponde.
+ * Para moverla está Reagendar; para lo demás, una visita nueva.
+ */
+function panelInformacion(visita) {
+    const caja = document.createElement('div');
+    caja.className = 'campo panel-info';
+
+    const lbl = document.createElement('span');
+    lbl.className = 'campo-lbl';
+    lbl.textContent = 'Información de la visita';
+    caja.appendChild(lbl);
+
+    const datos = document.createElement('div');
+    datos.className = 'datos';
+    datos.append(
+        dato('Educador', visita.educador),
+        dato('Cliente', visita.cliente),
+        dato('Hospital', visita.hospital),
+        dato('Fecha', etiquetaDiaLarga(visita.dia)),
+        dato('Horario', `${visita.hora_inicio}–${visita.hora_fin} · ${duracionTexto(visita)}`),
+        dato('Sectores', String((visita.sectores || []).length))
+    );
+    caja.appendChild(datos);
+
+    const nota = document.createElement('p');
+    nota.className = 'ayuda';
+    nota.textContent = 'Estos datos identifican la visita y no se editan. Usa Reagendar o Cancelar.';
+    caja.appendChild(nota);
+
+    return caja;
 }
 
 /** Check-in / check-out: el hecho de haber estado ahí. */
@@ -392,106 +517,159 @@ function listaSectores(visita) {
     if (visita.sectores.length === 0) {
         const p = document.createElement('p');
         p.className = 'ayuda';
-        p.textContent = 'Agrega los sectores que vas a trabajar.';
+        p.textContent = visita.borrador
+            ? 'Una visita necesita al menos un sector. Agrega los que vas a trabajar.'
+            : 'Esta visita no tiene sectores.';
         caja.appendChild(p);
     }
 
     const lista = document.createElement('div');
     lista.className = 'sectores';
-    visita.sectores.forEach(s => lista.appendChild(filaSector(visita, s)));
+    visita.sectores.forEach(s => lista.appendChild(tarjetaSector(visita, s)));
     caja.appendChild(lista);
 
-    if (estadoDe(visita) !== ESTADOS.CANCELADA) caja.appendChild(chipsAgregarSector(visita));
+    // Un solo botón en vez de la pared de chips del catálogo: la elección vive en su ventana.
+    if (estadoDe(visita) !== ESTADOS.CANCELADA) {
+        const add = document.createElement('button');
+        add.type = 'button';
+        add.className = 'btn-dashed';
+        add.textContent = '+ Agregar sector';
+        add.addEventListener('click', () => abrirVentanaSector(null));
+        caja.appendChild(add);
+    }
     return caja;
 }
 
-function filaSector(visita, sector) {
+/**
+ * Abre la ventana de sectores. En una visita ya guardada, lo que se capture ahí se sella al
+ * cerrarla: la visita ya existe, así que un sector nuevo nace definitivo en vez de esperar a
+ * un "Guardar visita" que ya ocurrió.
+ */
+function abrirVentanaSector(sectorId) {
+    const eraBorrador = !!obtenerVisita(visitaId)?.borrador;
+
+    abrirSector({
+        host: el.raiz,
+        visitaId,
+        sectorId,
+        alToast,
+        alCambiar: () => { alCambiar(); pintar(); },
+        alCerrar: () => {
+            if (eraBorrador) return;
+            const sesion = sesionActual();
+            const sello = { momento: new Date().toISOString(), usuario: sesion?.nombre || '' };
+            actualizarVisita(visitaId, v => {
+                (v.sectores || []).forEach(s => { if (!s.guardado) s.guardado = { ...sello }; });
+            });
+            alCambiar();
+            pintar();
+        }
+    });
+}
+
+/** Lo que un sector lleva acumulado. Se calcula una vez y lo usan la tarjeta y la cabecera. */
+function resumenSector(sector) {
+    const actividades = sector.actividades || [];
+    return {
+        actividades: actividades.length,
+        borradores: actividades.filter(a => !estaGuardada(a)).length,
+        materiales: actividades.reduce((n, a) => n + (a.materiales || []).length, 0),
+        evidenciasPendientes: actividades
+            .filter(a => requiereEvidencia(a) && a.evidencia?.estado !== 'subida').length
+    };
+}
+
+/**
+ * Tarjeta de sector. Muestra de un vistazo todo lo que se querría saber antes de entrar:
+ * qué se buscaba, quién lo pidió, y cuánto se lleva registrado. Los contadores importan más
+ * que el detalle — desde afuera la pregunta es "¿me falta algo aquí?", no "¿qué dice?".
+ */
+function tarjetaSector(visita, sector) {
     const est = estadoSector(visita, sector);
-    const pendientes = (sector.actividades || [])
-        .filter(a => reglaDe(a.tipo).evidencia && a.evidencia?.estado !== 'subida').length;
+    const r = resumenSector(sector);
 
-    const fila = document.createElement('button');
-    fila.type = 'button';
-    fila.className = 'sector-fila';
-    fila.dataset.sector = sector.id;
-    fila.dataset.estado = est;
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'sector-card';
+    card.dataset.sector = sector.id;
+    card.dataset.estado = est;
 
-    const txt = document.createElement('span');
-    txt.className = 'sector-fila-txt';
+    // --- cabecera: nombre + estado ---
+    const head = document.createElement('span');
+    head.className = 'sector-card-head';
 
     const nombre = document.createElement('span');
-    nombre.className = 'sector-fila-nombre';
+    nombre.className = 'sector-card-nombre';
     nombre.textContent = sector.nombre;
-
-    const resumen = document.createElement('span');
-    resumen.className = 'sector-fila-resumen';
-    resumen.textContent = [sector.objetivo, (sector.origen || []).join(', ')]
-        .filter(Boolean).join(' · ') || 'Sin objetivo';
-
-    txt.append(nombre, resumen);
-
-    const meta = document.createElement('span');
-    meta.className = 'sector-fila-meta';
 
     const chip = document.createElement('span');
     chip.className = `sector-estado es-${est}`;
     chip.textContent = etiquetaSector(est);
-    meta.appendChild(chip);
-
-    if (pendientes > 0) {
-        const p = document.createElement('span');
-        p.className = 'pill st-faltan-evidencias';
-        p.textContent = `${pendientes} evid.`;
-        meta.appendChild(p);
-    }
 
     const flecha = document.createElement('span');
     flecha.className = 'sector-fila-flecha';
     flecha.textContent = '›';
 
-    fila.append(txt, meta, flecha);
-    fila.addEventListener('click', () => { sectorId = sector.id; pintar(); });
-    return fila;
-}
+    head.append(nombre, chip, flecha);
 
-function chipsAgregarSector(visita) {
-    const caja = document.createElement('div');
-    caja.className = 'agregar-sector';
+    // --- objetivo, origen y quién lo pidió ---
+    const cuerpo = document.createElement('span');
+    cuerpo.className = 'sector-card-cuerpo';
 
-    const catalogo = (leerCatalogo() || {}).sectores || [];
-    const usados = visita.sectores.map(s => s.nombre);
-    const libres = catalogo.filter(s => !usados.includes(s));
+    const objetivo = document.createElement('span');
+    objetivo.className = 'sector-card-objetivo';
+    objetivo.textContent = sector.objetivo || 'Sin objetivo';
+    if (!sector.objetivo) objetivo.classList.add('es-vacio');
+    cuerpo.appendChild(objetivo);
 
-    if (libres.length === 0) {
-        const p = document.createElement('p');
-        p.className = 'ayuda';
-        p.textContent = catalogo.length === 0
-            ? 'El catálogo de sectores no ha cargado todavía.'
-            : 'Ya agregaste todos los sectores del catálogo.';
-        caja.appendChild(p);
-        return caja;
+    const procedencia = [
+        (sector.origen || []).join(', '),
+        sector.solicitado_por ? `Pidió: ${sector.solicitado_por}` : ''
+    ].filter(Boolean).join(' · ');
+    if (procedencia) {
+        const p = document.createElement('span');
+        p.className = 'sector-card-origen';
+        p.textContent = procedencia;
+        cuerpo.appendChild(p);
     }
 
-    const chips = document.createElement('div');
-    chips.className = 'chips';
-    libres.forEach(nombre => {
-        const chip = document.createElement('button');
-        chip.type = 'button';
-        chip.className = 'chip add';
-        chip.textContent = nombre;
-        chip.addEventListener('click', () => {
-            const id = nuevoId('s');
-            editar(v => {
-                v.sectores.push({ id, nombre, objetivo: '', origen: [], actividades: [] });
-            });
-            sectorId = id;   // se entra directo: agregarlo sin objetivo no sirve de nada
-            pintar();
-        });
-        chips.appendChild(chip);
-    });
+    // --- contadores ---
+    const meta = document.createElement('span');
+    meta.className = 'sector-card-meta';
 
-    caja.appendChild(chips);
-    return caja;
+    meta.appendChild(contador(r.actividades, r.actividades === 1 ? 'actividad' : 'actividades'));
+    if (r.materiales > 0) {
+        meta.appendChild(contador(r.materiales, r.materiales === 1 ? 'material' : 'materiales'));
+    }
+    if (r.borradores > 0) {
+        const b = document.createElement('span');
+        b.className = 'pill st-programada';
+        b.textContent = `${r.borradores} sin guardar`;
+        meta.appendChild(b);
+    }
+    if (r.evidenciasPendientes > 0) {
+        const p = document.createElement('span');
+        p.className = 'pill st-faltan-evidencias';
+        p.textContent = `${r.evidenciasPendientes} evid.`;
+        meta.appendChild(p);
+    }
+
+    card.append(head, cuerpo, meta);
+
+    // Mientras la visita es borrador el sector todavía se corrige, y eso pasa en su ventana.
+    // Ya guardada, entrar al sector es entrar a sus actividades: no hay nada que editar.
+    card.addEventListener('click', () => {
+        if (visita.borrador) abrirVentanaSector(sector.id);
+        else { sectorId = sector.id; pintar(); }
+    });
+    return card;
+}
+
+function contador(n, etiqueta) {
+    const c = document.createElement('span');
+    c.className = 'sector-cuenta';
+    c.textContent = `${n} ${etiqueta}`;
+    return c;
 }
 
 // ---------- nivel sector ----------
@@ -527,65 +705,47 @@ function cabeceraSector(visita, sector) {
     x.className = 'icon-btn';
     x.setAttribute('aria-label', 'Cerrar');
     x.textContent = '✕';
-    x.addEventListener('click', cerrar);
+    x.addEventListener('click', () => cerrar());
 
     head.append(volver, izq, x);
     return head;
 }
 
+/**
+ * El sector, ya sellado. Solo se llega aquí desde una visita guardada —mientras es borrador,
+ * el sector se corrige en su ventana— así que no hay nada editable: objetivo, origen y quién
+ * lo pidió son parte de lo que la visita afirmó al guardarse.
+ *
+ * Lo único que sigue abierto son las actividades, que es justo lo que se viene a hacer aquí.
+ */
 function cuerpoSector(visita, sector) {
     const body = document.createElement('div');
     body.className = 'drawer-body';
-    const enV = (v) => v.sectores.find(s => s.id === sector.id);
 
-    body.append(
-        campoTexto('Objetivo', sector.objetivo, '¿Qué se busca lograr aquí?',
-            (t) => editar(v => { enV(v).objetivo = t; })),
-        chipsOrigen(sector, enV),
-        bloqueActividades(visita, sector)
-    );
-
-    if (estadoDe(visita) !== ESTADOS.CANCELADA && (sector.actividades || []).length === 0) {
-        const quitar = document.createElement('button');
-        quitar.type = 'button';
-        quitar.className = 'btn-txt peligro';
-        quitar.textContent = 'Quitar este sector de la visita';
-        quitar.addEventListener('click', () => {
-            sectorId = null;
-            editar(v => { v.sectores = v.sectores.filter(s => s.id !== sector.id); }, { repintar: true });
-        });
-        body.appendChild(quitar);
-    }
-    return body;
-}
-
-function chipsOrigen(sector, enV) {
-    const caja = document.createElement('div');
-    caja.className = 'campo';
+    const info = document.createElement('div');
+    info.className = 'campo panel-info';
 
     const lbl = document.createElement('span');
     lbl.className = 'campo-lbl';
-    lbl.textContent = 'Origen de la actividad';
+    lbl.textContent = 'Sector registrado';
+    info.appendChild(lbl);
 
-    const chips = document.createElement('div');
-    chips.className = 'chips';
+    const datos = document.createElement('div');
+    datos.className = 'datos';
+    datos.append(
+        dato('Objetivo', sector.objetivo),
+        dato('Origen de la actividad', (sector.origen || []).join(', ')),
+        dato('Solicitado por', sector.solicitado_por)
+    );
+    info.appendChild(datos);
 
-    origenes().forEach(origen => {
-        const activo = (sector.origen || []).includes(origen);
-        const chip = document.createElement('button');
-        chip.type = 'button';
-        chip.className = 'chip' + (activo ? ' on' : '');
-        chip.setAttribute('aria-pressed', String(activo));
-        chip.textContent = origen;
-        chip.addEventListener('click', () => editar(v => {
-            const s = enV(v);
-            s.origen = activo ? s.origen.filter(o => o !== origen) : [...(s.origen || []), origen];
-        }, { repintar: true }));
-        chips.appendChild(chip);
-    });
+    const nota = document.createElement('p');
+    nota.className = 'ayuda';
+    nota.textContent = 'Estos datos se registraron al guardar la visita y no se editan.';
+    info.appendChild(nota);
 
-    caja.append(lbl, chips);
-    return caja;
+    body.append(info, bloqueActividades(visita, sector));
+    return body;
 }
 
 // ---------- actividades ----------
@@ -615,428 +775,96 @@ function bloqueActividades(visita, sector) {
         caja.appendChild(vacio);
     }
 
-    sector.actividades.forEach((act, i) => caja.appendChild(tarjetaActividad(visita, sector, act, i + 1)));
+    sector.actividades.forEach((act, i) => caja.appendChild(filaActividad(sector, act, i + 1)));
 
     const add = document.createElement('button');
     add.type = 'button';
-    add.className = 'btn-dashed';
+    add.className = 'btn btn-principal btn-registrar';
     add.textContent = '+ Registrar actividad';
-    add.addEventListener('click', () => {
-        const id = nuevoId('a');
-        editar(v => {
-            v.sectores.find(s => s.id === sector.id).actividades.push({
-                id, tipo: '', area_visitada: '', creada: new Date().toISOString(),
-                contacto: { nombre: '', cargo: '', servicio: '' },
-                materiales: [],
-                evidencia: { estado: 'pendiente', nombre: '', mime: '', url: '' }
-            });
-        }, { repintar: true });
-        registrar(TIPOS.ACTIVIDAD, obtenerVisita(visitaId), { sector: sector.nombre, id_actividad: id });
-    });
+    add.addEventListener('click', () => abrirVentanaActividad(sector, null));
     caja.appendChild(add);
 
     return caja;
 }
 
-function tarjetaActividad(visita, sector, act, numero) {
-    const regla = reglaDe(act.tipo);
-    const enA = (v) => v.sectores.find(s => s.id === sector.id).actividades.find(a => a.id === act.id);
+/** El drawer no captura actividades: las abre. Una a la vez, en su propia ventana. */
+function abrirVentanaActividad(sector, actividadId) {
+    abrirActividad({
+        host: el.raiz,
+        visitaId,
+        sectorId: sector.id,
+        actividadId,
+        alCambiar: () => { alCambiar(); pintar(); },
+        alToast
+    });
+}
 
-    const card = document.createElement('div');
-    card.className = 'act-card';
+/**
+ * Una actividad en la lista del sector: qué fue, con quién, y en qué estado quedó.
+ *
+ * Es una fila y no una tarjeta desplegada porque desde aquí no se edita nada — solo se decide
+ * cuál abrir. El detalle completo vive en su ventana.
+ */
+function filaActividad(sector, act, numero) {
+    const guardada = estaGuardada(act);
+    const debeEvidencia = requiereEvidencia(act);
 
-    const head = document.createElement('div');
-    head.className = 'act-head';
+    const fila = document.createElement('button');
+    fila.type = 'button';
+    fila.className = 'act-fila' + (guardada ? '' : ' es-borrador');
+    fila.dataset.actividad = act.id;
+
     const n = document.createElement('span');
     n.className = 'act-n';
     n.textContent = numero;
-    const titulo = document.createElement('span');
-    titulo.className = 'act-titulo';
-    titulo.textContent = act.tipo || 'Sin tipo';
-
-    const borrar = document.createElement('button');
-    borrar.type = 'button';
-    borrar.className = 'icon-btn';
-    borrar.setAttribute('aria-label', 'Borrar actividad');
-    borrar.textContent = '✕';
-    borrar.addEventListener('click', async () => {
-        if (!confirm(`¿Borrar esta actividad de ${sector.nombre}?`)) return;
-        // El archivo primero: si se quita la actividad antes, el blob queda huérfano.
-        await quitarEvidencia(act.id).catch(() => {});
-        editar(v => {
-            const s = v.sectores.find(x => x.id === sector.id);
-            s.actividades = s.actividades.filter(a => a.id !== act.id);
-        }, { repintar: true });
-    });
-    head.append(n, titulo, borrar);
-
-    const body = document.createElement('div');
-    body.className = 'act-body';
-
-    // El sector es contexto, no un campo: la app ya sabe desde dónde entraste.
-    const ctx = document.createElement('p');
-    ctx.className = 'act-ctx mono';
-    ctx.textContent = `SECTOR · ${sector.nombre}`;
-    body.appendChild(ctx);
-
-    body.appendChild(selectTipo(act, (tipo) => editar(v => { enA(v).tipo = tipo; }, { repintar: true })));
-    // La regla se DECLARA antes de que los campos aparezcan: el formulario no cambia por magia.
-    body.appendChild(barraRegla(act.tipo, regla));
-
-    body.appendChild(selectSimple('Área visitada', areas(), act.area_visitada,
-        (a) => editar(v => { enA(v).area_visitada = a; })));
-
-    body.appendChild(bloqueContacto(act, enA));
-
-    if (regla.materiales) body.appendChild(bloqueMateriales(visita, sector, act, enA));
-    if (regla.evidencia) body.appendChild(controlEvidencia(act, { alCambiar: pintar, alToast }));
-
-    card.append(head, body);
-    return card;
-}
-
-/**
- * Contacto responsable, uno POR ACTIVIDAD. Aunque sea la misma persona en varias, se guarda
- * en cada una: quién atendió QUÉ es justo lo que se querrá reportar después.
- */
-function bloqueContacto(act, enA) {
-    const caja = document.createElement('div');
-    caja.className = 'contacto';
-
-    const lbl = document.createElement('span');
-    lbl.className = 'campo-lbl';
-    lbl.textContent = 'Contacto responsable';
-    caja.appendChild(lbl);
-
-    const c = act.contacto || {};
-    const set = (campo) => (t) => editar(v => {
-        const a = enA(v);
-        a.contacto = { ...(a.contacto || {}), [campo]: t };
-        if (campo === 'nombre' && t.trim()) {
-            registrar(TIPOS.CONTACTO, obtenerVisita(visitaId), { contacto: t.trim(), id_actividad: a.id });
-        }
-    });
-
-    caja.appendChild(campoTexto('Nombre', c.nombre, 'Dr. Juan Pérez', set('nombre')));
-
-    const fila = document.createElement('div');
-    fila.className = 'grid-2';
-    fila.append(
-        campoTexto('Cargo', c.cargo, 'Jefa de piso', set('cargo')),
-        campoTexto('Servicio', c.servicio, 'Quirófano', set('servicio'))
-    );
-    caja.appendChild(fila);
-    return caja;
-}
-
-// ---------- materiales ----------
-
-function bloqueMateriales(visita, sector, act, enA) {
-    const caja = document.createElement('div');
-    caja.className = 'campo';
-
-    const lbl = document.createElement('span');
-    lbl.className = 'campo-lbl';
-    lbl.textContent = `Materiales · ${(act.materiales || []).length}`;
-    caja.appendChild(lbl);
-
-    (act.materiales || []).forEach(m => caja.appendChild(filaMaterial(m, act, enA)));
-
-    const add = document.createElement('button');
-    add.type = 'button';
-    add.className = 'btn-dashed';
-    add.textContent = '+ Agregar material';
-    add.addEventListener('click', () => abrirModalMaterial(visita, sector, act, enA));
-    caja.appendChild(add);
-
-    if (!hayMateriales(sector.nombre)) {
-        const p = document.createElement('p');
-        p.className = 'ayuda';
-        p.textContent = `No hay materiales de ${sector.nombre} en el catálogo todavía.`;
-        caja.appendChild(p);
-    }
-    return caja;
-}
-
-function filaMaterial(m, act, enA) {
-    const fila = document.createElement('div');
-    fila.className = 'mat-fila';
 
     const txt = document.createElement('span');
-    txt.className = 'mat-txt';
+    txt.className = 'act-fila-txt';
 
-    const nombre = document.createElement('span');
-    nombre.className = 'mat-nombre';
-    nombre.textContent = m.material;
+    const titulo = document.createElement('span');
+    titulo.className = 'act-fila-titulo';
+    titulo.textContent = act.tipo || 'Sin tipo';
+    if (!act.tipo) titulo.classList.add('es-vacio');
+
+    const sub = document.createElement('span');
+    sub.className = 'act-fila-sub';
+    sub.textContent = [
+        act.area_visitada,
+        (act.contacto?.nombre || '').trim(),
+        (act.materiales || []).length ? `${act.materiales.length} mat.` : ''
+    ].filter(Boolean).join(' · ') || 'Sin capturar';
+
+    txt.append(titulo, sub);
 
     const meta = document.createElement('span');
-    meta.className = 'mat-meta mono';
-    meta.textContent = [
-        [m.cantidad, m.unidad].filter(Boolean).join(' '),
-        m.origen
-    ].filter(Boolean).join(' · ');
+    meta.className = 'act-fila-meta';
 
-    txt.append(nombre, meta);
+    if (!guardada) {
+        const b = document.createElement('span');
+        b.className = 'pill st-programada';
+        b.textContent = 'Borrador';
+        meta.appendChild(b);
+    } else if (debeEvidencia && act.evidencia?.estado !== 'subida') {
+        const e = document.createElement('span');
+        e.className = 'pill st-faltan-evidencias';
+        e.textContent = act.evidencia?.estado === 'local' ? 'Evid. en cola' : 'Falta evidencia';
+        meta.appendChild(e);
+    } else {
+        const ok = document.createElement('span');
+        ok.className = 'pill st-completa';
+        ok.textContent = '✓ Completa';
+        meta.appendChild(ok);
+    }
 
-    const x = document.createElement('button');
-    x.type = 'button';
-    x.className = 'icon-btn';
-    x.setAttribute('aria-label', `Quitar ${m.material}`);
-    x.textContent = '✕';
-    x.addEventListener('click', () => editar(v => {
-        const a = enA(v);
-        a.materiales = a.materiales.filter(x2 => x2.id !== m.id);
-    }, { repintar: true }));
+    const flecha = document.createElement('span');
+    flecha.className = 'sector-fila-flecha';
+    flecha.textContent = '›';
 
-    fila.append(txt, x);
+    fila.append(n, txt, meta, flecha);
+    fila.addEventListener('click', () => abrirVentanaActividad(sector, act.id));
     return fila;
 }
 
-/**
- * Ventana propia para el material: buscador + cantidad + unidad + origen. Es una decisión
- * consciente — meter esto inline dentro de la actividad la volvería un formulario largo, que
- * es justo lo que hay que evitar de pie en un pasillo.
- */
-function abrirModalMaterial(visita, sector, act, enA) {
-    const modal = document.createElement('div');
-    modal.className = 'modal';
-
-    const caja = document.createElement('div');
-    caja.className = 'modal-caja';
-
-    const head = document.createElement('div');
-    head.className = 'modal-head';
-    const h = document.createElement('h3');
-    h.textContent = 'Agregar material';
-    const sub = document.createElement('span');
-    sub.className = 'eyebrow';
-    sub.textContent = sector.nombre;   // solo se buscan materiales de ESTE sector
-    const cerrarBtn = document.createElement('button');
-    cerrarBtn.type = 'button';
-    cerrarBtn.className = 'icon-btn';
-    cerrarBtn.setAttribute('aria-label', 'Cerrar');
-    cerrarBtn.textContent = '✕';
-    cerrarBtn.addEventListener('click', () => modal.remove());
-    const izq = document.createElement('div');
-    izq.append(h, sub);
-    head.append(izq, cerrarBtn);
-
-    const body = document.createElement('div');
-    body.className = 'modal-body';
-
-    let elegido = null;
-
-    // --- paso 1: buscar ---
-    const busq = document.createElement('div');
-    busq.className = 'campo';
-    const bl = document.createElement('label');
-    bl.className = 'campo-lbl';
-    bl.textContent = 'Material';
-    const inp = document.createElement('input');
-    inp.type = 'text';
-    inp.className = 'inp';
-    inp.placeholder = 'Escribe para buscar…';
-    inp.autocomplete = 'off';
-    bl.appendChild(inp);
-    const res = document.createElement('div');
-    res.className = 'mat-res';
-    busq.append(bl, res);
-
-    // --- paso 2: los datos, que solo aparecen al elegir ---
-    const detalle = document.createElement('div');
-    detalle.className = 'mat-detalle';
-    detalle.hidden = true;
-
-    const cantidad = document.createElement('input');
-    cantidad.type = 'number';
-    cantidad.min = '0';
-    cantidad.step = 'any';
-    cantidad.className = 'inp mono';
-    cantidad.placeholder = '0';
-
-    const unidad = document.createElement('select');
-    unidad.className = 'inp';
-    const vacio = document.createElement('option');
-    vacio.value = '';
-    vacio.textContent = 'Unidad…';
-    unidad.appendChild(vacio);
-    unidades().forEach(u => {
-        const o = document.createElement('option');
-        o.value = u; o.textContent = u;
-        unidad.appendChild(o);
-    });
-
-    const origen = document.createElement('input');
-    origen.type = 'text';
-    origen.className = 'inp';
-    origen.placeholder = '4500123456 o Juan Pérez';
-
-    const guardar = document.createElement('button');
-    guardar.type = 'button';
-    guardar.className = 'btn';
-    guardar.textContent = 'Agregar';
-
-    const pintarRes = () => {
-        const encontrados = buscarMateriales(sector.nombre, inp.value);
-        res.innerHTML = '';
-
-        if (encontrados.length === 0) {
-            const p = document.createElement('p');
-            p.className = 'ayuda';
-            p.textContent = inp.value.trim()
-                ? `Ningún material de ${sector.nombre} coincide.`
-                : `No hay materiales de ${sector.nombre} en el catálogo.`;
-            res.appendChild(p);
-            return;
-        }
-
-        encontrados.forEach(m => {
-            const b = document.createElement('button');
-            b.type = 'button';
-            b.className = 'mat-opt' + (elegido?.material === m.material ? ' is-sel' : '');
-            // Solo "Material y Nombre": nada más, para no ensuciar la lista.
-            b.append(...resaltar(m.material, inp.value.trim()));
-            b.addEventListener('click', () => {
-                elegido = m;
-                inp.value = m.material;
-                detalle.hidden = false;
-                pintarRes();
-                cantidad.focus();
-            });
-            res.appendChild(b);
-        });
-    };
-
-    inp.addEventListener('input', () => { elegido = null; detalle.hidden = true; pintarRes(); });
-
-    guardar.addEventListener('click', () => {
-        if (!elegido) return alToast('Elige un material de la lista.', { estado: 'sin-registrar' });
-        if (!cantidad.value || Number(cantidad.value) <= 0) {
-            return alToast('Indica cuánto entregaste.', { estado: 'sin-registrar' });
-        }
-        if (!unidad.value) return alToast('Elige la unidad de medida.', { estado: 'sin-registrar' });
-
-        const nuevo = {
-            id: nuevoId('m'),
-            material: elegido.material,
-            cantidad: cantidad.value,
-            unidad: unidad.value,
-            origen: origen.value.trim()
-        };
-        editar(v => { enA(v).materiales = [...(enA(v).materiales || []), nuevo]; }, { repintar: true });
-        registrar(TIPOS.MATERIAL, obtenerVisita(visitaId), {
-            sector: sector.nombre, material: nuevo.material,
-            cantidad: nuevo.cantidad, unidad: nuevo.unidad, origen: nuevo.origen
-        });
-        modal.remove();
-    });
-
-    detalle.append(
-        envolver('Cantidad', cantidad),
-        envolver('Unidad de medida', unidad),
-        envolver('Origen del material', origen, 'Folio SAP de mercancía sin cargo, o quién te lo entregó'),
-        guardar
-    );
-
-    body.append(busq, detalle);
-    caja.append(head, body);
-    modal.appendChild(caja);
-    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
-    document.addEventListener('keydown', function esc(e) {
-        if (e.key === 'Escape' && document.body.contains(modal)) {
-            e.stopPropagation();
-            modal.remove();
-            document.removeEventListener('keydown', esc);
-        }
-    });
-
-    el.raiz.appendChild(modal);
-    pintarRes();
-    inp.focus();
-}
-
-function envolver(etiqueta, control, ayuda) {
-    const campo = document.createElement('div');
-    campo.className = 'campo';
-    const l = document.createElement('label');
-    l.className = 'campo-lbl';
-    l.textContent = etiqueta;
-    l.appendChild(control);
-    campo.appendChild(l);
-    if (ayuda) {
-        const a = document.createElement('p');
-        a.className = 'ayuda';
-        a.textContent = ayuda;
-        campo.appendChild(a);
-    }
-    return campo;
-}
-
-// ---------- tipo y regla ----------
-
-function selectTipo(act, onCambio) {
-    const opciones = tiposActividad().map(t => t.nombre);
-    const huerfano = act.tipo && !opciones.includes(act.tipo);
-    return selectSimple('Tipo de actividad', opciones, act.tipo, onCambio,
-        huerfano ? `${act.tipo} (ya no está en el catálogo)` : null);
-}
-
-function selectSimple(etiqueta, opciones, valor, onCambio, extra = null) {
-    const campo = document.createElement('div');
-    campo.className = 'campo';
-
-    const lbl = document.createElement('label');
-    lbl.className = 'campo-lbl';
-    lbl.textContent = etiqueta;
-
-    const sel = document.createElement('select');
-    sel.className = 'inp';
-
-    const vacio = document.createElement('option');
-    vacio.value = '';
-    vacio.textContent = 'Elige…';
-    sel.appendChild(vacio);
-
-    opciones.forEach(o => {
-        const op = document.createElement('option');
-        op.value = o;
-        op.textContent = o;
-        if (o === valor) op.selected = true;
-        sel.appendChild(op);
-    });
-
-    // Un valor que ya no está en el catálogo no se pierde en silencio.
-    if (extra) {
-        const op = document.createElement('option');
-        op.value = valor;
-        op.textContent = extra;
-        op.selected = true;
-        sel.appendChild(op);
-    }
-
-    sel.addEventListener('change', () => onCambio(sel.value));
-    lbl.appendChild(sel);
-    campo.appendChild(lbl);
-    return campo;
-}
-
-function barraRegla(tipo, regla) {
-    const barra = document.createElement('p');
-    barra.className = 'regla';
-
-    if (!tipo) {
-        barra.textContent = 'ELIGE UN TIPO Y APARECERÁ LO QUE PIDE';
-        return barra;
-    }
-    const partes = camposExtra(tipo).map(c => c.toUpperCase());
-    if (partes.length === 0) {
-        barra.textContent = 'ESTE TIPO NO PIDE NADA MÁS';
-        return barra;
-    }
-    barra.classList.add('es-activa');
-    barra.textContent = `ESTE TIPO PIDE ${partes.join(' · ')}`;
-    return barra;
-}
 
 // ---------- reagendar ----------
 
@@ -1107,30 +935,37 @@ function pie(visita) {
     const foot = document.createElement('div');
     foot.className = 'drawer-foot';
 
+    if (sectorId) {
+        const volver = document.createElement('button');
+        volver.type = 'button';
+        volver.className = 'btn';
+        volver.textContent = '\u2039 Volver a la visita';
+        volver.addEventListener('click', () => { sectorId = null; pintar(); });
+
+        const spacer = document.createElement('span');
+        spacer.style.flex = '1';
+        foot.append(spacer, volver);
+        return foot;
+    }
+
+    // Un borrador no tiene "Listo": tiene Guardar. Y el botón dice qué falta en vez de
+    // quedarse gris sin explicar por qué, que es la peor versión de un botón deshabilitado.
+    if (visita.borrador) return pieBorradorVisita(visita, foot);
+
     const saving = document.createElement('span');
     saving.className = 'saving';
     const led = document.createElement('span');
     led.className = 'led';
     const txt = document.createElement('span');
     txt.className = 'saving-txt';
-    txt.textContent = visita.borrador ? 'Sin guardar' : 'Guardado local';
+    txt.textContent = 'Guardado local';
     saving.append(led, txt);
 
     const spacer = document.createElement('span');
     spacer.style.flex = '1';
     foot.append(saving, spacer);
 
-    if (sectorId) {
-        const volver = document.createElement('button');
-        volver.type = 'button';
-        volver.className = 'btn';
-        volver.textContent = '‹ Volver a la visita';
-        volver.addEventListener('click', () => { sectorId = null; pintar(); });
-        foot.appendChild(volver);
-        return foot;
-    }
-
-    if (!visita.borrador) {
+    {
         const dup = document.createElement('button');
         dup.type = 'button';
         dup.className = 'btn-txt';
@@ -1160,9 +995,49 @@ function pie(visita) {
     listo.type = 'button';
     listo.className = 'btn';
     listo.textContent = 'Listo';
-    listo.addEventListener('click', cerrar);
+    listo.addEventListener('click', () => cerrar());
     foot.appendChild(listo);
 
+    return foot;
+}
+
+/**
+ * Pie del borrador: qué falta, descartar y guardar.
+ *
+ * El botón se queda deshabilitado hasta que no falte nada —esa es la regla— pero al lado
+ * siempre se lee la lista de lo que impide guardar. Un botón gris sin motivo se interpreta
+ * como que la app está rota.
+ */
+function pieBorradorVisita(visita, foot) {
+    const falta = faltaParaGuardar(visita);
+
+    const pista = document.createElement('span');
+    pista.className = 'pista';
+    if (falta.length === 0) {
+        pista.textContent = 'Listo para guardar.';
+        pista.classList.add('es-ok');
+    } else {
+        pista.textContent = `Falta ${falta.join(' \u00b7 ')}`;
+    }
+
+    const spacer = document.createElement('span');
+    spacer.style.flex = '1';
+
+    const descartar = document.createElement('button');
+    descartar.type = 'button';
+    descartar.className = 'btn-txt peligro';
+    descartar.textContent = 'Descartar';
+    descartar.addEventListener('click', () => cerrar());
+
+    const guardar = document.createElement('button');
+    guardar.type = 'button';
+    guardar.className = 'btn btn-principal';
+    guardar.textContent = 'Guardar visita';
+    guardar.disabled = falta.length > 0;
+    if (falta.length > 0) guardar.title = `Falta: ${falta.join(', ')}`;
+    guardar.addEventListener('click', guardarVisita);
+
+    foot.append(pista, spacer, descartar, guardar);
     return foot;
 }
 
@@ -1201,7 +1076,8 @@ function duplicarVisita(visita) {
         reagendas: [],
         sectores: (visita.sectores || []).map(s => ({
             id: nuevoId('s'), nombre: s.nombre, objetivo: s.objetivo || '',
-            origen: [...(s.origen || [])], actividades: []
+            origen: [...(s.origen || [])], solicitado_por: s.solicitado_por || '',
+            actividades: []
         })),
         sincronizado: false,
         borrador: true
@@ -1211,6 +1087,34 @@ function duplicarVisita(visita) {
 }
 
 // ---------- campos ----------
+
+/**
+ * El educador no se elige: es quien tiene la sesión abierta. Se muestra —el spec lo pide como
+ * obligatorio y hay que poder verlo— pero como dato, no como campo: dejar escribir aquí
+ * permitiría registrar una visita a nombre de otra persona.
+ */
+function campoEducador(visita) {
+    const caja = document.createElement('div');
+    caja.className = 'campo';
+
+    const lbl = document.createElement('span');
+    lbl.className = 'campo-lbl';
+    lbl.textContent = 'Educador';
+    caja.appendChild(lbl);
+
+    if ((visita.educador || '').trim()) {
+        const v = document.createElement('p');
+        v.className = 'dato-val';
+        v.textContent = visita.educador;
+        caja.appendChild(v);
+    } else {
+        const p = document.createElement('p');
+        p.className = 'ayuda';
+        p.textContent = 'No se pudo leer tu nombre de la sesión. Vuelve a entrar antes de agendar.';
+        caja.appendChild(p);
+    }
+    return caja;
+}
 
 function campoCliente(visita) {
     const clientes = (leerCatalogo() || {}).clientes || [];
@@ -1312,16 +1216,6 @@ function avisoSolape(visita) {
     return caja;
 }
 
-function campoTexto(etiqueta, valor, placeholder, onCambio, mono = false) {
-    const inp = document.createElement('input');
-    inp.type = 'text';
-    inp.className = 'inp' + (mono ? ' mono' : '');
-    inp.value = valor || '';
-    inp.placeholder = placeholder;
-    inp.addEventListener('input', () => onCambio(inp.value));
-    return envolver(etiqueta, inp);
-}
-
 /** Combobox con filtro. `opciones(q)` llega ya recortado: 11k clientes no caben en el DOM. */
 function combo({ etiqueta, valor, placeholder, opciones, onElegir, onEscribir, ayuda, total }) {
     const campo = document.createElement('div');
@@ -1406,51 +1300,6 @@ function combo({ etiqueta, valor, placeholder, opciones, onElegir, onEscribir, a
     return campo;
 }
 
-/**
- * Resalta la coincidencia sin innerHTML.
- *
- * Marca cada PALABRA por separado, no la cadena entera: el buscador empareja palabras sueltas
- * y en cualquier orden, así que "gasa 10x10" encuentra "GASA SIMPLE 10X10 CM" — pero un
- * indexOf literal no hallaría nada ahí y la lista se vería sin resaltar, como si no hubiera
- * entendido la búsqueda.
- */
-function resaltar(texto, q) {
-    const palabras = (q || '').trim().toLowerCase().split(/\s+/).filter(Boolean);
-    if (palabras.length === 0) return [document.createTextNode(texto)];
-
-    // Se buscan los tramos a marcar y se fusionan los que se toquen o solapen.
-    const bajo = texto.toLowerCase();
-    const tramos = [];
-    palabras.forEach(p => {
-        let i = bajo.indexOf(p);
-        while (i !== -1) {
-            tramos.push([i, i + p.length]);
-            i = bajo.indexOf(p, i + p.length);
-        }
-    });
-    if (tramos.length === 0) return [document.createTextNode(texto)];
-
-    tramos.sort((a, b) => a[0] - b[0]);
-    const unidos = [tramos[0]];
-    for (const [ini, fin] of tramos.slice(1)) {
-        const ultimo = unidos[unidos.length - 1];
-        if (ini <= ultimo[1]) ultimo[1] = Math.max(ultimo[1], fin);
-        else unidos.push([ini, fin]);
-    }
-
-    const nodos = [];
-    let cursor = 0;
-    for (const [ini, fin] of unidos) {
-        if (ini > cursor) nodos.push(document.createTextNode(texto.slice(cursor, ini)));
-        const mark = document.createElement('mark');
-        mark.textContent = texto.slice(ini, fin);
-        nodos.push(mark);
-        cursor = fin;
-    }
-    if (cursor < texto.length) nodos.push(document.createTextNode(texto.slice(cursor)));
-    return nodos;
-}
-
 function filtrar(lista, q) {
     if (!q) return lista.slice(0, MAX_SUGERENCIAS);
     const n = q.toLowerCase();
@@ -1467,8 +1316,3 @@ function filtrar(lista, q) {
 // ---------- horas ----------
 
 function sumarMinutos(hora, min) { return minutosAHora(aMinutos(hora) + min); }
-
-function hoyISO() {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}

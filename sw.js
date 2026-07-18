@@ -1,6 +1,6 @@
 // 🔴 Subir esta versión SIEMPRE que cambie algún archivo de ASSETS,
 // si no los navegadores que ya instalaron el SW siguen sirviendo la versión vieja.
-const CACHE_NAME = 'visitas-pwa-v12';
+const CACHE_NAME = 'visitas-pwa-v15';
 const ASSETS = [
     './',
     './index.html',
@@ -21,7 +21,11 @@ const ASSETS = [
     './js/paleta.js',
     './js/auth.js',
     './js/admin.js',
-    './js/evidencias.js'
+    './js/evidencias.js',
+    './js/actividad.js',
+    './js/materiales.js',
+    './js/campos.js',
+    './js/sector.js'
 ];
 
 // Instalar el SW y cachear los archivos base

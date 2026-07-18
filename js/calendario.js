@@ -139,14 +139,23 @@ function render() {
     }
 }
 
+/**
+ * Las visitas del día. Los borradores NO cuentan: una visita a medio capturar todavía no
+ * ocupa ese hueco en la agenda, y pintarla haría que se planeara alrededor de algo que
+ * puede terminar descartado.
+ */
+function visitasAgendadas() {
+    return leerVisitas().filter(v => !v.borrador);
+}
+
 function visitasDe(clave) {
-    return leerVisitas().filter(v => v.dia === clave);
+    return visitasAgendadas().filter(v => v.dia === clave);
 }
 
 /** clave de día -> nº de visitas. Una sola pasada. */
 function cargaPorDia() {
     const conteo = {};
-    leerVisitas().forEach(v => { conteo[v.dia] = (conteo[v.dia] || 0) + 1; });
+    visitasAgendadas().forEach(v => { conteo[v.dia] = (conteo[v.dia] || 0) + 1; });
     return conteo;
 }
 

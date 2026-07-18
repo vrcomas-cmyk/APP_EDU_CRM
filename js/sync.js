@@ -57,11 +57,31 @@ export async function descargarCatalogo() {
 
 // ---------- visitas ----------
 
+/**
+ * Quita las actividades sin sello de guardado.
+ *
+ * Un borrador vive en el teléfono para no perderse, pero no es un hecho todavía: subirlo
+ * escribiría en la hoja una fila a medio llenar que después habría que distinguir de las
+ * reales, y que cambiaría sola en el siguiente sync. La visita sí sube —su check-in y sus
+ * sectores ya ocurrieron—; solo se recorta lo que aún se está capturando.
+ */
+function soloGuardadas(visita) {
+    return {
+        ...visita,
+        sectores: (visita.sectores || []).map(s => ({
+            ...s,
+            actividades: (s.actividades || []).filter(a => a.guardada)
+        }))
+    };
+}
+
 export async function sincronizarVisitas() {
-    const pendientes = leerVisitas().filter(v => !v.sincronizado);
+    // Un borrador no se envía: la visita no existe hasta que alguien presiona Guardar visita,
+    // y subirla crearía en la hoja una cita que nadie confirmó.
+    const pendientes = leerVisitas().filter(v => !v.sincronizado && !v.borrador);
     if (pendientes.length === 0) return { enviadas: 0 };
 
-    await postear({ action: 'guardarVisitas', visitas: pendientes });
+    await postear({ action: 'guardarVisitas', visitas: pendientes.map(soloGuardadas) });
 
     // Se relee: el usuario pudo editar algo mientras el POST estaba en vuelo, y marcar
     // esa edición como sincronizada la perdería.

@@ -9,7 +9,7 @@
 import { migrarSiHaceFalta, leerCatalogo } from './storage.js';
 import { descargarCatalogo, sincronizarTodo } from './sync.js';
 import { deudaGlobal } from './estado.js';
-import { initCalendario, refrescarCalendario, irAHoy, setModo, diaVisible, irADia } from './calendario.js';
+import { initCalendario, refrescarCalendario, irAHoy, setModo, irADia } from './calendario.js';
 import { initDrawer, abrirNuevaVisita, abrirVisita, hayDrawerAbierto } from './drawer.js';
 import { initPaleta, abrirPaleta, hayPaletaAbierta } from './paleta.js';
 import { initAdmin, abrirAdmin, puedeAdministrar, actualizarEstadoAdmin, hayAdminAbierto } from './admin.js';
@@ -98,7 +98,7 @@ function iniciarApp() {
         onToast: toast
     });
     initPaleta({
-        onNuevaVisita: () => abrirNuevaVisita({ dia: diaVisible() }),
+        onNuevaVisita: () => abrirNuevaVisita(),
         onIrAHoy: irAHoy,
         onSetModo: setModo,
         onAbrirVisita: abrirVisita,
@@ -106,7 +106,7 @@ function iniciarApp() {
     });
     initAdmin({ onToast: toast });
 
-    el.fab.addEventListener('click', () => abrirNuevaVisita({ dia: diaVisible() }));
+    el.fab.addEventListener('click', () => abrirNuevaVisita());
     el.sync.addEventListener('click', () => sincronizar({ manual: true }));
     el.deuda.addEventListener('click', () => toast('La bandeja de evidencias llega en el paso siguiente.'));
     el.admin.addEventListener('click', abrirAdmin);
@@ -140,7 +140,7 @@ function atajos(e) {
     if (hayDrawerAbierto() || hayAdminAbierto()) return;
 
     const acciones = {
-        n: () => abrirNuevaVisita({ dia: diaVisible() }),
+        n: () => abrirNuevaVisita(),
         t: () => irAHoy(),
         d: () => setModo('dia'),
         s: () => setModo('semana'),

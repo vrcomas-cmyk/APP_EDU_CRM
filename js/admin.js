@@ -1,21 +1,46 @@
 /**
- * Módulo de administración: Tipos de actividad (con sus reglas), Orígenes de la actividad
- * y Educadores/Admins. Vive fuera del flujo de visitas —no es un nivel del drawer— porque no
- * pertenece a NINGUNA visita en particular: son catálogos compartidos por todos.
+ * Módulo de administración. Vive fuera del flujo de visitas —no es un nivel del drawer—
+ * porque no pertenece a NINGUNA visita en particular: son catálogos compartidos por todos.
  *
  * Guardado explícito, no automático como el drawer: aquí un error se propaga a TODOS los
  * educadores en el siguiente sync, así que un botón "Guardar" da oportunidad de revisar antes
  * de que eso pase, en vez de subir cada tecla sola.
+ *
+ * ── Qué se configura ─────────────────────────────────────────────────────────────────
+ *
+ *   TIPOS      Por cada tipo de actividad, el MODO de cada campo capturable: obligatorio,
+ *              opcional, solo lectura u oculto. Esto es lo que arma el formulario de captura;
+ *              no hay ninguna condición escrita a mano en la pantalla de actividad.
+ *   SECTORES   Cuáles de los que existen en Materiales se le ofrecen al educador.
+ *   LISTAS     Orígenes, áreas, unidades de medida y tipos de evidencia.
+ *   EQUIPO     Educadores y quién puede administrar.
  */
 
 import { leerCatalogo } from './storage.js';
 import { guardarCatalogosAdmin, descargarCatalogo } from './sync.js';
 import { sesionActual } from './auth.js';
+import {
+    CAMPOS_ACTIVIDAD, MODOS, ETIQUETAS_MODO, IDS_CAMPOS,
+    configuracionCampos, sectoresDelCatalogo
+} from './catalogos.js';
 
 const TABS = [
-    { id: 'tipos', etiqueta: 'Tipos de actividad' },
-    { id: 'origenes', etiqueta: 'Orígenes' },
-    { id: 'educadores', etiqueta: 'Educadores y admins' }
+    { id: 'tipos', etiqueta: 'Tipos y campos' },
+    { id: 'sectores', etiqueta: 'Sectores' },
+    { id: 'listas', etiqueta: 'Listas' },
+    { id: 'educadores', etiqueta: 'Equipo' }
+];
+
+/** Las listas simples se editan todas igual; solo cambian el nombre y el texto de ayuda. */
+const LISTAS = [
+    { clave: 'origenes', etiqueta: 'Orígenes de la actividad',
+      ayuda: 'De dónde nace la visita a un sector.' },
+    { clave: 'areas', etiqueta: 'Áreas visitadas',
+      ayuda: 'Opciones del campo "Área visitada" de la actividad.' },
+    { clave: 'unidades', etiqueta: 'Unidades de medida',
+      ayuda: 'Se ofrecen al capturar la cantidad de un material.' },
+    { clave: 'tipos_evidencia', etiqueta: 'Tipos de evidencia',
+      ayuda: 'Solo aparecen si algún tipo de actividad muestra el campo.' }
 ];
 
 // El rol de administrador vive en Supabase (tabla pdt_admins, consultada por este RPC que
@@ -28,6 +53,7 @@ const CLAVE_CACHE_ADMIN = 'pdt_admin_cache';
 
 let el = {};
 let tab = 'tipos';
+let tipoAbierto = null;
 let borrador = null;
 let guardando = false;
 let alToast = () => {};
@@ -115,12 +141,23 @@ export function abrirAdmin() {
 
     const cat = leerCatalogo() || {};
     borrador = {
-        tipos_actividad: (cat.tipos_actividad || []).map(t => ({ ...t })),
+        // La configuración de campos se materializa AQUÍ: se parte de lo que la app está
+        // usando de verdad (defaults + banderas viejas + lo ya configurado), para que el
+        // administrador vea el estado real y no una tabla vacía que parezca "sin configurar".
+        tipos_actividad: (cat.tipos_actividad || []).map(t => ({
+            ...t,
+            campos: { ...configuracionCampos(t.nombre) }
+        })),
         origenes: [...(cat.origenes || [])],
+        areas: [...(cat.areas || [])],
+        unidades: [...(cat.unidades || [])],
+        tipos_evidencia: [...(cat.tipos_evidencia || [])],
+        sectores_ocultos: [...(cat.sectores_ocultos || [])],
         educadores: (cat.educadores || []).map(e => ({ ...e })),
         admins: [...(cat.admins || [])]
     };
     tab = 'tipos';
+    tipoAbierto = null;
     el.raiz.hidden = false;
     document.body.style.overflow = 'hidden';
     pintar();
@@ -183,7 +220,8 @@ function cuerpo() {
     const body = document.createElement('div');
     body.className = 'drawer-body';
     if (tab === 'tipos') body.appendChild(vistaTipos());
-    else if (tab === 'origenes') body.appendChild(vistaOrigenes());
+    else if (tab === 'sectores') body.appendChild(vistaSectores());
+    else if (tab === 'listas') LISTAS.forEach(l => body.appendChild(vistaLista(l)));
     else body.appendChild(vistaEducadores());
     return body;
 }
@@ -196,50 +234,229 @@ function vistaTipos() {
 
     const lbl = document.createElement('span');
     lbl.className = 'campo-lbl';
-    lbl.textContent = 'Qué exige cada tipo al registrar una actividad';
+    lbl.textContent = 'Qué pide cada tipo de actividad';
     caja.appendChild(lbl);
 
-    borrador.tipos_actividad.forEach((t, i) => caja.appendChild(filaTipo(t, i)));
+    const ayuda = document.createElement('p');
+    ayuda.className = 'ayuda';
+    ayuda.textContent = 'El formulario de captura se arma con esto. Un campo oculto no se '
+        + 'pregunta; uno obligatorio impide guardar la actividad si queda vacío.';
+    caja.appendChild(ayuda);
+
+    borrador.tipos_actividad.forEach((t, i) => caja.appendChild(fichaTipo(t, i)));
 
     const add = document.createElement('button');
     add.type = 'button';
     add.className = 'btn-dashed';
     add.textContent = '+ Nuevo tipo de actividad';
     add.addEventListener('click', () => {
-        borrador.tipos_actividad.push({ nombre: '', evidencia: true, materiales: false });
+        borrador.tipos_actividad.push({
+            nombre: '', evidencia: true, materiales: false,
+            campos: { ...configuracionCampos(null) }
+        });
         pintar();
     });
     caja.appendChild(add);
     return caja;
 }
 
-function filaTipo(t, i) {
+/**
+ * Un tipo con su matriz de campos. Se pinta plegado: con ocho campos por tipo y siete tipos,
+ * abrir todo de golpe da una pared de 56 selectores en la que no se encuentra nada.
+ */
+function fichaTipo(t, i) {
+    const ficha = document.createElement('details');
+    ficha.className = 'tipo-ficha';
+    ficha.open = tipoAbierto === i;
+    ficha.addEventListener('toggle', () => { if (ficha.open) tipoAbierto = i; });
+
+    const resumen = document.createElement('summary');
+    resumen.className = 'tipo-sum';
+
+    const nombre = document.createElement('span');
+    nombre.className = 'tipo-nombre';
+    nombre.textContent = t.nombre || 'Tipo sin nombre';
+    if (!t.nombre) nombre.classList.add('es-vacio');
+
+    const cuenta = document.createElement('span');
+    cuenta.className = 'sector-cuenta';
+    const obligatorios = IDS_CAMPOS.filter(id => t.campos?.[id] === MODOS.OBLIGATORIO).length;
+    const ocultos = IDS_CAMPOS.filter(id => t.campos?.[id] === MODOS.OCULTO).length;
+    cuenta.textContent = `${obligatorios} obligatorio${obligatorios === 1 ? '' : 's'} · ${ocultos} oculto${ocultos === 1 ? '' : 's'}`;
+
+    resumen.append(nombre, cuenta);
+    ficha.appendChild(resumen);
+
+    const cuerpo = document.createElement('div');
+    cuerpo.className = 'tipo-cuerpo';
+
     const fila = document.createElement('div');
     fila.className = 'admin-fila';
-
-    const nombre = document.createElement('input');
-    nombre.type = 'text';
-    nombre.className = 'inp';
-    nombre.placeholder = 'Nombre del tipo';
-    nombre.value = t.nombre;
-    nombre.addEventListener('input', () => { t.nombre = nombre.value; });
-
-    const flags = document.createElement('div');
-    flags.className = 'chips';
-    flags.append(
-        toggle('Evidencia', t.evidencia, (v) => { t.evidencia = v; }),
-        toggle('Materiales', t.materiales, (v) => { t.materiales = v; })
-    );
+    const inpNombre = document.createElement('input');
+    inpNombre.type = 'text';
+    inpNombre.className = 'inp';
+    inpNombre.placeholder = 'Nombre del tipo';
+    inpNombre.value = t.nombre;
+    inpNombre.addEventListener('input', () => {
+        t.nombre = inpNombre.value;
+        nombre.textContent = t.nombre || 'Tipo sin nombre';
+        nombre.classList.toggle('es-vacio', !t.nombre);
+    });
 
     const borrar = document.createElement('button');
     borrar.type = 'button';
     borrar.className = 'icon-btn';
     borrar.setAttribute('aria-label', `Borrar ${t.nombre || 'tipo'}`);
-    borrar.textContent = '✕';
-    borrar.addEventListener('click', () => { borrador.tipos_actividad.splice(i, 1); pintar(); });
+    borrar.textContent = '\u2715';
+    borrar.addEventListener('click', () => {
+        if (!confirm(`\u00bfBorrar el tipo "${t.nombre || 'sin nombre'}"?\n\nLas actividades ya `
+            + 'registradas con él no se tocan, pero dejará de ofrecerse.')) return;
+        borrador.tipos_actividad.splice(i, 1);
+        tipoAbierto = null;
+        pintar();
+    });
+    fila.append(inpNombre, borrar);
+    cuerpo.appendChild(fila);
 
-    fila.append(nombre, flags, borrar);
+    CAMPOS_ACTIVIDAD.forEach(campo => cuerpo.appendChild(filaCampo(t, campo, cuenta)));
+
+    ficha.appendChild(cuerpo);
+    return ficha;
+}
+
+function filaCampo(t, campo, cuenta) {
+    const fila = document.createElement('div');
+    fila.className = 'campo-fila';
+
+    const lbl = document.createElement('span');
+    lbl.className = 'campo-fila-lbl';
+    lbl.textContent = campo.etiqueta;
+
+    const sel = document.createElement('select');
+    sel.className = 'inp';
+    sel.setAttribute('aria-label', `Modo de ${campo.etiqueta}`);
+
+    Object.values(MODOS).forEach(m => {
+        const op = document.createElement('option');
+        op.value = m;
+        op.textContent = ETIQUETAS_MODO[m];
+        if ((t.campos?.[campo.id] || campo.defecto) === m) op.selected = true;
+        sel.appendChild(op);
+    });
+
+    sel.addEventListener('change', () => {
+        t.campos = { ...(t.campos || {}), [campo.id]: sel.value };
+        // Las banderas viejas se mantienen en sintonía: la hoja sigue teniendo sus columnas
+        // `evidencia` y `materiales`, y dejarlas mintiendo confundiría a quien lea el Sheet.
+        if (campo.id === 'evidencia') t.evidencia = sel.value !== MODOS.OCULTO;
+        if (campo.id === 'materiales') t.materiales = sel.value === MODOS.OBLIGATORIO;
+
+        const obl = IDS_CAMPOS.filter(id => t.campos?.[id] === MODOS.OBLIGATORIO).length;
+        const ocu = IDS_CAMPOS.filter(id => t.campos?.[id] === MODOS.OCULTO).length;
+        cuenta.textContent = `${obl} obligatorio${obl === 1 ? '' : 's'} · ${ocu} oculto${ocu === 1 ? '' : 's'}`;
+    });
+
+    fila.append(lbl, sel);
     return fila;
+}
+
+// ---------- sectores ----------
+
+/**
+ * Los sectores no se escriben: se curan.
+ *
+ * La lista sale de la hoja de Materiales, que es también de donde salen los materiales que se
+ * ofrecen dentro de cada sector. Dejar inventar nombres aquí produciría sectores cuyo buscador
+ * de materiales sale siempre vacío, y eso es indiagnosticable desde un pasillo.
+ */
+function vistaSectores() {
+    const caja = document.createElement('div');
+    caja.className = 'campo';
+
+    const lbl = document.createElement('span');
+    lbl.className = 'campo-lbl';
+    lbl.textContent = 'Sectores que se ofrecen al agendar';
+    caja.appendChild(lbl);
+
+    const todos = sectoresDelCatalogo();
+
+    const ayuda = document.createElement('p');
+    ayuda.className = 'ayuda';
+    ayuda.textContent = todos.length
+        ? 'Salen de la hoja de Materiales y por eso no se escriben aquí: un sector sin '
+          + 'materiales detrás mostraría un buscador vacío. Apaga los que no quieras ofrecer.'
+        : 'El catálogo de materiales no ha cargado todavía. Conéctate para verlo.';
+    caja.appendChild(ayuda);
+
+    if (todos.length === 0) return caja;
+
+    const activos = todos.filter(x => !borrador.sectores_ocultos.includes(x)).length;
+    const cuenta = document.createElement('p');
+    cuenta.className = 'sector-cuenta';
+    cuenta.textContent = `${activos} de ${todos.length} activos`;
+    caja.appendChild(cuenta);
+
+    const chips = document.createElement('div');
+    chips.className = 'chips';
+    todos.forEach(nombre => {
+        const activo = !borrador.sectores_ocultos.includes(nombre);
+        chips.appendChild(toggle(nombre, activo, (v) => {
+            borrador.sectores_ocultos = borrador.sectores_ocultos.filter(x => x !== nombre);
+            if (!v) borrador.sectores_ocultos.push(nombre);
+            const n = todos.filter(x => !borrador.sectores_ocultos.includes(x)).length;
+            cuenta.textContent = `${n} de ${todos.length} activos`;
+        }));
+    });
+    caja.appendChild(chips);
+    return caja;
+}
+
+// ---------- listas simples ----------
+
+function vistaLista({ clave, etiqueta, ayuda }) {
+    const caja = document.createElement('div');
+    caja.className = 'campo';
+
+    const lbl = document.createElement('span');
+    lbl.className = 'campo-lbl';
+    lbl.textContent = etiqueta;
+    caja.appendChild(lbl);
+
+    const ayudaP = document.createElement('p');
+    ayudaP.className = 'ayuda';
+    ayudaP.textContent = ayuda;
+    caja.appendChild(ayudaP);
+
+    const chips = document.createElement('div');
+    chips.className = 'chips';
+    borrador[clave].forEach((valor, i) => {
+        const chip = document.createElement('span');
+        chip.className = 'chip on admin-chip';
+        chip.textContent = valor;
+        const x = document.createElement('button');
+        x.type = 'button';
+        x.setAttribute('aria-label', `Quitar ${valor}`);
+        x.textContent = '\u2715';
+        x.addEventListener('click', () => { borrador[clave].splice(i, 1); pintar(); });
+        chip.appendChild(x);
+        chips.appendChild(chip);
+    });
+    caja.appendChild(chips);
+
+    const nuevo = document.createElement('input');
+    nuevo.type = 'text';
+    nuevo.className = 'inp';
+    nuevo.placeholder = 'Escribe y Enter para agregar…';
+    nuevo.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        const v = nuevo.value.trim();
+        if (v && !borrador[clave].includes(v)) borrador[clave].push(v);
+        nuevo.value = '';
+        pintar();
+    });
+    caja.appendChild(nuevo);
+    return caja;
 }
 
 function toggle(etiqueta, activo, onCambio) {
@@ -255,49 +472,6 @@ function toggle(etiqueta, activo, onCambio) {
         onCambio(nuevo);
     });
     return chip;
-}
-
-// ---------- orígenes ----------
-
-function vistaOrigenes() {
-    const caja = document.createElement('div');
-    caja.className = 'campo';
-
-    const lbl = document.createElement('span');
-    lbl.className = 'campo-lbl';
-    lbl.textContent = 'Orígenes de la actividad';
-    caja.appendChild(lbl);
-
-    const chips = document.createElement('div');
-    chips.className = 'chips';
-    borrador.origenes.forEach((o, i) => {
-        const chip = document.createElement('span');
-        chip.className = 'chip on admin-chip';
-        chip.textContent = o;
-        const x = document.createElement('button');
-        x.type = 'button';
-        x.setAttribute('aria-label', `Quitar ${o}`);
-        x.textContent = '✕';
-        x.addEventListener('click', () => { borrador.origenes.splice(i, 1); pintar(); });
-        chip.appendChild(x);
-        chips.appendChild(chip);
-    });
-    caja.appendChild(chips);
-
-    const nuevo = document.createElement('input');
-    nuevo.type = 'text';
-    nuevo.className = 'inp';
-    nuevo.placeholder = 'Nuevo origen y Enter…';
-    nuevo.addEventListener('keydown', (e) => {
-        if (e.key !== 'Enter') return;
-        e.preventDefault();
-        const v = nuevo.value.trim();
-        if (v && !borrador.origenes.includes(v)) borrador.origenes.push(v);
-        nuevo.value = '';
-        pintar();
-    });
-    caja.appendChild(nuevo);
-    return caja;
 }
 
 // ---------- educadores y admins ----------
@@ -393,9 +567,34 @@ function pie() {
 }
 
 async function guardarCambios() {
-    const vacios = borrador.tipos_actividad.filter(t => !t.nombre.trim()).length
-        + borrador.educadores.filter(e => !e.nombre.trim() || !e.correo.trim()).length;
-    if (vacios > 0) return alToast('Hay filas sin completar.', { estado: 'sin-registrar' });
+    const problemas = [];
+
+    if (borrador.tipos_actividad.some(t => !t.nombre.trim())) {
+        problemas.push('hay un tipo de actividad sin nombre');
+    }
+    if (borrador.educadores.some(e => !e.nombre.trim() || !e.correo.trim())) {
+        problemas.push('hay un educador sin nombre o sin correo');
+    }
+
+    const nombres = borrador.tipos_actividad.map(t => t.nombre.trim().toLowerCase());
+    if (new Set(nombres).size !== nombres.length) {
+        problemas.push('hay dos tipos de actividad con el mismo nombre');
+    }
+
+    // Una lista vacía no rompe la app (catalogos.js cae en sus defaults), pero sí sorprende:
+    // el administrador creería haberla borrado y seguiría viendo opciones.
+    LISTAS.forEach(l => {
+        if (borrador[l.clave].length === 0) problemas.push(`"${l.etiqueta}" quedó vacía`);
+    });
+
+    if (borrador.tipos_actividad.length === 0) {
+        problemas.push('no queda ningún tipo de actividad');
+    }
+
+    if (problemas.length > 0) {
+        return alToast(`No se puede guardar: ${problemas.join('; ')}.`,
+            { estado: 'sin-registrar', ms: 8000 });
+    }
 
     if (!confirm('Estos catálogos los usan TODOS los educadores. ¿Guardar los cambios?')) return;
 

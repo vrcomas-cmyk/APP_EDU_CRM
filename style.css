@@ -581,29 +581,46 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
   color: var(--muted); background: var(--surface-2); border-top: 1px solid var(--rule);
 }
 
-/* ---------- sectores ---------- */
+/* ---------- sectores: tarjeta que empuja a su panel ---------- */
 
-/* ---------- sectores: fila que empuja a su panel ---------- */
+.sectores { display: flex; flex-direction: column; gap: 8px; }
 
-.sectores { display: flex; flex-direction: column; gap: 6px; }
-
-.sector-fila {
-  display: flex; align-items: center; gap: 10px; width: 100%;
-  border: 1px solid var(--rule); border-radius: 8px; background: var(--surface);
-  padding: 10px; cursor: pointer; text-align: left; color: inherit;
-  transition: border-color .15s var(--ease), transform .08s var(--ease);
+/*
+  Tarjeta, no fila: el sector carga con objetivo, procedencia y tres contadores. Apretarlo en
+  un renglón obligaría a truncar justo lo que se viene a consultar.
+*/
+.sector-card {
+  display: flex; flex-direction: column; gap: 8px; width: 100%;
+  border: 1px solid var(--rule); border-radius: 10px; background: var(--surface);
+  padding: 12px; cursor: pointer; text-align: left; color: inherit;
+  transition: border-color .15s var(--ease), box-shadow .15s var(--ease), transform .08s var(--ease);
 }
-.sector-fila:hover { border-color: var(--ink); transform: translateX(1px); }
+.sector-card:hover {
+  border-color: var(--ink); box-shadow: var(--shadow); transform: translateY(-1px);
+}
 
-.sector-fila-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.sector-fila-nombre { font-size: 13px; font-weight: 600; letter-spacing: -.01em; }
-.sector-fila-resumen {
-  font-size: 11.5px; color: var(--muted); line-height: 1.35;
+.sector-card-head { display: flex; align-items: center; gap: 8px; }
+.sector-card-nombre {
+  flex: 1; min-width: 0; font-size: 13.5px; font-weight: 600; letter-spacing: -.01em;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.sector-fila-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; flex: none; }
+
+.sector-card-cuerpo { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.sector-card-objetivo { font-size: 12px; color: var(--ink-2); line-height: 1.4; }
+.sector-card-origen {
+  font-size: 11px; color: var(--muted); line-height: 1.35;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.sector-card-meta {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  padding-top: 8px; border-top: 1px solid var(--rule-soft);
+}
 .sector-cuenta { font-family: var(--mono); font-size: 9.5px; color: var(--muted); }
 .sector-fila-flecha { color: var(--muted); font-size: 16px; flex: none; line-height: 1; }
+
+/* Un dato que falta se dice, no se deja en blanco: el hueco no distingue "vacío" de "roto". */
+.es-vacio { color: var(--muted); font-style: italic; }
 
 .agregar-sector { margin-top: 8px; }
 
@@ -625,26 +642,45 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 }
 .aviso.es-cancelada p { flex: 1; font-size: 12px; }
 
-/* ---------- actividades ---------- */
+/* ---------- actividades: lista que abre su ventana ---------- */
 
 .actividades { gap: 8px; }
 
-.act-card {
-  border: 1px solid var(--rule); border-radius: 8px;
-  background: var(--surface-2); overflow: hidden;
+/*
+  La actividad ya no se despliega aquí. Desde el sector solo se decide cuál abrir, así que
+  la fila muestra lo justo para reconocerla: qué fue, con quién, y si le falta algo.
+*/
+.act-fila {
+  display: flex; align-items: center; gap: 9px; width: 100%;
+  border: 1px solid var(--rule); border-radius: 8px; background: var(--surface);
+  padding: 9px 10px; cursor: pointer; text-align: left; color: inherit;
+  transition: border-color .15s var(--ease), transform .08s var(--ease);
 }
-.act-head {
-  display: flex; align-items: center; gap: 8px;
-  padding: 7px 8px 7px 9px; border-bottom: 1px solid var(--rule);
-}
+.act-fila:hover { border-color: var(--ink); transform: translateX(1px); }
+/* El borrador se ve inacabado a propósito: no debe confundirse con un registro cerrado. */
+.act-fila.es-borrador { border-style: dashed; background: var(--surface-2); }
+
 .act-n {
   background: var(--ink); color: var(--paper);
   font-family: var(--mono); font-size: 9px; font-weight: 700;
-  width: 16px; height: 16px; flex: none;
+  width: 17px; height: 17px; flex: none;
   display: grid; place-items: center; border-radius: 50%;
 }
-.act-titulo { flex: 1; font-size: 12.5px; font-weight: 600; letter-spacing: -.01em; }
-.act-body { padding: 10px; display: flex; flex-direction: column; gap: 10px; background: var(--surface); }
+.act-fila.es-borrador .act-n { background: var(--muted); }
+
+.act-fila-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.act-fila-titulo {
+  font-size: 12.5px; font-weight: 600; letter-spacing: -.01em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.act-fila-sub {
+  font-size: 11px; color: var(--muted); line-height: 1.35;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.act-fila-meta { flex: none; display: flex; align-items: center; gap: 5px; }
+
+/* El botón que abre la captura: es la acción principal del sector, y se ve como tal. */
+.btn-registrar { width: 100%; margin-top: 2px; }
 
 /* La regla se declara ANTES de que aparezcan los campos: el formulario no cambia por magia. */
 .regla {
@@ -698,6 +734,8 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 .chip.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
 .chip.add { border-style: dashed; color: var(--muted); }
 .chip.add::before { content: "+ "; }
+/* Sector ya sellado: se ve que está puesto, pero no invita a tocarlo. */
+.chip:disabled { cursor: default; opacity: .55; }
 
 /* ---------- administración ---------- */
 
@@ -722,6 +760,47 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 }
 .admin-chip button:hover { opacity: 1; }
 
+/*
+  Un tipo por acordeón. Con ocho campos configurables por tipo, abrirlos todos de golpe da
+  una pared de selectores en la que no se distingue a cuál tipo pertenece cada renglón.
+*/
+.tipo-ficha {
+  border: 1px solid var(--rule); border-radius: 8px;
+  background: var(--surface); margin-bottom: 8px;
+}
+.tipo-ficha[open] { border-color: var(--ink); }
+
+.tipo-sum {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; cursor: pointer; list-style: none;
+}
+.tipo-sum::-webkit-details-marker { display: none; }
+.tipo-sum::after {
+  content: "›"; margin-left: auto; color: var(--muted); font-size: 16px; line-height: 1;
+  transition: transform .15s var(--ease);
+}
+.tipo-ficha[open] .tipo-sum::after { transform: rotate(90deg); }
+.tipo-nombre { font-size: 13px; font-weight: 600; letter-spacing: -.01em; }
+
+.tipo-cuerpo {
+  padding: 4px 12px 12px;
+  border-top: 1px solid var(--rule-soft);
+  display: flex; flex-direction: column; gap: 2px;
+}
+
+.campo-fila {
+  display: flex; align-items: center; gap: 10px;
+  padding: 5px 0; border-bottom: 1px solid var(--rule-soft);
+}
+.campo-fila:last-child { border-bottom: 0; }
+.campo-fila-lbl { flex: 1; min-width: 0; font-size: 12.5px; color: var(--ink-2); }
+.campo-fila .inp { flex: none; width: 132px; }
+
+@media (max-width: 720px) {
+  .campo-fila { flex-direction: column; align-items: stretch; gap: 4px; }
+  .campo-fila .inp { width: 100%; }
+}
+
 @media (max-width: 720px) {
   /* Sin lado disponible: bottom-sheet, que es el gesto que el pulgar ya conoce. */
   .drawer {
@@ -732,6 +811,29 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
     animation: sheet-in .28s cubic-bezier(.2, .9, .3, 1.05);
   }
   @keyframes sheet-in { from { transform: translateY(100%); } }
+
+  /*
+    Capturar una actividad en el teléfono ocupa la pantalla entera. Dejarla flotando en una
+    cajita con el sector asomando detrás invita a tocar fuera y perder lo escrito, y encoge
+    justo el espacio donde se está escribiendo.
+  */
+  .modal { padding: 0; align-items: stretch; }
+  .modal-caja, .modal-caja.es-actividad {
+    width: 100%; max-height: none; height: 100dvh;
+    border-radius: 0; border: 0;
+  }
+
+  /* El botón principal queda al alcance del pulgar, sin buscarlo al final del scroll. */
+  .modal-foot {
+    position: sticky; bottom: 0;
+    margin: 4px -14px -14px; padding: 12px 14px;
+    background: var(--surface); border-top: 1px solid var(--rule);
+  }
+  .modal-foot .btn-principal { flex: 1; padding: 11px; }
+
+  /* Una sola columna: en 360px dos hacen ilegibles ambas. */
+  .datos { grid-template-columns: 1fr 1fr; }
+  .grid-2 { grid-template-columns: 1fr; }
 }
 
 /* ---------- check-in / check-out ---------- */
@@ -779,12 +881,66 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 .sector-estado.es-en-proceso { border-color: var(--ink); color: var(--ink); }
 .sector-estado.es-finalizado { border-color: var(--st-done); color: var(--st-done); background: var(--st-done-bg); }
 
+/* ---------- datos de solo lectura ---------- */
+
+/*
+  Un dato guardado NUNCA se pinta como input deshabilitado. Un campo gris sigue pareciendo un
+  campo, e invita a intentar escribir en él; el dato en frío se lee como lo que es: un hecho.
+*/
+.datos {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px 14px;
+}
+.dato { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.dato-lbl {
+  font-family: var(--mono); font-size: 8.5px; letter-spacing: .11em;
+  text-transform: uppercase; color: var(--muted);
+}
+.dato-val { font-size: 12.5px; line-height: 1.35; word-break: break-word; }
+
+.panel-info {
+  border: 1px solid var(--rule); border-radius: 8px;
+  padding: 12px; background: var(--surface-2);
+}
+
+/* Lo que la app rellena sola. Se enseña para dar contexto, no para pedirlo. */
+.ctx-auto {
+  border-left: 2px solid var(--rule); padding-left: 10px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+
+/* ---------- sello de guardado ---------- */
+
+.sello {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 11.5px; line-height: 1.35;
+  border-radius: 6px; padding: 8px 10px;
+}
+.sello.es-guardada {
+  color: var(--st-done); background: var(--st-done-bg);
+  border: 1px solid var(--st-done);
+}
+.sello.es-borrador {
+  font-family: var(--mono); font-size: 9px; letter-spacing: .09em;
+  color: var(--muted); background: var(--surface-2);
+  border: 1px dashed var(--rule); padding: 5px 9px;
+}
+.sello-ico { flex: none; font-weight: 700; }
+.sello-txt { min-width: 0; }
+
+/* ---------- validación ---------- */
+
+/*
+  El error va pegado al campo y desaparece al corregirlo. Un toast obligaría a recordar cuál
+  de seis campos era, y el rojo permanente regaña por algo que ya se está resolviendo.
+*/
+.campo.es-error .inp { border-color: var(--st-miss); }
+.campo.es-error .campo-lbl { color: var(--st-miss); }
+.campo-error {
+  font-size: 11px; line-height: 1.35; color: var(--st-miss); margin-top: 4px;
+}
+
 /* ---------- actividad ---------- */
 
-.act-ctx {
-  font-size: 9px; letter-spacing: .1em; color: var(--muted);
-  padding-bottom: 8px; border-bottom: 1px solid var(--rule-soft);
-}
 .contacto {
   display: flex; flex-direction: column; gap: 9px;
   border-left: 2px solid var(--rule); padding-left: 10px;
@@ -822,6 +978,36 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
   padding: 14px; display: flex; flex-direction: column; gap: 14px;
   overflow-y: auto;
 }
+
+/* La actividad pide más aire que el material: son varios bloques, no un solo campo. */
+.modal-caja.es-actividad { width: min(520px, 100%); }
+.modal-caja.es-sector { width: min(480px, 100%); }
+
+/*
+  Lo que falta para poder guardar, junto al botón que lo espera. Un botón deshabilitado sin
+  explicación se lee como una app rota; con la lista al lado se lee como una instrucción.
+*/
+.pista { font-size: 11px; line-height: 1.35; color: var(--st-miss); min-width: 0; }
+.pista.es-ok { color: var(--st-done); }
+
+.btn:disabled, .btn-principal:disabled {
+  opacity: .4; cursor: not-allowed; filter: none;
+}
+
+.modal-foot {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-top: 4px; padding-top: 12px; border-top: 1px solid var(--rule);
+}
+
+/*
+  Un solo botón principal por ventana, y siempre el que cierra el paso. Si hay dos que se ven
+  igual de importantes, el usuario tiene que leer para decidir — y de pie no se lee.
+*/
+.btn-principal { font-weight: 700; }
+
+/* Ya sellado: sin la ✕ de quitar, porque no hay nada que quitar. */
+.mat-fila.es-sellada { margin-bottom: 0; background: var(--surface); }
+.mat-fila.es-sellada + .mat-fila.es-sellada { margin-top: 6px; }
 
 .mat-res {
   display: flex; flex-direction: column;

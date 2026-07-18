@@ -11,14 +11,25 @@ const CLAVE_VISITAS = 'visitas';
 const CLAVE_CATALOGO = 'datosPWA';
 const CLAVE_BACKUP = 'visitas_backup_v1';
 const CLAVE_VERSION_MODELO = 'modelo_version';
-const VERSION_MODELO = 4;
+const VERSION_MODELO = 6;
 
 /**
- * Modelo v4.
+ * Modelo v6.
  *
- * v4 separa el CICLO DE VIDA (un dato: programada → en-proceso → finalizada, o cancelada)
+ * v4 separó el CICLO DE VIDA (un dato: programada → en-proceso → finalizada, o cancelada)
  * de la SALUD del registro (un cálculo: rojo/azul/verde, y solo después del check-in).
  * El estado es una cadena a propósito: agregar uno nuevo no debe obligar a tocar la lógica.
+ *
+ * v5 agrega el SELLO de guardado a la actividad. Una actividad nace como borrador —todo
+ * editable, nada definitivo— y al guardarse queda sellada con quién, cuándo y desde dónde.
+ * A partir de ahí es un hecho histórico y ya no se edita: solo admite acciones (evidencia).
+ * El sello es la única fuente de verdad del bloqueo; no hay un flag "bloqueada" aparte que
+ * pudiera contradecirlo.
+ *
+ * v6 sube el mismo principio un nivel: la VISITA también nace como borrador. Antes se creaba
+ * ya registrada, con la fecha de hoy y un horario por defecto, y bastaba con abrirla sin
+ * querer para dejar una visita real en el calendario. Ahora nada existe hasta Guardar visita,
+ * y ahí se sellan de paso sus sectores — que a partir de ese momento tampoco se editan.
  *
  * visita = {
  *   id, educador, educador_correo, cliente, hospital,
@@ -32,12 +43,19 @@ const VERSION_MODELO = 4;
  *   reagendas: [{ momento, usuario, motivo, antes: {dia,hora_inicio,hora_fin}, despues: {...} }],
  *   motivo_cancelacion,
  *
- *   sectores: [{ id, nombre, objetivo, origen: [], actividades: [{
- *     id, tipo, area_visitada, creada,
- *     contacto: { nombre, cargo, servicio },       // uno POR ACTIVIDAD, no por visita
- *     materiales: [{ id, material, cantidad, unidad, origen }],
- *     evidencia: { estado, nombre, mime, url }
- *   }] }],
+ *   borrador: true,                                  // visita en captura; se borra al Guardar
+ *
+ *   sectores: [{
+ *     id, nombre, objetivo, origen: [], solicitado_por,
+ *     guardado: { momento, usuario },              // sello del sector; sin él, todavía editable
+ *     actividades: [{
+ *       id, tipo, area_visitada, creada,
+ *       guardada: { momento, usuario, usuario_correo, dispositivo },  // sin él, es borrador
+ *       contacto: { nombre, cargo, servicio },     // uno POR ACTIVIDAD, no por visita
+ *       materiales: [{ id, material, cantidad, unidad, origen }],
+ *       evidencia: { estado, nombre, mime, url }   // se puede cargar DESPUÉS del sello
+ *     }]
+ *   }],
  *   sincronizado: false
  * }
  */
@@ -221,6 +239,9 @@ export function borrarArchivo(idActividad) {
  *   v1  filas planas   { fecha, sector, actividad, ... }  -> una fila por sector
  *   v2  árbol          { fecha, sectores: [{ actividades }] }
  *   v3  árbol + rango  { dia, hora_inicio, hora_fin, hospital, ... }
+ *   v4  estado como dato + contacto/materiales por actividad
+ *   v5  sello de guardado en cada actividad (borrador -> hecho histórico)
+ *   v6  la visita nace como borrador; al guardarla se sellan sus sectores
  */
 export function migrarSiHaceFalta() {
     if (Number(localStorage.getItem(CLAVE_VERSION_MODELO)) >= VERSION_MODELO) return null;
@@ -256,7 +277,9 @@ export function migrarSiHaceFalta() {
     const filasV1 = desde === 1 ? datos.length : 0;
     let visitas = desde === 1 ? migrarV1aV2(datos) : datos;
     if (desde <= 2) visitas = visitas.map(migrarV2aV3);
-    visitas = visitas.map(migrarV3aV4);
+    if (desde <= 3) visitas = visitas.map(migrarV3aV4);
+    if (desde <= 4) visitas = visitas.map(migrarV4aV5);
+    visitas = visitas.map(migrarV5aV6);
 
     guardarVisitas(visitas);
     localStorage.setItem(CLAVE_VERSION_MODELO, String(VERSION_MODELO));
@@ -269,7 +292,14 @@ function versionDe(visita) {
     if (!visita || !Array.isArray(visita.sectores)) return 1;   // fila plana
     if (visita.dia === undefined) return 2;                     // árbol con `fecha`
     if (visita.estado === undefined) return 3;                  // v3: el estado se derivaba
-    return 4;
+    // v5 sella cada actividad. Una visita sin actividades no permite distinguir v4 de v5 por
+    // su contenido, pero tampoco hay nada que sellar: se da por migrada.
+    const actividades = (visita.sectores || []).flatMap(s => s.actividades || []);
+    if (actividades.some(a => !a.guardada)) return 4;
+    // v6 sella los sectores. Un borrador no cuenta: sus sectores siguen siendo editables a
+    // propósito, así que la falta de sello ahí es el estado correcto, no una versión vieja.
+    if (!visita.borrador && (visita.sectores || []).some(s => !s.guardado)) return 5;
+    return 6;
 }
 
 /**
@@ -407,8 +437,72 @@ function migrarV3aV4(visita) {
     }));
 
     delete nueva.cancelada;      // ahora vive en `estado`
+
     delete nueva.duracion_estimada;
     return nueva;
+}
+
+/**
+ * v4 -> v5: sella las actividades ya capturadas.
+ *
+ * Todo lo que existía antes de este cambio ya se registró y en su mayoría ya se sincronizó:
+ * son hechos, no capturas a medias. Dejarlas como borrador las volvería editables justo
+ * cuando la regla nueva dice lo contrario, y además las mostraría con un botón "Guardar" que
+ * el educador no tiene por qué volver a presionar.
+ *
+ * El sello dice `migrada: true` y NO inventa dispositivo: no se sabe desde cuál se capturaron,
+ * y rellenarlo con el de hoy sería afirmar algo falso sobre un registro histórico. El momento
+ * se toma de `creada` cuando existe; si no, del día de la visita.
+ */
+function migrarV4aV5(visita) {
+    return {
+        ...visita,
+        sectores: (visita.sectores || []).map(sector => ({
+            ...sector,
+            solicitado_por: sector.solicitado_por || '',
+            actividades: (sector.actividades || []).map(act => {
+                if (act.guardada) return act;
+                const { borrador, ...resto } = act;
+                return {
+                    ...resto,
+                    guardada: {
+                        momento: act.creada || `${visita.dia}T00:00:00.000Z`,
+                        usuario: visita.educador || '',
+                        usuario_correo: visita.educador_correo || '',
+                        dispositivo: '',
+                        migrada: true
+                    }
+                };
+            })
+        }))
+    };
+}
+
+/**
+ * v5 -> v6: sella los sectores de las visitas que ya existían.
+ *
+ * Todas ellas se crearon cuando la visita nacía ya registrada, así que sus sectores son
+ * definitivos por el mismo argumento que las actividades: ya se usaron, ya se sincronizaron
+ * y en muchos casos ya tienen actividades colgando. Dejarlos sin sello los volvería editables
+ * justo cuando la regla nueva dice lo contrario.
+ *
+ * El sello se marca `migrado` y no inventa un momento propio: se usa el de la visita.
+ */
+function migrarV5aV6(visita) {
+    if (visita.borrador) return visita;
+
+    return {
+        ...visita,
+        sectores: (visita.sectores || []).map(sector => sector.guardado ? sector : ({
+            ...sector,
+            solicitado_por: sector.solicitado_por || '',
+            guardado: {
+                momento: visita.dia ? `${visita.dia}T00:00:00.000Z` : '',
+                usuario: visita.educador || '',
+                migrado: true
+            }
+        }))
+    };
 }
 
 /** 'HH:MM' + horas -> 'HH:MM', topado a 23:59 para no saltar de día. */
