@@ -33,22 +33,43 @@ import type { Visita } from '@core/tipos';
 
 export interface PropsDrawer {
     visitaId: string;
+    /**
+     * Cambia cuando algo FUERA de React escribe en el almacén — la ventana de sector y la de
+     * actividad lo hacen directamente. Sin esto el drawer se queda con la copia que leyó al
+     * montarse: los sectores recién agregados no aparecen y Guardar sigue deshabilitado
+     * aunque ya no falte nada.
+     */
+    version?: number;
     avisar: Avisar;
     /** Avisa al resto de la app (calendario, contadores) que algo cambió. */
     alCambiar: () => void;
     onCerrar: () => void;
     /** Abre la ventana vanilla de sector. `null` = agregar uno nuevo. */
-    abrirVentanaSector: (sectorId: string | null, alTerminar: () => void) => void;
-    abrirVentanaActividad: (sectorId: string, actividadId: string | null, alTerminar: () => void) => void;
+    abrirVentanaSector: (sectorId: string | null, alTerminar: () => void, anfitrion: HTMLElement | null) => void;
+    abrirVentanaActividad: (sectorId: string, actividadId: string | null, alTerminar: () => void, anfitrion: HTMLElement | null) => void;
     /** Abre otra visita en este mismo drawer (para duplicar). */
     abrirOtraVisita: (id: string) => void;
 }
 
 export function VisitaDrawer({
-    visitaId, avisar, alCambiar, onCerrar,
+    visitaId, version = 0, avisar, alCambiar, onCerrar,
     abrirVentanaSector, abrirVentanaActividad, abrirOtraVisita
 }: PropsDrawer) {
     const { visita, editar, refrescar } = useVisita(visitaId, alCambiar);
+
+    /**
+     * Anfitrión de las ventanas que todavía son vanilla (sector, actividad, material).
+     *
+     * Tiene que vivir DENTRO de `.drawer-raiz`, y el motivo es de apilado: `.drawer-raiz` es
+     * `z-index: 50` y crea un contexto propio; `.modal` es `z-index: 20`. Colgando el modal
+     * fuera de ese contexto queda por DEBAJO del drawer — visible a medias, y los clics se los
+     * come el scrim, que responde cerrando la visita. Era exactamente eso: al intentar agregar
+     * un sector aparecía "¿Descartarla?" en vez de la ventana.
+     *
+     * React renderiza este div siempre vacío, así que nunca reconcilia sus hijos y los nodos
+     * que se le cuelguen a mano sobreviven a los repintados.
+     */
+    const anfitrionVentanas = useRef<HTMLDivElement>(null);
 
     const [sectorId, setSectorId] = useState<string | null>(null);
     const [reagendando, setReagendando] = useState(false);
@@ -65,6 +86,10 @@ export function VisitaDrawer({
     }, [visitaId]);
 
     useEffect(() => () => clearTimeout(relojGuardado.current), []);
+
+    // Las ventanas vanilla escriben directo en el almacén; esto es lo que hace que el drawer
+    // se entere.
+    useEffect(() => { refrescar(); }, [version, refrescar]);
 
     /**
      * Cerrar sin guardar DESCARTA el borrador.
@@ -172,7 +197,7 @@ export function VisitaDrawer({
                 refrescar();
                 alCambiar();
             }
-        });
+        }, anfitrionVentanas.current);
     }
 
     /** Doble confirmación: cancelar una visita nunca debe pasar por accidente. */
@@ -221,7 +246,9 @@ export function VisitaDrawer({
                             visita={visita}
                             sector={sector}
                             onAbrirActividad={(actividadId) =>
-                                abrirVentanaActividad(sector.id, actividadId, () => { refrescar(); alCambiar(); })}
+                                abrirVentanaActividad(sector.id, actividadId,
+                                    () => { refrescar(); alCambiar(); },
+                                    anfitrionVentanas.current)}
                         />
                     </>
                 ) : (
@@ -280,6 +307,9 @@ export function VisitaDrawer({
                     onCancelar={() => pedirCancelacion(visita)}
                 />
             </aside>
+
+            {/* Siempre vacío para React; las ventanas vanilla se cuelgan aquí. */}
+            <div className="ventanas-host" ref={anfitrionVentanas} />
         </div>
     );
 }

@@ -25,6 +25,12 @@ let raiz: Root | null = null;
 let contenedor: HTMLDivElement | null = null;
 let visitaAbierta: string | null = null;
 
+/**
+ * Contador de invalidación. Las ventanas de sector y actividad siguen siendo vanilla y
+ * escriben directo en el almacén; esto le dice al drawer que vuelva a leerlo.
+ */
+let version = 0;
+
 let alCambiar: () => void = () => {};
 let avisar: Avisar = () => {};
 
@@ -49,6 +55,7 @@ export function hayDrawerAbierto(): boolean {
 
 export function abrirVisita(id: string): void {
     visitaAbierta = id;
+    version++;
     pintar();
 }
 
@@ -83,30 +90,33 @@ function pintar(): void {
                 // interno (nivel de sector, reagendando) se arrastraría de una visita a otra.
                 key={visitaAbierta}
                 visitaId={visitaAbierta}
+                version={version}
                 avisar={avisar}
                 alCambiar={() => { alCambiar(); pintar(); }}
                 onCerrar={cerrar}
                 abrirOtraVisita={abrirVisita}
-                abrirVentanaSector={(sectorId, alTerminar) => {
+                abrirVentanaSector={(sectorId, alTerminar, anfitrion) => {
                     // Las ventanas vanilla infieren su firma de los valores por defecto del
                     // JS, que son más estrechos que lo que de verdad aceptan.
                     abrirSector({
-                        host: contenedor,
+                        // El anfitrión va DENTRO de `.drawer-raiz` por el apilado; ver el
+                        // comentario en VisitaDrawer. Nunca `contenedor`.
+                        host: anfitrion ?? contenedor,
                         visitaId: visitaAbierta,
                         sectorId,
                         alToast: avisar,
-                        alCambiar: () => { alCambiar(); pintar(); },
-                        alCerrar: alTerminar
+                        alCambiar: () => { version++; alCambiar(); pintar(); },
+                        alCerrar: () => { version++; alTerminar(); }
                     } as never);
                 }}
-                abrirVentanaActividad={(sectorId, actividadId, alTerminar) => {
+                abrirVentanaActividad={(sectorId, actividadId, alTerminar, anfitrion) => {
                     abrirActividad({
-                        host: contenedor,
+                        host: anfitrion ?? contenedor,
                         visitaId: visitaAbierta,
                         sectorId,
                         actividadId,
                         alToast: avisar,
-                        alCambiar: () => { alTerminar(); alCambiar(); pintar(); }
+                        alCambiar: () => { version++; alTerminar(); alCambiar(); pintar(); }
                     } as never);
                 }}
             />

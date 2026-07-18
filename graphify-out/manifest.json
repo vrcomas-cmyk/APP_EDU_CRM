@@ -285,9 +285,9 @@
     "semantic_hash": "a625976fdaf27e0ed9f88360f327e2a2"
   },
   "src/modules/visitas/components/VisitaDrawer.tsx": {
-    "mtime": 1784401797.5595517,
-    "ast_hash": "3bdc627b9b061508c7f7a77431941700",
-    "semantic_hash": "3bdc627b9b061508c7f7a77431941700"
+    "mtime": 1784403415.9895415,
+    "ast_hash": "328de73e69de275fa0735c2d81acc211",
+    "semantic_hash": "328de73e69de275fa0735c2d81acc211"
   },
   "src/modules/visitas/hooks/useVisita.ts": {
     "mtime": 1784401529.8365533,
@@ -295,9 +295,9 @@
     "semantic_hash": "0bbeaeb93773d4efae1446709b133877"
   },
   "src/modules/visitas/montarDrawer.tsx": {
-    "mtime": 1784401797.5595517,
-    "ast_hash": "5ea19bf4f8125651bae024ea15c60062",
-    "semantic_hash": "5ea19bf4f8125651bae024ea15c60062"
+    "mtime": 1784403431.2755413,
+    "ast_hash": "30f77ba85d12e24092b4ca8ee7c0e8de",
+    "semantic_hash": "30f77ba85d12e24092b4ca8ee7c0e8de"
   },
   "src/modules/visitas/repository/visitasRepo.ts": {
     "mtime": 1784401797.5585518,
@@ -408,5 +408,10 @@
     "mtime": 1784402525.4705472,
     "ast_hash": "838fb2be078e1a3c5280ff80db1adcb6",
     "semantic_hash": "838fb2be078e1a3c5280ff80db1adcb6"
+  },
+  "tests/flujo-nueva-visita.test.tsx": {
+    "mtime": 1784403459.8355412,
+    "ast_hash": "0879987133a0cbf45293df36be954118",
+    "semantic_hash": "0879987133a0cbf45293df36be954118"
   }
 }

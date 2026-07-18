@@ -1,7 +1,108 @@
 {
   "communities": {
     "0": [
-      "js_catalogos_requiereevidencia",
+      "src_core_puente",
+      "src_core_puente_avisar",
+      "src_core_puente_bloqueoparaactividades",
+      "src_core_puente_cancelarvisita",
+      "src_core_puente_clavedia",
+      "src_core_puente_clavehoy",
+      "src_core_puente_describirubicacion",
+      "src_core_puente_desdeclave",
+      "src_core_puente_detalleestado",
+      "src_core_puente_dias_abrev",
+      "src_core_puente_diasdecuadriculames",
+      "src_core_puente_diasdesemana",
+      "src_core_puente_duracionhoras",
+      "src_core_puente_duraciontexto",
+      "src_core_puente_estadoaviso",
+      "src_core_puente_estadode",
+      "src_core_puente_estados",
+      "src_core_puente_estadosector",
+      "src_core_puente_estaguardada",
+      "src_core_puente_etiquetadialarga",
+      "src_core_puente_etiquetames",
+      "src_core_puente_etiquetarangosemana",
+      "src_core_puente_etiquetasector",
+      "src_core_puente_finalizarvisita",
+      "src_core_puente_finde",
+      "src_core_puente_hora",
+      "src_core_puente_inicialesdias",
+      "src_core_puente_iniciarvisita",
+      "src_core_puente_iniciode",
+      "src_core_puente_opcionesaviso",
+      "src_core_puente_permanenciatexto",
+      "src_core_puente_precisiondudosa",
+      "src_core_puente_puedeiniciar",
+      "src_core_puente_reactivarvisita",
+      "src_core_puente_reagendarvisita",
+      "src_core_puente_registrar",
+      "src_core_puente_repartirencolumnas",
+      "src_core_puente_requiereevidencia",
+      "src_core_puente_resultado",
+      "src_core_puente_salud",
+      "src_core_puente_saludde",
+      "src_core_puente_sesionactual",
+      "src_core_puente_sumardias",
+      "src_core_puente_sumarmeses",
+      "src_core_puente_tienecheckin",
+      "src_core_puente_tienecheckout",
+      "src_core_puente_tipos_evento",
+      "src_modules_agenda_components_agendamovil",
+      "src_modules_agenda_components_agendamovil_agendamovil",
+      "src_modules_agenda_components_agendamovil_filaagenda",
+      "src_modules_agenda_components_agendamovil_props",
+      "src_modules_agenda_components_agendamovil_tirasemana",
+      "src_modules_agenda_components_calendario",
+      "src_modules_agenda_components_calendario_calendario",
+      "src_modules_agenda_components_calendario_propscalendario",
+      "src_modules_agenda_components_calendario_usecontrolesexternos",
+      "src_modules_agenda_components_rejillahoras",
+      "src_modules_agenda_components_rejillahoras_columnadia",
+      "src_modules_agenda_components_rejillahoras_propscolumna",
+      "src_modules_agenda_components_rejillahoras_rejillahoras",
+      "src_modules_agenda_components_tarjetavisita",
+      "src_modules_agenda_components_tarjetavisita_tarjetavisita",
+      "src_modules_agenda_components_vistames",
+      "src_modules_agenda_components_vistames_lineames",
+      "src_modules_agenda_components_vistames_props",
+      "src_modules_agenda_components_vistames_vistames",
+      "src_modules_agenda_hooks_usecalendario",
+      "src_modules_agenda_hooks_usecalendario_esmovilahora",
+      "src_modules_agenda_hooks_usecalendario_usecalendario",
+      "src_modules_visitas_components_bloquecheck",
+      "src_modules_visitas_components_bloquecheck_avisocancelada",
+      "src_modules_visitas_components_bloquecheck_bloquecheck",
+      "src_modules_visitas_components_bloquecheck_marcacheck",
+      "src_modules_visitas_components_bloquecheck_props",
+      "src_modules_visitas_components_bloquereagendar",
+      "src_modules_visitas_components_bloquereagendar_bloquereagendar",
+      "src_modules_visitas_components_bloquereagendar_historialreagendas",
+      "src_modules_visitas_components_bloquereagendar_props",
+      "src_modules_visitas_components_formulariovisita_props",
+      "src_modules_visitas_components_listasectores",
+      "src_modules_visitas_components_listasectores_listasectores",
+      "src_modules_visitas_components_listasectores_propslista",
+      "src_modules_visitas_components_listasectores_propstarjeta",
+      "src_modules_visitas_components_listasectores_resumende",
+      "src_modules_visitas_components_listasectores_tarjetasector",
+      "src_modules_visitas_components_nivelsector",
+      "src_modules_visitas_components_nivelsector_bloqueactividades",
+      "src_modules_visitas_components_nivelsector_cabecerasector",
+      "src_modules_visitas_components_nivelsector_cuerposector",
+      "src_modules_visitas_components_nivelsector_dato",
+      "src_modules_visitas_components_nivelsector_filaactividad",
+      "src_modules_visitas_components_nivelsector_props",
+      "src_modules_visitas_components_pievisita",
+      "src_modules_visitas_components_pievisita_pieguardada",
+      "src_modules_visitas_components_pievisita_pievisita",
+      "src_modules_visitas_components_pievisita_propspie",
+      "src_shared_components_indicadores",
+      "src_shared_components_indicadores_banderasvisita",
+      "src_shared_components_indicadores_pastilla",
+      "src_shared_components_indicadores_puntosalud"
+    ],
+    "1": [
       "js_estado",
       "js_estado_actividadesde",
       "js_estado_actividadesguardadasde",
@@ -85,7 +186,7 @@
       "js_visita_reactivarvisita",
       "js_visita_reagendarvisita"
     ],
-    "1": [
+    "2": [
       "js_revision",
       "js_revision_abrirrevision",
       "js_revision_acciones",
@@ -139,7 +240,7 @@
       "js_revisiones_todaslasrevisiones",
       "js_revisiones_todoslosflujos"
     ],
-    "2": [
+    "3": [
       "js_campos",
       "js_campos_cabeceramodal",
       "js_campos_campotexto",
@@ -173,6 +274,7 @@
       "js_catalogos_origenes_por_defecto",
       "js_catalogos_por_defecto",
       "js_catalogos_reglade",
+      "js_catalogos_requiereevidencia",
       "js_catalogos_sectores",
       "js_catalogos_sectoresdelcatalogo",
       "js_catalogos_sectoresocultos",
@@ -190,7 +292,7 @@
       "js_sector_sectorcompleto",
       "js_storage_leercatalogo"
     ],
-    "3": [
+    "4": [
       "js_dashboard",
       "js_dashboard_abrirdashboard",
       "js_dashboard_altoast",
@@ -239,7 +341,7 @@
       "js_datos_visiblepara",
       "js_datos_visitasequipo"
     ],
-    "4": [
+    "5": [
       "js_actividad",
       "js_actividad_abriractividad",
       "js_comentarios",
@@ -287,7 +389,7 @@
       "js_vistaprevia_miniaturaevidencia",
       "js_vistaprevia_resolver"
     ],
-    "5": [
+    "6": [
       "ref_dist",
       "ref_dom",
       "ref_dom_iterable",
@@ -332,7 +434,50 @@
       "tsconfig_paths_services",
       "tsconfig_paths_shared"
     ],
-    "6": [
+    "7": [
+      "src_core_puente_buscarsolapes",
+      "src_modules_visitas_components_formulariovisita",
+      "src_modules_visitas_components_formulariovisita_avisosolape",
+      "src_modules_visitas_components_formulariovisita_campocliente",
+      "src_modules_visitas_components_formulariovisita_campoeducador",
+      "src_modules_visitas_components_formulariovisita_campohoras",
+      "src_modules_visitas_components_formulariovisita_campohospital",
+      "src_modules_visitas_components_formulariovisita_formulariovisita",
+      "src_modules_visitas_components_formulariovisita_panelinformacion",
+      "src_modules_visitas_components_pievisita_pieborrador",
+      "src_modules_visitas_services_fabricas",
+      "src_modules_visitas_services_fabricas_datosnuevavisita",
+      "src_modules_visitas_services_fabricas_duplicarvisita",
+      "src_modules_visitas_services_fabricas_generadorid",
+      "src_modules_visitas_services_fabricas_nuevavisita",
+      "src_modules_visitas_services_fabricas_sellarvisita",
+      "src_modules_visitas_services_fabricas_sellodeguardado",
+      "src_modules_visitas_services_horario",
+      "src_modules_visitas_services_horario_cambiarfin",
+      "src_modules_visitas_services_horario_duracionminutos",
+      "src_modules_visitas_services_horario_horaaminutos",
+      "src_modules_visitas_services_horario_minutosahora",
+      "src_modules_visitas_services_horario_moverinicio",
+      "src_modules_visitas_services_horario_rango",
+      "src_modules_visitas_services_horario_resultadofin",
+      "src_modules_visitas_services_horario_sumarminutos",
+      "src_modules_visitas_validators_requisitos",
+      "src_modules_visitas_validators_requisitos_campos_requeridos",
+      "src_modules_visitas_validators_requisitos_faltaparaguardar",
+      "src_modules_visitas_validators_requisitos_lleno",
+      "src_modules_visitas_validators_requisitos_sepuedeguardar",
+      "src_modules_visitas_validators_requisitos_tienecapturaperdible",
+      "src_shared_components_combo",
+      "src_shared_components_combo_combo",
+      "src_shared_components_combo_filtrar",
+      "src_shared_components_combo_propscombo",
+      "src_shared_components_combo_resaltar",
+      "tests_visitas_dominio_test",
+      "tests_visitas_dominio_test_completa",
+      "tests_visitas_dominio_test_contadordeids",
+      "tests_visitas_dominio_test_sesion"
+    ],
+    "8": [
       "src_core_tipos",
       "src_core_tipos_actividad",
       "src_core_tipos_ambitocomentario",
@@ -375,7 +520,7 @@
       "tests_permisos_can_test_como",
       "tests_permisos_can_test_perfil"
     ],
-    "7": [
+    "9": [
       "js_admin",
       "js_admin_abriradmin",
       "js_admin_altoast",
@@ -417,7 +562,7 @@
       "js_sync_subirevidencia",
       "js_sync_subirevidenciaspendientes"
     ],
-    "8": [
+    "10": [
       "js_app",
       "js_app_actualizardeuda",
       "js_app_actualizarpendientesrevision",
@@ -458,7 +603,7 @@
       "src_modules_agenda_montarcalendario_refrescarcalendario",
       "src_modules_agenda_montarcalendario_setmodo"
     ],
-    "9": [
+    "11": [
       "happy_dom",
       "package",
       "package_dependencies",
@@ -497,7 +642,7 @@
       "vitejs_plugin_react",
       "vitest"
     ],
-    "10": [
+    "12": [
       "js_fechas",
       "js_fechas_clavedia",
       "js_fechas_clavehoy",
@@ -535,42 +680,44 @@
       "js_paleta_pintar",
       "js_paleta_resultadosclientes"
     ],
-    "11": [
-      "src_core_puente",
-      "src_core_puente_describirubicacion",
-      "src_core_puente_detalleestado",
-      "src_core_puente_dias_abrev",
-      "src_core_puente_diasdecuadriculames",
-      "src_core_puente_duracionhoras",
-      "src_core_puente_duraciontexto",
-      "src_core_puente_estadoaviso",
-      "src_core_puente_finalizarvisita",
-      "src_core_puente_hora",
-      "src_core_puente_iniciarvisita",
-      "src_core_puente_opcionesaviso",
-      "src_core_puente_permanenciatexto",
-      "src_core_puente_precisiondudosa",
-      "src_core_puente_puedeiniciar",
-      "src_core_puente_resultado",
-      "src_core_puente_salud",
-      "src_core_puente_saludde",
-      "src_core_puente_tienecheckin",
-      "src_core_puente_tienecheckout",
-      "src_modules_agenda_components_tarjetavisita",
-      "src_modules_agenda_components_tarjetavisita_tarjetavisita",
-      "src_modules_agenda_components_vistames",
-      "src_modules_agenda_components_vistames_lineames",
-      "src_modules_agenda_components_vistames_props",
-      "src_modules_visitas_components_bloquecheck",
-      "src_modules_visitas_components_bloquecheck_bloquecheck",
-      "src_modules_visitas_components_bloquecheck_marcacheck",
+    "13": [
+      "src_modules_visitas_components_visitadrawer",
       "src_modules_visitas_components_visitadrawer_cabeceravisita",
-      "src_shared_components_indicadores",
-      "src_shared_components_indicadores_banderasvisita",
-      "src_shared_components_indicadores_pastilla",
-      "src_shared_components_indicadores_puntosalud"
+      "src_modules_visitas_components_visitadrawer_propsdrawer",
+      "src_modules_visitas_components_visitadrawer_visitadrawer",
+      "src_modules_visitas_hooks_usevisita",
+      "src_modules_visitas_hooks_usevisita_opcionesedicion",
+      "src_modules_visitas_hooks_usevisita_usevisita",
+      "src_modules_visitas_hooks_usevisita_usovisita",
+      "src_modules_visitas_montardrawer",
+      "src_modules_visitas_montardrawer_abrirnuevavisita",
+      "src_modules_visitas_montardrawer_abrirvisita",
+      "src_modules_visitas_montardrawer_alcambiar",
+      "src_modules_visitas_montardrawer_avisar",
+      "src_modules_visitas_montardrawer_cerrar",
+      "src_modules_visitas_montardrawer_haydrawerabierto",
+      "src_modules_visitas_montardrawer_initdrawer",
+      "src_modules_visitas_montardrawer_pintar",
+      "src_modules_visitas_repository_visitasrepo",
+      "src_modules_visitas_repository_visitasrepo_actualizarvisita",
+      "src_modules_visitas_repository_visitasrepo_agregarvisita",
+      "src_modules_visitas_repository_visitasrepo_clientesdelcatalogo",
+      "src_modules_visitas_repository_visitasrepo_eliminarvisita",
+      "src_modules_visitas_repository_visitasrepo_historialhospitales",
+      "src_modules_visitas_repository_visitasrepo_leervisitas",
+      "src_modules_visitas_repository_visitasrepo_nuevoid",
+      "src_modules_visitas_repository_visitasrepo_obtenervisita",
+      "tests_flujo_nueva_visita_test",
+      "tests_flujo_nueva_visita_test_abrirnueva",
+      "tests_flujo_nueva_visita_test_avisos",
+      "tests_flujo_nueva_visita_test_boton",
+      "tests_visitadrawer_test",
+      "tests_visitadrawer_test_borrador",
+      "tests_visitadrawer_test_guardada",
+      "tests_visitadrawer_test_montar",
+      "tests_visitadrawer_test_nada"
     ],
-    "12": [
+    "14": [
       "src_services_config",
       "src_services_config_apps_script_url",
       "src_services_config_entorno",
@@ -603,71 +750,6 @@
       "tests_servicios_test_espiarfetch",
       "tests_servicios_test_llamada",
       "tests_servicios_test_respuesta"
-    ],
-    "13": [
-      "src_core_puente_sesionactual",
-      "src_modules_visitas_components_visitadrawer_visitadrawer",
-      "src_modules_visitas_hooks_usevisita",
-      "src_modules_visitas_hooks_usevisita_opcionesedicion",
-      "src_modules_visitas_hooks_usevisita_usevisita",
-      "src_modules_visitas_hooks_usevisita_usovisita",
-      "src_modules_visitas_montardrawer",
-      "src_modules_visitas_montardrawer_abrirnuevavisita",
-      "src_modules_visitas_montardrawer_abrirvisita",
-      "src_modules_visitas_montardrawer_alcambiar",
-      "src_modules_visitas_montardrawer_avisar",
-      "src_modules_visitas_montardrawer_cerrar",
-      "src_modules_visitas_montardrawer_haydrawerabierto",
-      "src_modules_visitas_montardrawer_initdrawer",
-      "src_modules_visitas_montardrawer_pintar",
-      "src_modules_visitas_repository_visitasrepo",
-      "src_modules_visitas_repository_visitasrepo_actualizarvisita",
-      "src_modules_visitas_repository_visitasrepo_agregarvisita",
-      "src_modules_visitas_repository_visitasrepo_clientesdelcatalogo",
-      "src_modules_visitas_repository_visitasrepo_eliminarvisita",
-      "src_modules_visitas_repository_visitasrepo_historialhospitales",
-      "src_modules_visitas_repository_visitasrepo_leervisitas",
-      "src_modules_visitas_repository_visitasrepo_nuevoid",
-      "src_modules_visitas_repository_visitasrepo_obtenervisita",
-      "src_modules_visitas_services_fabricas_datosnuevavisita",
-      "src_modules_visitas_services_fabricas_nuevavisita",
-      "tests_visitadrawer_test",
-      "tests_visitadrawer_test_borrador",
-      "tests_visitadrawer_test_guardada",
-      "tests_visitadrawer_test_montar",
-      "tests_visitadrawer_test_nada"
-    ],
-    "14": [
-      "src_core_puente_clavedia",
-      "src_core_puente_clavehoy",
-      "src_core_puente_desdeclave",
-      "src_core_puente_diasdesemana",
-      "src_core_puente_etiquetadialarga",
-      "src_core_puente_etiquetames",
-      "src_core_puente_etiquetarangosemana",
-      "src_core_puente_finde",
-      "src_core_puente_inicialesdias",
-      "src_core_puente_iniciode",
-      "src_core_puente_reagendarvisita",
-      "src_core_puente_repartirencolumnas",
-      "src_core_puente_sumardias",
-      "src_core_puente_sumarmeses",
-      "src_modules_agenda_components_agendamovil",
-      "src_modules_agenda_components_agendamovil_agendamovil",
-      "src_modules_agenda_components_agendamovil_filaagenda",
-      "src_modules_agenda_components_agendamovil_props",
-      "src_modules_agenda_components_agendamovil_tirasemana",
-      "src_modules_agenda_components_calendario",
-      "src_modules_agenda_components_calendario_calendario",
-      "src_modules_agenda_components_calendario_usecontrolesexternos",
-      "src_modules_agenda_components_rejillahoras",
-      "src_modules_agenda_components_rejillahoras_columnadia",
-      "src_modules_agenda_components_rejillahoras_propscolumna",
-      "src_modules_agenda_components_rejillahoras_rejillahoras",
-      "src_modules_agenda_components_vistames_vistames",
-      "src_modules_agenda_hooks_usecalendario",
-      "src_modules_agenda_hooks_usecalendario_esmovilahora",
-      "src_modules_agenda_hooks_usecalendario_usecalendario"
     ],
     "15": [
       "src_modules_agenda_components_rejillahoras_lineaahora",
@@ -702,92 +784,6 @@
       "tests_agenda_dominio_test_jornada"
     ],
     "16": [
-      "src_core_puente_avisar",
-      "src_core_puente_cancelarvisita",
-      "src_core_puente_estadode",
-      "src_core_puente_estados",
-      "src_core_puente_reactivarvisita",
-      "src_core_puente_registrar",
-      "src_core_puente_tipos_evento",
-      "src_modules_agenda_components_calendario_propscalendario",
-      "src_modules_visitas_components_bloquecheck_avisocancelada",
-      "src_modules_visitas_components_bloquecheck_props",
-      "src_modules_visitas_components_bloquereagendar",
-      "src_modules_visitas_components_bloquereagendar_bloquereagendar",
-      "src_modules_visitas_components_bloquereagendar_historialreagendas",
-      "src_modules_visitas_components_bloquereagendar_props",
-      "src_modules_visitas_components_formulariovisita_props",
-      "src_modules_visitas_components_pievisita",
-      "src_modules_visitas_components_pievisita_pieborrador",
-      "src_modules_visitas_components_pievisita_pieguardada",
-      "src_modules_visitas_components_pievisita_pievisita",
-      "src_modules_visitas_components_pievisita_propspie",
-      "src_modules_visitas_components_visitadrawer",
-      "src_modules_visitas_components_visitadrawer_propsdrawer",
-      "src_modules_visitas_services_fabricas",
-      "src_modules_visitas_services_fabricas_duplicarvisita",
-      "src_modules_visitas_services_fabricas_generadorid",
-      "src_modules_visitas_services_fabricas_sellarvisita",
-      "src_modules_visitas_services_fabricas_sellodeguardado"
-    ],
-    "17": [
-      "src_modules_visitas_services_horario",
-      "src_modules_visitas_services_horario_cambiarfin",
-      "src_modules_visitas_services_horario_duracionminutos",
-      "src_modules_visitas_services_horario_horaaminutos",
-      "src_modules_visitas_services_horario_minutosahora",
-      "src_modules_visitas_services_horario_moverinicio",
-      "src_modules_visitas_services_horario_rango",
-      "src_modules_visitas_services_horario_resultadofin",
-      "src_modules_visitas_services_horario_sumarminutos",
-      "src_modules_visitas_validators_requisitos",
-      "src_modules_visitas_validators_requisitos_campos_requeridos",
-      "src_modules_visitas_validators_requisitos_faltaparaguardar",
-      "src_modules_visitas_validators_requisitos_lleno",
-      "src_modules_visitas_validators_requisitos_sepuedeguardar",
-      "src_modules_visitas_validators_requisitos_tienecapturaperdible",
-      "tests_visitas_dominio_test",
-      "tests_visitas_dominio_test_completa",
-      "tests_visitas_dominio_test_contadordeids",
-      "tests_visitas_dominio_test_sesion"
-    ],
-    "18": [
-      "src_core_puente_bloqueoparaactividades",
-      "src_core_puente_estadosector",
-      "src_core_puente_estaguardada",
-      "src_core_puente_etiquetasector",
-      "src_core_puente_requiereevidencia",
-      "src_modules_visitas_components_listasectores",
-      "src_modules_visitas_components_listasectores_listasectores",
-      "src_modules_visitas_components_listasectores_propslista",
-      "src_modules_visitas_components_listasectores_propstarjeta",
-      "src_modules_visitas_components_listasectores_resumende",
-      "src_modules_visitas_components_listasectores_tarjetasector",
-      "src_modules_visitas_components_nivelsector",
-      "src_modules_visitas_components_nivelsector_bloqueactividades",
-      "src_modules_visitas_components_nivelsector_cabecerasector",
-      "src_modules_visitas_components_nivelsector_cuerposector",
-      "src_modules_visitas_components_nivelsector_dato",
-      "src_modules_visitas_components_nivelsector_filaactividad",
-      "src_modules_visitas_components_nivelsector_props"
-    ],
-    "19": [
-      "src_core_puente_buscarsolapes",
-      "src_modules_visitas_components_formulariovisita",
-      "src_modules_visitas_components_formulariovisita_avisosolape",
-      "src_modules_visitas_components_formulariovisita_campocliente",
-      "src_modules_visitas_components_formulariovisita_campoeducador",
-      "src_modules_visitas_components_formulariovisita_campohoras",
-      "src_modules_visitas_components_formulariovisita_campohospital",
-      "src_modules_visitas_components_formulariovisita_formulariovisita",
-      "src_modules_visitas_components_formulariovisita_panelinformacion",
-      "src_shared_components_combo",
-      "src_shared_components_combo_combo",
-      "src_shared_components_combo_filtrar",
-      "src_shared_components_combo_propscombo",
-      "src_shared_components_combo_resaltar"
-    ],
-    "20": [
       "apps_script_appsscript",
       "apps_script_appsscript_dependencies",
       "apps_script_appsscript_exceptionlogging",
@@ -801,7 +797,7 @@
       "ref_https_www_googleapis_com_auth_script_external_request",
       "ref_https_www_googleapis_com_auth_spreadsheets"
     ],
-    "21": [
+    "17": [
       "tests_entorno",
       "tests_entorno_addeventlistener",
       "tests_entorno_almacenlocal",
@@ -815,7 +811,7 @@
       "tests_entorno_nodofalso",
       "tests_entorno_removeeventlistener"
     ],
-    "22": [
+    "18": [
       "js_auth",
       "js_auth_alcambiarsesion",
       "js_auth_cargargsi",
@@ -827,7 +823,7 @@
       "js_auth_pintarbotonentrada",
       "js_auth_sesionactual"
     ],
-    "23": [
+    "19": [
       "src_app_generarsw",
       "src_app_generarsw_generarsw",
       "src_app_generarsw_listadeassets",
@@ -839,7 +835,7 @@
       "vite_config_ruta",
       "vite_config_serviceworkergenerado"
     ],
-    "24": [
+    "20": [
       "tests_ayuda_fixtures",
       "tests_ayuda_fixtures_actividad",
       "tests_ayuda_fixtures_borrador",
@@ -851,7 +847,7 @@
       "tests_ayuda_fixtures_visita",
       "tests_ayuda_fixtures_visitacompleta"
     ],
-    "25": [
+    "21": [
       "public_manifest",
       "public_manifest_background_color",
       "public_manifest_display",
@@ -862,7 +858,7 @@
       "public_manifest_start_url",
       "public_manifest_theme_color"
     ],
-    "26": [
+    "22": [
       "js_evidencias",
       "js_evidencias_adjuntarevidencia",
       "js_evidencias_comprimirimagen",
@@ -872,7 +868,7 @@
       "js_evidencias_quitarevidencia",
       "js_evidencias_selectorarchivo"
     ],
-    "27": [
+    "23": [
       "tests_calendario_test",
       "tests_calendario_test_arrastrar",
       "tests_calendario_test_darletama\u00f1oalascolumnas",
@@ -882,67 +878,63 @@
       "tests_calendario_test_nada",
       "tests_calendario_test_visita"
     ],
-    "28": [
+    "24": [
       "tests_modulos_test",
       "tests_modulos_test_modulos",
       "tests_modulos_test_raiz"
     ],
-    "29": [
+    "25": [
       "tests_revisiones_test",
       "tests_revisiones_test_comousuario",
       "tests_revisiones_test_rev"
     ],
-    "30": [
+    "26": [
       "tests_storage_test",
       "tests_storage_test_sembrar",
       "tests_storage_test_todaslasacts"
     ],
-    "31": [
+    "27": [
       "tests_catalogos_test",
       "tests_catalogos_test_ponercatalogo"
     ],
-    "32": [
+    "28": [
       "tests_datos_test"
     ],
-    "33": [
+    "29": [
       "tests_estado_test"
     ]
   },
   "cohesion": {
-    "0": 0.06288568909785483,
-    "1": 0.083710407239819,
-    "2": 0.0824829931972789,
-    "3": 0.08325624421831637,
-    "4": 0.0927536231884058,
-    "5": 0.046511627906976744,
-    "6": 0.08048780487804878,
-    "7": 0.11666666666666667,
-    "8": 0.12010796221322537,
-    "9": 0.05555555555555555,
-    "10": 0.1,
-    "11": 0.13257575757575757,
-    "12": 0.10887096774193548,
-    "13": 0.08602150537634409,
-    "14": 0.167816091954023,
+    "0": 0.05171717171717172,
+    "1": 0.0635350797952424,
+    "2": 0.083710407239819,
+    "3": 0.08081632653061224,
+    "4": 0.08325624421831637,
+    "5": 0.0927536231884058,
+    "6": 0.046511627906976744,
+    "7": 0.08658536585365853,
+    "8": 0.08048780487804878,
+    "9": 0.11666666666666667,
+    "10": 0.12010796221322537,
+    "11": 0.05555555555555555,
+    "12": 0.1,
+    "13": 0.07058823529411765,
+    "14": 0.10887096774193548,
     "15": 0.18160919540229886,
-    "16": 0.1111111111111111,
-    "17": 0.21637426900584794,
-    "18": 0.19607843137254902,
-    "19": 0.2087912087912088,
-    "20": 0.16666666666666666,
-    "21": 0.18181818181818182,
-    "22": 0.4,
-    "23": 0.3111111111111111,
-    "24": 0.37777777777777777,
-    "25": 0.2222222222222222,
-    "26": 0.5,
-    "27": 0.32142857142857145,
-    "28": 0.6666666666666666,
-    "29": 0.6666666666666666,
-    "30": 0.6666666666666666,
-    "31": 1.0,
-    "32": 1.0,
-    "33": 1.0
+    "16": 0.16666666666666666,
+    "17": 0.18181818181818182,
+    "18": 0.4,
+    "19": 0.3111111111111111,
+    "20": 0.37777777777777777,
+    "21": 0.2222222222222222,
+    "22": 0.5,
+    "23": 0.32142857142857145,
+    "24": 0.6666666666666666,
+    "25": 0.6666666666666666,
+    "26": 0.6666666666666666,
+    "27": 1.0,
+    "28": 1.0,
+    "29": 1.0
   },
   "gods": [
     {
@@ -966,16 +958,6 @@
       "degree": 13
     },
     {
-      "id": "src_core_puente_estadode",
-      "label": "estadoDe",
-      "degree": 13
-    },
-    {
-      "id": "src_core_puente_avisar",
-      "label": "Avisar",
-      "degree": 13
-    },
-    {
       "id": "js_admin_pintar",
       "label": "pintar()",
       "degree": 12
@@ -991,9 +973,19 @@
       "degree": 11
     },
     {
-      "id": "src_core_puente_etiquetadialarga",
-      "label": "etiquetaDiaLarga",
+      "id": "src_core_puente_estadode",
+      "label": "estadoDe",
       "degree": 11
+    },
+    {
+      "id": "js_paleta_pintar",
+      "label": "pintar()",
+      "degree": 10
+    },
+    {
+      "id": "js_visita_iniciarvisita",
+      "label": "iniciarVisita()",
+      "degree": 10
     }
   ],
   "surprises": [
