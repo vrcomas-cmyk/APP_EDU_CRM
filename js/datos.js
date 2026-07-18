@@ -235,8 +235,15 @@ export function calcularIndicadores(visitas) {
         else if (estado === ESTADOS.CANCELADA) ind.canceladas++;
 
         // "Realizada" es haber estado ahí (hay check-in), no que la hora ya pasó.
-        if (tieneCheckIn(v)) ind.realizadas++;
-        else if (estado !== ESTADOS.CANCELADA) ind.pendientes++;
+        //
+        // Las canceladas quedan FUERA aunque tengan check-in, y ese caso existe de verdad:
+        // se puede cancelar después de haber llegado (el cliente canceló en la puerta). Si
+        // contaran, el numerador incluiría algo que el denominador —que sí las excluye— no,
+        // y el cumplimiento pasaría de 100%. Un porcentaje imposible en un tablero destruye
+        // la confianza en todos los demás números de la pantalla.
+        const cancelada = estado === ESTADOS.CANCELADA;
+        if (!cancelada && tieneCheckIn(v)) ind.realizadas++;
+        else if (!cancelada) ind.pendientes++;
 
         ind.reagendaciones += (v.reagendas || []).length;
 
@@ -285,6 +292,59 @@ export function calcularIndicadores(visitas) {
     ind.horas_efectivas = Math.round(ind.minutos_efectivos / 6) / 10;
 
     return ind;
+}
+
+/**
+ * Indicadores desglosados por educador. Es la vista gerencial: la pregunta no es "¿cómo va
+ * el equipo?" sino "¿quién necesita ayuda?", y para eso el promedio no sirve — esconde
+ * justo al que se está quedando atrás.
+ *
+ * Una sola pasada por visita, igual que `calcularIndicadores`: recorrer el arreglo una vez
+ * por educador sería tantas pasadas como personas tenga el equipo.
+ */
+export function indicadoresPorEducador(visitas) {
+    const porCorreo = new Map();
+
+    for (const v of visitas) {
+        const clave = norm(v.educador_correo) || norm(v.educador) || '(sin educador)';
+        if (!porCorreo.has(clave)) {
+            porCorreo.set(clave, {
+                correo: v.educador_correo || '',
+                nombre: v.educador || clave,
+                visitas: 0, realizadas: 0, canceladas: 0,
+                actividades: 0, evidencias_pendientes: 0,
+                reagendaciones: 0, minutos: 0
+            });
+        }
+        const e = porCorreo.get(clave);
+
+        e.visitas++;
+        // Mismo criterio que `calcularIndicadores`: una cancelada no cuenta como realizada
+        // aunque tenga check-in, o el cumplimiento pasaría de 100%.
+        const cancelada = estadoDe(v) === ESTADOS.CANCELADA;
+        if (cancelada) e.canceladas++;
+        else if (tieneCheckIn(v)) e.realizadas++;
+        e.reagendaciones += (v.reagendas || []).length;
+        if (tieneCheckOut(v)) e.minutos += permanenciaMinutos(v) || 0;
+        e.evidencias_pendientes += evidenciasPendientesDe(v).length;
+
+        for (const s of v.sectores || []) {
+            for (const a of s.actividades || []) {
+                if (a.guardada) e.actividades++;
+            }
+        }
+    }
+
+    return [...porCorreo.values()]
+        .map(e => {
+            const exigibles = e.visitas - e.canceladas;
+            return {
+                ...e,
+                cumplimiento: exigibles > 0 ? Math.round((e.realizadas / exigibles) * 100) : 0,
+                horas: Math.round(e.minutos / 6) / 10
+            };
+        })
+        .sort((a, b) => b.visitas - a.visitas || a.nombre.localeCompare(b.nombre, 'es'));
 }
 
 /** Top N de un mapa {clave: n}, del más alto al más bajo. Para las gráficas de barras. */

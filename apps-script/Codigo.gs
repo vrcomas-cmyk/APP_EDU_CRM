@@ -114,6 +114,7 @@ const HOJA_ACTIVIDADES = 'Actividades';
 const HOJA_MATERIALES_CAPTURA = 'Materiales_Capturados';
 const HOJA_EVENTOS = 'Eventos';
 const HOJA_COMENTARIOS = 'Comentarios';
+const HOJA_REVISIONES = 'Revisiones';
 
 // Catálogo de materiales que lee el buscador de la app (filtrado por sector).
 const COL_MATERIAL = 'Material y Nombre';
@@ -278,6 +279,14 @@ const ENCABEZADOS_COMENTARIOS = [
     'cliente', 'hospital', 'usuario', 'usuario_correo', 'texto', 'actualizado'
 ];
 
+// Auditoría de revisiones. Se escribe también en Sheets —no solo en Supabase— porque la
+// hoja sigue siendo la capa operativa: quien audita hoy lo hace ahí.
+const ENCABEZADOS_REVISIONES = [
+    'id', 'momento', 'flujo', 'ambito', 'id_ambito', 'id_visita',
+    'educador_correo', 'resultado', 'observaciones',
+    'revisor', 'revisor_correo', 'actualizado'
+];
+
 const ENCABEZADOS_EVENTOS = [
     'id', 'tipo', 'momento', 'id_visita', 'cliente', 'hospital',
     'educador', 'educador_correo', 'dispositivo', 'datos', 'actualizado'
@@ -313,7 +322,7 @@ function doGet() {
 // identidad viaja en el body en vez de en el webapp, y este script la valida él mismo.
 var ACCIONES_CON_IDENTIDAD = ['guardarVisitas', 'subirEvidencia', 'guardarEventos',
                               'guardarCatalogosAdmin', 'guardarComentarios',
-                              'leerVisitasEquipo'];
+                              'leerVisitasEquipo', 'guardarRevisiones', 'leerRevisiones'];
 
 function doPost(e) {
     // La PWA manda Content-Type: text/plain para evitar el preflight OPTIONS,
@@ -338,6 +347,10 @@ function doPost(e) {
                 return json(guardarEventos(body.eventos || [], identidad));
             case 'leerVisitasEquipo':
                 return json(leerVisitasEquipo(body, identidad));
+            case 'guardarRevisiones':
+                return json(guardarRevisiones(body.revisiones || [], identidad));
+            case 'leerRevisiones':
+                return json(leerRevisiones(identidad));
             case 'guardarComentarios':
                 return json(guardarComentarios(body.comentarios || [], identidad));
             case 'guardarCatalogosAdmin':
@@ -781,6 +794,74 @@ function leerVisitasEquipo(body, identidad) {
         };
     }
     return { status: 'ok', visitas: datos, espejo: true };
+}
+
+/**
+ * Registra revisiones. Va a Supabase Y a Sheets: la hoja es la capa operativa y es donde
+ * hoy se audita, y Supabase es lo que permite consultar por jerarquía sin repartir la hoja.
+ *
+ * El revisor lo impone el servidor con la identidad verificada. Lo que el cliente diga en
+ * ese campo se ignora: si no, cualquiera podría firmar una aprobación a nombre de su jefe.
+ */
+function guardarRevisiones(revisiones, identidad) {
+    if (revisiones.length === 0) return { status: 'ok', ids: [] };
+
+    var espejo = supabaseRPC('pdt_revision_guardar', {
+        p_revisor_correo: identidad.correo,
+        p_revisor: identidad.nombre || '',
+        p_revisiones: revisiones
+    });
+
+    var hoja = obtenerHoja(HOJA_REVISIONES, ENCABEZADOS_REVISIONES);
+    var ahora = new Date();
+
+    // Los ids ya escritos: un reenvío tras falla de red no debe duplicar la auditoría.
+    var existentes = {};
+    if (hoja.getLastRow() > 1) {
+        var previos = hoja.getRange(2, 1, hoja.getLastRow() - 1, 1).getValues();
+        for (var i = 0; i < previos.length; i++) existentes[String(previos[i][0])] = true;
+    }
+
+    var filas = [];
+    revisiones.forEach(function (r) {
+        if (!r || !r.id || existentes[String(r.id)]) return;
+        filas.push([
+            r.id, r.momento || '', r.flujo || '', r.ambito || '', r.id_ambito || '',
+            r.id_visita || '', r.educador_correo || '', r.resultado || '',
+            r.observaciones || '',
+            identidad.nombre || '', identidad.correo, ahora
+        ]);
+    });
+
+    if (filas.length > 0) {
+        hoja.getRange(hoja.getLastRow() + 1, 1, filas.length, ENCABEZADOS_REVISIONES.length)
+            .setValues(filas);
+    }
+
+    return {
+        status: 'ok',
+        espejo: espejo !== null,
+        ids: revisiones.map(function (r) { return r.id; }),
+        insertadas: filas.length
+    };
+}
+
+/** Flujos activos y revisiones que este usuario puede ver, en una sola ida. */
+function leerRevisiones(identidad) {
+    var flujos = supabaseRPC('pdt_flujos_activos', {});
+    var revisiones = supabaseRPC('pdt_revisiones_en_alcance', {
+        p_correo: identidad.correo, p_limite: 5000
+    });
+
+    if (flujos === null && revisiones === null) {
+        return { status: 'ok', flujos: [], revisiones: [], espejo: false };
+    }
+    return {
+        status: 'ok',
+        flujos: flujos || [],
+        revisiones: revisiones || [],
+        espejo: true
+    };
 }
 
 /**

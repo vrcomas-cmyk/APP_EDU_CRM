@@ -24,7 +24,11 @@
  * quien necesite el número exacto en vez de la proporción.
  */
 
-import { consultarVisitas, calcularIndicadores, opcionesDeFiltro, filtroVacio, top } from './datos.js';
+import {
+    consultarVisitas, calcularIndicadores, opcionesDeFiltro, filtroVacio, top,
+    indicadoresPorEducador
+} from './datos.js';
+import { revisionVigente, RESULTADOS } from './revisiones.js';
 import { ESTADOS, etiquetaEstado } from './estado.js';
 import { puede, tieneEquipo, perfilActual } from './permisos.js';
 import { cabeceraModal, cerrarConEscape } from './campos.js';
@@ -211,8 +215,14 @@ function cuerpo(ind, visitas) {
     body.append(
         tiles(ind),
         seccion('Estado de las visitas', filasEstado(ind)),
-        seccion('Evidencias', filasEvidencias(ind))
+        seccion('Evidencias', filasEvidencias(visitas, ind))
     );
+
+    // La vista gerencial: quién necesita ayuda. El promedio del equipo esconde justo al que
+    // se está quedando atrás, así que va desglosado por persona y no agregado.
+    if (tieneEquipo()) {
+        body.appendChild(seccion('Cumplimiento por educador', tablaEducadores(visitas)));
+    }
 
     // Estas tres solo aparecen si hay de dónde: una gráfica con una sola barra no compara nada.
     const magnitudes = [
@@ -384,14 +394,34 @@ function salud(estado) {
     }[estado] || 'neutra';
 }
 
-function filasEvidencias(ind) {
+/**
+ * Cuántas evidencias fueron rechazadas o devueltas a corrección. Sale del flujo de revisión,
+ * no del árbol: "rechazada" es un juicio de una persona, no un estado del archivo.
+ */
+function evidenciasRechazadas(visitas) {
+    let n = 0;
+    for (const v of visitas) {
+        for (const s of v.sectores || []) {
+            for (const a of s.actividades || []) {
+                const r = revisionVigente('evidencia', a.id);
+                if (r && (r.resultado === RESULTADOS.RECHAZADO
+                          || r.resultado === RESULTADOS.CORRECCION)) n++;
+            }
+        }
+    }
+    return n;
+}
+
+function filasEvidencias(visitas, ind) {
     const caja = document.createElement('div');
     caja.className = 'medidas';
 
+    const rechazadas = evidenciasRechazadas(visitas);
     const total = ind.evidencias_subidas + ind.evidencias_pendientes;
     const datos = [
         ['Cargadas', ind.evidencias_subidas, 'completa'],
-        ['Pendientes', ind.evidencias_pendientes, 'faltan-evidencias']
+        ['Pendientes', ind.evidencias_pendientes, 'faltan-evidencias'],
+        ['Rechazadas o a corregir', rechazadas, 'sin-registrar']
     ];
 
     if (total === 0) {
@@ -441,6 +471,79 @@ function filasEvidencias(ind) {
  * de hospital— y en vertical habría que girarlas, que es la forma más segura de que nadie las
  * lea. El valor va al final de cada barra: leerlo no debe costar un viaje a un eje.
  */
+/**
+ * Tabla por educador. Una tabla y no barras porque son seis medidas por persona: seis
+ * gráficas obligarían a cruzar la vista entre ellas para responder "¿y este cómo va?".
+ */
+function tablaEducadores(visitas) {
+    const filas = indicadoresPorEducador(visitas);
+
+    const envoltura = document.createElement('div');
+    envoltura.className = 'tabla-scroll';
+
+    const tabla = document.createElement('table');
+    tabla.className = 'tabla';
+
+    const columnas = ['Educador', 'Visitas', 'Realizadas', 'Cumpl.', 'Activ.',
+                      'Evid. pend.', 'Reag.', 'Horas'];
+
+    const thead = document.createElement('thead');
+    const trh = document.createElement('tr');
+    columnas.forEach((c, i) => {
+        const th = document.createElement('th');
+        th.textContent = c;
+        if (i > 0) th.className = 'num';
+        trh.appendChild(th);
+    });
+    thead.appendChild(trh);
+
+    const tbody = document.createElement('tbody');
+    filas.forEach(e => {
+        const tr = document.createElement('tr');
+
+        const nombre = document.createElement('td');
+        nombre.textContent = e.nombre;
+        nombre.title = e.correo || e.nombre;
+        tr.appendChild(nombre);
+
+        [e.visitas, e.realizadas].forEach(v => {
+            const td = document.createElement('td');
+            td.className = 'num mono';
+            td.textContent = String(v);
+            tr.appendChild(td);
+        });
+
+        // El cumplimiento lleva punto de color Y el número: el color solo refuerza.
+        const cumpl = document.createElement('td');
+        cumpl.className = 'num mono';
+        const punto = document.createElement('span');
+        punto.className = `dot st-${tonoCumplimiento(e.cumplimiento)}`;
+        const txt = document.createElement('span');
+        txt.textContent = ` ${e.cumplimiento}%`;
+        cumpl.append(punto, txt);
+        tr.appendChild(cumpl);
+
+        [e.actividades, e.evidencias_pendientes, e.reagendaciones, e.horas].forEach(v => {
+            const td = document.createElement('td');
+            td.className = 'num mono';
+            td.textContent = String(v);
+            tr.appendChild(td);
+        });
+
+        tbody.appendChild(tr);
+    });
+
+    tabla.append(thead, tbody);
+    envoltura.appendChild(tabla);
+    return envoltura;
+}
+
+function tonoCumplimiento(pct) {
+    if (pct >= 90) return 'completa';
+    if (pct >= 70) return 'faltan-evidencias';
+    return 'sin-registrar';
+}
+
 function barras(datos, unidad) {
     const caja = document.createElement('div');
     caja.className = 'medidas';

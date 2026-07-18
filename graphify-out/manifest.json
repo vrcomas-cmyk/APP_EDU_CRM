@@ -5,14 +5,14 @@
     "semantic_hash": "22c2f0e5e919eacb9203afd3d700ce1d"
   },
   "sw.js": {
-    "mtime": 1784372312.8574386,
-    "ast_hash": "b8743fe7a786876427c01009e0a2d010",
-    "semantic_hash": "b8743fe7a786876427c01009e0a2d010"
+    "mtime": 1784373426.2624314,
+    "ast_hash": "1e28ea63b8dde4393baf31686b3c2854",
+    "semantic_hash": "1e28ea63b8dde4393baf31686b3c2854"
   },
   "js/app.js": {
-    "mtime": 1784372312.8554385,
-    "ast_hash": "7bca37dd2ce52600ce7a85b51fa423be",
-    "semantic_hash": "7bca37dd2ce52600ce7a85b51fa423be"
+    "mtime": 1784373347.5394318,
+    "ast_hash": "555b0c320df82952716ebf7f58caf413",
+    "semantic_hash": "555b0c320df82952716ebf7f58caf413"
   },
   "js/calendario.js": {
     "mtime": 1784366228.778477,
@@ -35,9 +35,9 @@
     "semantic_hash": "834b5679b7985ff8310ddc603a0a35a7"
   },
   "js/sync.js": {
-    "mtime": 1784372232.806439,
-    "ast_hash": "707dc9a2dd481429e0a7908e4063a514",
-    "semantic_hash": "707dc9a2dd481429e0a7908e4063a514"
+    "mtime": 1784373318.831432,
+    "ast_hash": "00fe0bb9f24126889d3bb12ed5dc7e6a",
+    "semantic_hash": "00fe0bb9f24126889d3bb12ed5dc7e6a"
   },
   "apps-script/appsscript.json": {
     "mtime": 1784300658.4472275,
@@ -115,14 +115,14 @@
     "semantic_hash": "1c1f7a1f3695ce2fbb6cd7e3226b3d01"
   },
   "js/dashboard.js": {
-    "mtime": 1784371114.7594461,
-    "ast_hash": "cfe5260ad5884915f224863466a4aa43",
-    "semantic_hash": "cfe5260ad5884915f224863466a4aa43"
+    "mtime": 1784373426.2044313,
+    "ast_hash": "c37d7ae5b17375b81b0697b86b3379d3",
+    "semantic_hash": "c37d7ae5b17375b81b0697b86b3379d3"
   },
   "js/datos.js": {
-    "mtime": 1784372247.190439,
-    "ast_hash": "c5ecb68cc65abb8841f816001a1665bb",
-    "semantic_hash": "c5ecb68cc65abb8841f816001a1665bb"
+    "mtime": 1784373546.3424306,
+    "ast_hash": "eaccb5da372257144686aeb01d2f35a3",
+    "semantic_hash": "eaccb5da372257144686aeb01d2f35a3"
   },
   "js/hilo.js": {
     "mtime": 1784370958.944447,
@@ -148,5 +148,20 @@
     "mtime": 1784372651.9854362,
     "ast_hash": "de3a2062677150b58221eb28762856b2",
     "semantic_hash": "de3a2062677150b58221eb28762856b2"
+  },
+  "js/revision.js": {
+    "mtime": 1784373274.2124324,
+    "ast_hash": "ba8ba0095764263da87b5d7455b1e824",
+    "semantic_hash": "ba8ba0095764263da87b5d7455b1e824"
+  },
+  "js/revisiones.js": {
+    "mtime": 1784373228.6384327,
+    "ast_hash": "cd08f03cf5299250f7d6b63f91abe325",
+    "semantic_hash": "cd08f03cf5299250f7d6b63f91abe325"
+  },
+  "supabase/migrations/20260718c_pdt_revisiones.sql": {
+    "mtime": 1784373170.322433,
+    "ast_hash": "4a0e899583174843f87616c0df0191a6",
+    "semantic_hash": "4a0e899583174843f87616c0df0191a6"
   }
 }

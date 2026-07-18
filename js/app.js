@@ -7,7 +7,9 @@
  */
 
 import { migrarSiHaceFalta, leerCatalogo } from './storage.js';
-import { descargarCatalogo, sincronizarTodo, descargarVisitasEquipo } from './sync.js';
+import {
+    descargarCatalogo, sincronizarTodo, descargarVisitasEquipo, descargarRevisiones
+} from './sync.js';
 import { deudaGlobal } from './estado.js';
 import { initCalendario, refrescarCalendario, irAHoy, setModo, irADia } from './calendario.js';
 import { initDrawer, abrirNuevaVisita, abrirVisita, hayDrawerAbierto } from './drawer.js';
@@ -19,6 +21,8 @@ import {
 } from './permisos.js';
 import { ponerVisitasEquipo, olvidarVisitasEquipo } from './datos.js';
 import { initDashboard, abrirDashboard, puedeVerDashboard, hayDashboardAbierto } from './dashboard.js';
+import { initRevision, abrirRevision, puedeAbrirRevision, hayRevisionAbierta } from './revision.js';
+import { ponerFlujos, ponerRevisiones, olvidarRevisiones, conteoPendientes } from './revisiones.js';
 import { initAuth, sesionActual, pintarBotonEntrada, intentarRefresco, cerrarSesion } from './auth.js';
 
 let el = {};
@@ -39,6 +43,8 @@ document.addEventListener('DOMContentLoaded', () => {
         deudaN: document.getElementById('deuda-n'),
         admin: document.getElementById('btn-admin'),
         dashboard: document.getElementById('btn-dashboard'),
+        revision: document.getElementById('btn-revision'),
+        revisionN: document.getElementById('revision-n'),
         sesion: document.getElementById('btn-sesion'),
         sesionFoto: document.getElementById('sesion-foto'),
         sesionNombre: document.getElementById('sesion-nombre'),
@@ -56,6 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
     el.sinInvitacionSalir.addEventListener('click', () => {
         olvidarPerfil();
         olvidarVisitasEquipo();
+        olvidarRevisiones();
         cerrarSesion();
     });
 
@@ -123,6 +130,21 @@ function pintarSesion(sesion) {
 function pintarAccesos() {
     el.admin.hidden = !esAdministrador();
     el.dashboard.hidden = !puedeVerDashboard();
+    el.revision.hidden = !puedeAbrirRevision();
+    actualizarPendientesRevision();
+}
+
+/** El contador de la barra: cuánto le falta por revisar a esta persona. */
+function actualizarPendientesRevision() {
+    if (el.revision.hidden) return;
+    try {
+        const { total } = conteoPendientes();
+        el.revisionN.textContent = String(total);
+        el.revisionN.hidden = total === 0;
+    } catch (err) {
+        console.error('No se pudo contar lo pendiente de revisión:', err);
+        el.revisionN.hidden = true;
+    }
 }
 
 /**
@@ -138,6 +160,7 @@ function refrescarPerfil() {
         aceptarInvitacion();      // trámite silencioso la primera vez
         pintarAccesos();
         cargarEquipo();
+        cargarRevisiones();
     });
 }
 
@@ -151,6 +174,20 @@ function cargarEquipo() {
     descargarVisitasEquipo().then(({ visitas, espejo }) => {
         if (!espejo) return;      // el espejo no está configurado: se sigue con lo local
         ponerVisitasEquipo(visitas);
+        refrescarTodo();
+    });
+}
+
+/**
+ * Flujos y revisiones. Se piden aunque no haya equipo: un educador también necesita ver
+ * qué le rechazaron, y eso es una revisión sobre sus propias visitas.
+ */
+function cargarRevisiones() {
+    descargarRevisiones().then(({ flujos, revisiones, espejo }) => {
+        if (!espejo) return;
+        ponerFlujos(flujos);
+        ponerRevisiones(revisiones);
+        pintarAccesos();
         refrescarTodo();
     });
 }
@@ -180,12 +217,14 @@ function iniciarApp() {
     });
     initAdmin({ onToast: toast });
     initDashboard({ onToast: toast });
+    initRevision({ onToast: toast, onCambio: refrescarTodo });
 
     el.fab.addEventListener('click', () => abrirNuevaVisita());
     el.sync.addEventListener('click', () => sincronizar({ manual: true }));
     el.deuda.addEventListener('click', () => toast('La bandeja de evidencias llega en el paso siguiente.'));
     el.admin.addEventListener('click', abrirAdmin);
     el.dashboard.addEventListener('click', abrirDashboard);
+    el.revision.addEventListener('click', abrirRevision);
 
     document.addEventListener('keydown', atajos);
     document.addEventListener('keydown', atajoPaleta);
@@ -213,7 +252,8 @@ function atajos(e) {
     if (escribiendo) return;
 
     if (e.key === 'Escape') return;              // el drawer se cierra solo
-    if (hayDrawerAbierto() || hayAdminAbierto() || hayDashboardAbierto()) return;
+    if (hayDrawerAbierto() || hayAdminAbierto() || hayDashboardAbierto()
+        || hayRevisionAbierta()) return;
 
     const acciones = {
         n: () => abrirNuevaVisita(),
@@ -221,7 +261,8 @@ function atajos(e) {
         d: () => setModo('dia'),
         s: () => setModo('semana'),
         m: () => setModo('mes'),
-        i: () => { if (puedeVerDashboard()) abrirDashboard(); }
+        i: () => { if (puedeVerDashboard()) abrirDashboard(); },
+        r: () => { if (puedeAbrirRevision()) abrirRevision(); }
     };
     const accion = acciones[e.key.toLowerCase()];
     if (accion) { e.preventDefault(); accion(); }
@@ -231,7 +272,8 @@ function atajos(e) {
 function atajoPaleta(e) {
     if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'k') return;
     e.preventDefault();
-    if (hayDrawerAbierto() || hayAdminAbierto() || hayDashboardAbierto() || hayPaletaAbierta()) return;
+    if (hayDrawerAbierto() || hayAdminAbierto() || hayDashboardAbierto()
+        || hayRevisionAbierta() || hayPaletaAbierta()) return;
     abrirPaleta();
 }
 
@@ -240,6 +282,7 @@ function atajoPaleta(e) {
 export function refrescarTodo() {
     refrescarCalendario();
     actualizarDeuda();
+    actualizarPendientesRevision();
 }
 
 function actualizarDeuda() {

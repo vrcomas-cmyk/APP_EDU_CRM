@@ -16,6 +16,9 @@ import { eventosPendientes, marcarSincronizados } from './eventos.js';
 import {
     comentariosPendientes, marcarSincronizados as marcarComentarios
 } from './comentarios.js';
+import {
+    pendientesDeSubir as revisionesPendientes, marcarSincronizadas as marcarRevisiones
+} from './revisiones.js';
 import { sesionActual } from './auth.js';
 
 export const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyRdGq_Tef6GGg8MWr7_VNLS-VLvx439MTWPpmjJQ3kjXk_6OvtrFc19ehh7_GoVBZZ/exec";
@@ -195,6 +198,23 @@ export async function descargarVisitasEquipo({ desde = null, hasta = null, limit
     }
 }
 
+/** Flujos y revisiones que este usuario puede ver. Vuelve vacío si el espejo no responde. */
+export async function descargarRevisiones() {
+    if (!navigator.onLine) return { flujos: [], revisiones: [], espejo: false };
+
+    try {
+        const r = await postear({ action: 'leerRevisiones' });
+        return {
+            flujos: Array.isArray(r?.flujos) ? r.flujos : [],
+            revisiones: Array.isArray(r?.revisiones) ? r.revisiones : [],
+            espejo: r?.espejo === true
+        };
+    } catch (err) {
+        console.error('No se pudieron leer las revisiones:', err);
+        return { flujos: [], revisiones: [], espejo: false };
+    }
+}
+
 // ---------- administración ----------
 
 /** Reemplaza los catálogos compartidos. Requiere ser admin: el servidor lo vuelve a revisar. */
@@ -227,6 +247,19 @@ export async function sincronizarComentarios() {
     return { enviados: pendientes.length };
 }
 
+/**
+ * Revisiones pendientes de subir. Un revisor sin señal sigue trabajando; su bandeja se pone
+ * al corriente cuando vuelva la conexión.
+ */
+export async function sincronizarRevisiones() {
+    const pendientes = revisionesPendientes();
+    if (pendientes.length === 0) return { enviadas: 0 };
+
+    await postear({ action: 'guardarRevisiones', revisiones: pendientes });
+    marcarRevisiones(pendientes.map(r => r.id));
+    return { enviadas: pendientes.length };
+}
+
 /** Orden importante: primero las filas, luego los archivos, y al final se reenvían las URLs. */
 export async function sincronizarTodo() {
     const visitas = await sincronizarVisitas();
@@ -234,5 +267,6 @@ export async function sincronizarTodo() {
     if (evidencias.subidas > 0) await sincronizarVisitas();
     const eventos = await sincronizarEventos();
     const comentarios = await sincronizarComentarios();
-    return { visitas, evidencias, eventos, comentarios };
+    const revisiones = await sincronizarRevisiones();
+    return { visitas, evidencias, eventos, comentarios, revisiones };
 }

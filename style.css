@@ -1311,3 +1311,60 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
   padding: 7px 0; border-bottom: 1px solid var(--rule-soft);
 }
 .jerarquia-flecha { color: var(--muted); flex: none; }
+
+/* ---------- módulo de revisión ---------- */
+
+.revision-tabs { width: 100%; flex: none; border-radius: 0; border-left: 0; border-right: 0; }
+.revision-tabs button {
+  flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+}
+
+/* El contador va en la pestaña: es lo que decide por cuál flujo empezar. */
+.tab-badge {
+  font-family: var(--mono); font-size: 9px; font-weight: 700; line-height: 1;
+  min-width: 16px; padding: 2px 4px; border-radius: 999px;
+  background: var(--st-part); color: #fff;
+}
+.tab-badge[hidden] { display: none; }
+.seg button[aria-pressed="true"] .tab-badge { background: var(--paper); color: var(--ink); }
+
+.revision-lista { display: flex; flex-direction: column; gap: 12px; }
+
+.revision-card {
+  display: flex; flex-direction: column; gap: 10px;
+  border: 1px solid var(--rule); border-radius: 10px;
+  padding: 13px; background: var(--surface);
+}
+
+.revision-head { display: flex; align-items: flex-start; gap: 12px; }
+.revision-head-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.revision-titulo { font-size: 13.5px; font-weight: 600; letter-spacing: -.01em; }
+.revision-detalle { font-size: 11.5px; color: var(--muted); line-height: 1.35; }
+
+.revision-datos { padding: 9px 0; border-block: 1px solid var(--rule-soft); }
+
+.revision-acciones { display: flex; flex-direction: column; gap: 7px; }
+.revision-botones { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+/* Aprobar es lo que se hace casi siempre: va primero y es el único con peso. */
+.revision-botones .btn-principal { margin-right: auto; }
+
+/* ---------- tabla (dashboard gerencial) ---------- */
+
+/* Contenedor propio con scroll: la tabla no puede empujar el ancho de la página. */
+.tabla-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+.tabla { width: 100%; border-collapse: collapse; font-size: 12px; }
+.tabla th, .tabla td {
+  padding: 7px 10px; text-align: left; white-space: nowrap;
+  border-bottom: 1px solid var(--rule-soft);
+}
+.tabla th {
+  font-family: var(--mono); font-size: 8.5px; letter-spacing: .09em; text-transform: uppercase;
+  color: var(--muted); font-weight: 600;
+  position: sticky; top: 0; background: var(--surface);
+}
+.tabla td.num, .tabla th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.tabla tbody tr:hover { background: var(--surface-2); }
+.tabla td:first-child {
+  max-width: 220px; overflow: hidden; text-overflow: ellipsis;
+}

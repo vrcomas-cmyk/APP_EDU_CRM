@@ -70,7 +70,9 @@ Si hubo un error, la salida es registrar un registro nuevo — no reescribir la 
 | `js/app.js` | Arranque, sesión, atajos, sincronización, toasts |
 | `js/permisos.js` | Rol, permisos por módulo/acción y alcance jerárquico |
 | `js/datos.js` | Consulta única, filtros globales e indicadores; la costura para DuckDB/R2 |
-| `js/dashboard.js` | Indicadores con filtros globales |
+| `js/dashboard.js` | Indicadores con filtros globales y desglose por educador |
+| `js/revisiones.js` | Flujos de revisión: cola, estado vigente, historial |
+| `js/revision.js` | Bandeja de revisión, una pestaña por flujo |
 | `js/comentarios.js` | Comentarios inmutables sobre visita/sector/actividad/evidencia |
 | `js/hilo.js` | Hilo de comentarios reutilizable |
 | `js/vistaprevia.js` | Miniatura y visor de evidencias (imagen, PDF, video) |
@@ -221,6 +223,7 @@ migración **revoca** explícitamente:
 | `pdt_espejo_guardar` | solo `service_role` (si no, cualquiera escribe visitas falsas) |
 | `pdt_visitas_en_alcance` | solo `service_role` (si no, cualquiera lee cualquier equipo) |
 | `pdt_alcance` | solo `service_role` |
+| `pdt_revisiones_en_alcance`, `pdt_revision_guardar`, `pdt_flujos_activos` | solo `service_role` |
 | `pdt_perfil`, `pdt_aceptar_invitacion` | `anon` — la PWA las llama al arrancar |
 
 Las dos últimas exponen el rol y la lista de subordinados de un correo: el organigrama, no
@@ -242,6 +245,50 @@ delete from pdt_invitaciones where demo;
 delete from pdt_jerarquia   where jefe like '%@demo.degasa.com';
 delete from pdt_usuarios    where correo like '%@demo.degasa.com';
 ```
+
+## Módulo de revisión
+
+Cada flujo de revisión es **independiente**. Quien revisa que la foto se vea bien no es quien
+juzga si la visita valió la pena, ni quien evalúa si el retraso estuvo justificado. Con una
+sola aprobación global esas tres personas se pisan: la primera en llegar cierra el registro, o
+peor, una "rechaza" y borra el visto bueno de otra sobre algo distinto.
+
+Por eso el estado **no vive en la visita**: vive en la pareja *(flujo, elemento)*.
+
+Los cinco flujos vienen de `pdt_flujos_revision` — agregar uno no requiere tocar código:
+
+| Flujo | Ámbito | Permiso requerido |
+|---|---|---|
+| Evidencias | actividad | `evidencias.aprobar` |
+| Calidad de la visita | visita | `visitas.calificar` |
+| Justificación de retrasos | visita | `visitas.revisar` |
+| Cumplimiento de actividades | visita | `actividades.revisar` |
+| Calidad de la documentación | actividad | `actividades.calificar` |
+
+Cada persona solo ve las pestañas de los flujos en los que tiene permiso.
+
+### Qué entra a la cola
+
+Un elemento está pendiente si **nunca se revisó** en ese flujo o si su última revisión pidió
+**corrección**. `Rechazado` no vuelve a la cola: ya se decidió, y reaparecer obligaría a
+rechazar lo mismo cada vez.
+
+No todo es revisable siempre. Una visita cancelada no ocurrió; una programada aún no tiene
+qué juzgar; una evidencia sin archivo cargado es deuda del educador, no trabajo del revisor.
+Esa es la única lógica del módulo que vive en código, porque depende de la forma del árbol y
+no de una preferencia.
+
+### Append-only
+
+Una revisión no se edita ni se borra. El estado vigente es la **más reciente**; las anteriores
+se conservan porque son las que cuentan la historia — `rechazado → corregido → aprobado` dice
+algo que `aprobado` solo, no.
+
+El revisor lo impone el servidor con la identidad verificada: lo que el cliente ponga en ese
+campo se ignora. Sin eso, cualquiera podría firmar una aprobación a nombre de su jefe.
+
+Rechazar o pedir corrección **exige observaciones**. Un rechazo sin explicación deja al
+educador sin nada que hacer.
 
 ## Arquitectura y migración futura
 
