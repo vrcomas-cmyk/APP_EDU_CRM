@@ -1,0 +1,95 @@
+/**
+ * Puente hacia los módulos vanilla que todavía no se han portado.
+ *
+ * Existe solo mientras dure la migración. Su trabajo es contener el `any`: `js/*.js` no está
+ * anotado, así que sin este archivo cada componente importaría funciones sin tipo y el `any`
+ * se derramaría por toda la capa nueva — que es exactamente cómo se pierde la ventaja de
+ * haber migrado a TypeScript.
+ *
+ * Cuando un módulo de `js/` se porte a `src/`, se borra su bloque de aquí y los componentes
+ * pasan a importarlo directo. Este archivo debe ENCOGER con cada iteración; si crece, la
+ * migración se está estancando.
+ */
+
+import * as _estado from '../../js/estado.js';
+import * as _catalogos from '../../js/catalogos.js';
+import * as _visita from '../../js/visita.js';
+import * as _fechas from '../../js/fechas.js';
+import * as _geo from '../../js/geo.js';
+import * as _auth from '../../js/auth.js';
+import * as _eventos from '../../js/eventos.js';
+
+import type { Visita, Sector, Actividad, Marca, Sesion, SaludVisita, EstadoSector } from './tipos';
+
+// ---------- estado (salud, ciclo de vida, tiempo) ----------
+
+export const ESTADOS = _estado.ESTADOS as Record<string, string>;
+
+export const saludDe = _estado.saludDe as (v: Visita) => SaludVisita;
+export const estadoDe = _estado.estadoDe as (v: Visita) => string;
+export const detalleEstado = _estado.detalleEstado as (v: Visita) => string;
+export const duracionTexto = _estado.duracionTexto as (v: Visita) => string;
+export const permanenciaTexto = _estado.permanenciaTexto as (v: Visita) => string | null;
+export const tieneCheckIn = _estado.tieneCheckIn as (v: Visita) => boolean;
+export const tieneCheckOut = _estado.tieneCheckOut as (v: Visita) => boolean;
+export const estaGuardada = _estado.estaGuardada as (a: Actividad) => boolean;
+export const estadoSector = _estado.estadoSector as (v: Visita, s: Sector) => EstadoSector;
+export const etiquetaSector = _estado.etiquetaSector as (e: string) => string;
+export const buscarSolapes = _estado.buscarSolapes as (
+    visitas: Visita[], candidata: Visita, ignorarId?: string | null
+) => Visita[];
+
+// ---------- catálogos ----------
+
+export const requiereEvidencia = _catalogos.requiereEvidencia as (a: Actividad) => boolean;
+
+// ---------- acciones de negocio ----------
+
+/**
+ * Todas devuelven un resultado en vez de lanzar. Una acción que falla —sin GPS, sin cliente,
+ * ya finalizada— es un caso normal aquí, no una excepción.
+ */
+export interface Resultado {
+    ok: boolean;
+    error?: string;
+    visita?: Visita;
+    ubicacion?: { error?: string; precision_m?: number };
+    permanencia_min?: number | null;
+}
+
+export const iniciarVisita = _visita.iniciarVisita as (id: string) => Promise<Resultado>;
+export const finalizarVisita = _visita.finalizarVisita as (id: string) => Promise<Resultado>;
+export const cancelarVisita = _visita.cancelarVisita as (id: string, motivo: string) => Resultado;
+export const reactivarVisita = _visita.reactivarVisita as (id: string) => Resultado;
+export const reagendarVisita = _visita.reagendarVisita as (
+    id: string,
+    datos: { dia: string; hora_inicio: string; hora_fin: string; motivo: string }
+) => Resultado;
+
+export const puedeIniciar = _visita.puedeIniciar as (v: Visita) => boolean;
+/** Motivo por el que no se pueden capturar actividades, o `null` si sí se puede. */
+export const bloqueoParaActividades = _visita.bloqueoParaActividades as (v: Visita) => string | null;
+
+// ---------- fechas, ubicación, sesión ----------
+
+export const etiquetaDiaLarga = _fechas.etiquetaDiaLarga as (dia?: string) => string;
+export const describirUbicacion = _geo.describirUbicacion as (m: Marca) => string;
+export const precisionDudosa = _geo.precisionDudosa as (u: unknown) => boolean;
+export const sesionActual = _auth.sesionActual as () => Sesion | null;
+
+export const registrar = _eventos.registrar as (
+    tipo: string, visita: Visita, extra?: Record<string, unknown>
+) => void;
+export const TIPOS_EVENTO = _eventos.TIPOS as Record<string, string>;
+
+// ---------- avisos ----------
+
+export type EstadoAviso = 'completa' | 'sin-registrar' | 'programada' | 'faltan-evidencias';
+
+export interface OpcionesAviso {
+    estado?: EstadoAviso;
+    ms?: number;
+    accion?: { texto: string; fn: () => void };
+}
+
+export type Avisar = (mensaje: string, opciones?: OpcionesAviso) => void;

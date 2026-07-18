@@ -12,7 +12,7 @@ import {
 } from './sync.js';
 import { deudaGlobal } from './estado.js';
 import { initCalendario, refrescarCalendario, irAHoy, setModo, irADia } from './calendario.js';
-import { initDrawer, abrirNuevaVisita, abrirVisita, hayDrawerAbierto } from './drawer.js';
+import { initDrawer, abrirNuevaVisita, abrirVisita, hayDrawerAbierto } from '../src/modules/visitas/montarDrawer';
 import { initPaleta, abrirPaleta, hayPaletaAbierta } from './paleta.js';
 import { initAdmin, abrirAdmin, hayAdminAbierto } from './admin.js';
 import {

@@ -8,17 +8,32 @@ porque durante la migración conviven dos formas de escribir la misma app.
 La app funciona **en cada commit**. No hay un "día del cambio" en el que todo se sustituye.
 
 ```
-js/*.js          ← la app que corre hoy. Vanilla, intacta, sigue siendo la fuente de verdad.
+js/*.js          ← lo que todavía no se porta. Encoge con cada iteración.
 src/             ← la arquitectura nueva. Crece módulo a módulo.
 ```
+
+**Portado hasta ahora:** el drawer de visitas (`js/drawer.js`, 1,390 líneas → 9 archivos, el
+mayor de ~290). Expone la misma API que antes desde `montarDrawer.tsx`, así que `app.js` y
+`calendario.js` no cambiaron.
 
 Vite consume los módulos ES actuales sin modificarlos, así que el paquete que se construye hoy
 es la misma aplicación de siempre. Lo que se va moviendo a `src/` deja de existir en `js/`; lo
 que todavía no se movió, sigue funcionando donde está.
 
-> **Cambio de despliegue.** Al introducir el build, el artefacto ya no es la raíz del
-> repositorio sino `dist/`. Servir los archivos sueltos como antes deja de funcionar en cuanto
-> un módulo de `js/` importe algo de `src/`. Ese paso todavía no se ha dado.
+> **El despliegue ya cambió.** `js/app.js` importa del árbol `src/`, así que servir los
+> archivos sueltos desde la raíz **ya no funciona**. El artefacto es `dist/`, y se produce con
+> `npm run build`.
+
+### Service worker
+
+Se **genera en el build** (`src/app/generarSW.ts` + un plugin en `vite.config.ts`). La lista de
+precache dejaba de ser mantenible en cuanto los nombres llevan hash, y a mano ya era una fuente
+de errores: olvidar un módulo funciona perfecto en el escritorio y rompe la app offline en los
+teléfonos que ya la tenían instalada, porque `cache.addAll` falla entero si un archivo no está.
+
+Los estáticos que deben conservar su nombre —`icon.svg`, `manifest.json`— viven en `public/`.
+Si se dejan en la raíz, Vite les pone hash y los mueve a `assets/`, y entonces la referencia
+`./icon.svg` del manifiesto apunta a un archivo que no existe: la app instalada pierde su ícono.
 
 ## Capas, de adentro hacia afuera
 
@@ -133,9 +148,24 @@ un borrado por índices que dejó un fragmento de código al final de un archivo
 dio por bueno, porque resultó ser sintaxis válida— y un módulo nuevo que no se agregó a la lista
 del SW, lo que funciona en el escritorio y rompe la app en los teléfonos ya instalados.
 
+## Configuración
+
+Todo sale de `.env` (ver `.env.example`). **Nada de eso es secreto**: el prefijo `VITE_`
+significa que el valor se incrusta en el paquete que descarga el navegador.
+
+`config.ts` comprueba al arrancar que la clave de Supabase sea de rol `anon`. Si alguien pega
+por error la `service_role` —las dos cadenas se ven iguales— la app se detiene en vez de
+publicar en internet una clave que se salta todas las políticas de la base.
+
 ## Lo que todavía no está hecho
 
-- La interfaz sigue siendo vanilla. Ningún componente React está en producción.
+- `calendario.js`, `actividad.js`, `sector.js`, `dashboard.js` y `admin.js` siguen siendo
+  vanilla. El drawer los invoca a través de `montarDrawer.tsx`.
 - `js/sync.js` y `js/permisos.js` aún tienen su propio `fetch`; la capa de servicios existe y
   está probada, pero todavía no está conectada a ellos.
-- Nada de esto se ha visto en un navegador. En este entorno no hay uno.
+- **Costo del cambio a React: ~60 kB gzip.** El paquete pasó de 39 kB a ~100 kB. En la red de
+  un hospital eso se nota en el primer arranque; después el trozo de React queda en caché y no
+  se vuelve a descargar salvo que suba de versión.
+- Nada se ha visto en un navegador: en este entorno no hay uno. Lo que sí hay ahora son
+  pruebas de render contra un DOM real (`tests/VisitaDrawer.test.tsx`), que verifican
+  comportamiento pero no dicen nada sobre si se ve bien.

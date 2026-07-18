@@ -76,7 +76,13 @@ function nodoFalso(etiqueta = 'div') {
     return nodo;
 }
 
-globalThis.document = {
+// Cuando la prueba corre con `happy-dom` ya hay un DOM de verdad; pisarlo con este stub
+// pobre haría que los componentes se "renderizaran" contra nodos que no existen.
+const hayDOMReal = typeof globalThis.document !== 'undefined'
+    && typeof globalThis.document.createElement === 'function'
+    && typeof globalThis.HTMLElement !== 'undefined';
+
+if (!hayDOMReal) globalThis.document = {
     body: nodoFalso('body'),
     documentElement: nodoFalso('html'),
     createElement: (t) => nodoFalso(t),
@@ -89,7 +95,7 @@ globalThis.document = {
     removeEventListener() {}
 };
 
-globalThis.window = globalThis;
+if (!hayDOMReal) globalThis.window = globalThis;
 
 // Node ya define `navigator`, y solo con getter: no se puede reasignar. Se le agrega `onLine`
 // encima, que es lo único que la app le pide.

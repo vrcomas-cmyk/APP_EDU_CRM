@@ -1,37 +1,61 @@
 /**
- * Endpoints y credenciales públicas.
+ * Configuración por entorno.
  *
- * Están AQUÍ y en ningún otro lugar. Antes vivían dentro de los módulos que los usaban
- * —la URL de Apps Script en `sync.js`, la de Supabase en `permisos.js`, cada uno con su
- * propio `fetch`—, y esa es exactamente la dependencia que estorba para migrar a DuckDB o R2:
- * no se puede cambiar el origen de los datos si el origen está escrito en quince archivos.
+ * Todo sale de variables `VITE_*` (ver `.env`). Están AQUÍ y en ningún otro lugar: antes la
+ * URL de Apps Script vivía en `sync.js` y la de Supabase en `permisos.js`, y esa es justo la
+ * dependencia que impide cambiar de origen de datos sin editar quince archivos.
  *
- * ── Sobre la clave anónima ───────────────────────────────────────────────────────────
+ * ── Nada de esto es secreto ──────────────────────────────────────────────────────────
  *
- * `SUPABASE_ANON_KEY` es pública por diseño: viaja en el paquete que descarga el navegador y
- * cualquiera puede leerla. NO es un secreto y no debe tratarse como tal. Lo que protege los
- * datos son las políticas de la base y los `revoke execute` sobre las funciones, no esconder
- * esta cadena. Los datos de otros usuarios se leen a través de Apps Script, que sí verifica
- * el id_token de Google contra el dominio permitido.
+ * El prefijo `VITE_` significa que el valor se INCRUSTA en el paquete que descarga el
+ * navegador. La clave anónima de Supabase es pública por diseño; lo que protege los datos son
+ * las políticas de la base y los `revoke execute` sobre las funciones, no esconder la cadena.
  *
- * La clave de servicio (`service_role`) NUNCA aparece aquí. Vive en las propiedades del script
- * de Apps Script, del lado del servidor.
+ * La clave `service_role` NUNCA aparece aquí. Vive en las propiedades del script de Apps
+ * Script, del lado del servidor.
  */
 
-/** Lee una variable de entorno de Vite sin romperse en Node (pruebas, scripts). */
-function env(nombre: string): string | undefined {
-    const meta = (import.meta as unknown as { env?: Record<string, string> }).env;
-    return meta?.[nombre] ?? undefined;
+type Entorno = Record<string, string | undefined>;
+
+/** `import.meta.env` no existe fuera de Vite; se lee con cuidado para no romper en Node. */
+function entorno(): Entorno {
+    return (import.meta as unknown as { env?: Entorno }).env ?? {};
 }
 
-export const APPS_SCRIPT_URL = env('VITE_APPS_SCRIPT_URL')
-    ?? 'https://script.google.com/macros/s/AKfycbyRdGq_Tef6GGg8MWr7_VNLS-VLvx439MTWPpmjJQ3kjXk_6OvtrFc19ehh7_GoVBZZ/exec';
+/**
+ * Lee una variable obligatoria.
+ *
+ * Falla en vez de caer en un valor por defecto, y la razón es concreta: un respaldo apuntando
+ * a producción convierte un entorno mal configurado en escrituras silenciosas sobre los datos
+ * reales. Es preferible que la app no arranque a que arranque contra la base equivocada.
+ */
+function requerida(nombre: string): string {
+    const valor = entorno()[nombre]?.trim();
+    if (!valor) {
+        throw new Error(
+            `Falta la variable de entorno ${nombre}. ` +
+            'Cópiala de .env.example a .env.local, o revisa que .env esté presente.'
+        );
+    }
+    return valor;
+}
 
-export const SUPABASE_URL = env('VITE_SUPABASE_URL')
-    ?? 'https://fiplfsuhsqibzrpvjvbx.supabase.co';
+/** Lee una variable opcional numérica. Un valor absurdo cae al default en vez de propagarse. */
+function numero(nombre: string, porDefecto: number): number {
+    const crudo = entorno()[nombre];
+    if (crudo === undefined || crudo === '') return porDefecto;
 
-export const SUPABASE_ANON_KEY = env('VITE_SUPABASE_ANON_KEY')
-    ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpcGxmc3Voc3FpYnpycHZqdmJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyODAyNjgsImV4cCI6MjA4OTg1NjI2OH0.YG3Fk8XJ_n9PGIYUHtoiy-MJNuWqJTsFBwooKnt1X5s';
+    const n = Number(crudo);
+    if (!Number.isFinite(n) || n <= 0) {
+        console.warn(`${nombre}="${crudo}" no es un número válido; se usa ${porDefecto}.`);
+        return porDefecto;
+    }
+    return n;
+}
+
+export const APPS_SCRIPT_URL = requerida('VITE_APPS_SCRIPT_URL');
+export const SUPABASE_URL = requerida('VITE_SUPABASE_URL');
+export const SUPABASE_ANON_KEY = requerida('VITE_SUPABASE_ANON_KEY');
 
 /**
  * Cuánto se espera a una respuesta antes de darla por perdida.
@@ -40,4 +64,32 @@ export const SUPABASE_ANON_KEY = env('VITE_SUPABASE_ANON_KEY')
  * colgado indefinidamente y la app parece congelada. Es peor que fallar: al menos un fallo
  * deja reintentar.
  */
-export const TIMEOUT_MS = 20_000;
+export const TIMEOUT_MS = numero('VITE_TIMEOUT_MS', 20_000);
+
+/**
+ * Comprobación de seguridad, no de configuración.
+ *
+ * Una clave de Supabase lleva su rol dentro del JWT. Si alguien pega por error la
+ * `service_role` en una variable `VITE_`, quedaría publicada en el paquete con permiso para
+ * saltarse TODAS las políticas de la base. Es un error plausible —las dos cadenas se ven
+ * iguales— y de consecuencias totales, así que se detecta al arrancar y no se deja pasar.
+ */
+export function verificarClaveAnonima(clave: string): void {
+    try {
+        const carga = clave.split('.')[1];
+        if (!carga) return;
+        const json = JSON.parse(atob(carga.replace(/-/g, '+').replace(/_/g, '/')));
+        if (json.role && json.role !== 'anon') {
+            throw new Error(
+                `VITE_SUPABASE_ANON_KEY tiene rol "${json.role}", no "anon". ` +
+                'Esa clave se publicaría en el navegador con permisos de servidor. Sustitúyela.'
+            );
+        }
+    } catch (err) {
+        // Un JWT ilegible no es motivo para tumbar la app: puede ser una clave de otro
+        // formato. Solo se detiene el caso que sí se pudo leer Y resultó ser privilegiado.
+        if (err instanceof Error && err.message.startsWith('VITE_SUPABASE_ANON_KEY')) throw err;
+    }
+}
+
+verificarClaveAnonima(SUPABASE_ANON_KEY);
