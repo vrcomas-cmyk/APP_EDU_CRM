@@ -16,7 +16,7 @@
  * sin actualizar quien lo importa falla aquí, no en producción.
  */
 
-import { test, describe } from 'node:test';
+import { test, describe } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -32,7 +32,9 @@ describe('todos los módulos cargan', () => {
     for (const archivo of modulos) {
         test(`js/${archivo}`, async () => {
             await assert.doesNotReject(
-                () => import(`../js/${archivo}`),
+                // @vite-ignore — la lista sale del disco en tiempo de ejecución, que es
+                // justo el punto: un módulo nuevo entra a la prueba sin que nadie lo agregue.
+                () => import(/* @vite-ignore */ `../js/${archivo}`),
                 `js/${archivo} no se pudo importar: un import roto o código sobrante al final`
             );
         });

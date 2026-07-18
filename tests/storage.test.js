@@ -10,7 +10,7 @@
  * nada, porque el navegador puede recargar a media migración).
  */
 
-import { test, describe, beforeEach } from 'node:test';
+import { test, describe, beforeEach } from 'vitest';
 import assert from 'node:assert/strict';
 import { limpiarAlmacen } from './entorno.js';
 

@@ -6,7 +6,7 @@
  * actividad a medio escribir afirmaría algo que todavía no ocurrió.
  */
 
-import { test, describe, beforeEach } from 'node:test';
+import { test, describe, beforeEach } from 'vitest';
 import assert from 'node:assert/strict';
 import { limpiarAlmacen } from './entorno.js';
 

@@ -1,0 +1,233 @@
+/**
+ * El modelo de datos, en un solo lugar.
+ *
+ * Estos tipos describen lo que YA se guarda en localStorage y se sincroniza con Sheets. No
+ * son un diseño nuevo: son la forma existente, escrita. Cambiar algo aquí sin migrar el dato
+ * guardado no arregla nada, solo hace que el compilador mienta.
+ *
+ * Por eso casi todo lo opcional lo es de verdad: hay visitas capturadas hace meses, en
+ * versiones anteriores del modelo, que no tienen contacto ni sello ni correo. Marcar esos
+ * campos como obligatorios describiría la app que nos gustaría tener, no la que corre.
+ */
+
+// ---------- ciclo de vida ----------
+
+export type EstadoVisita = 'programada' | 'en-proceso' | 'finalizada' | 'cancelada';
+
+/**
+ * La salud del registro. Se CALCULA, no se guarda: es una lectura sobre lo capturado, y
+ * persistirla permitiría que contradijera a los datos de los que sale.
+ */
+export type SaludVisita = 'neutra' | 'sin-registrar' | 'faltan-evidencias' | 'completa' | 'cancelada';
+
+export type EstadoSector = 'pendiente' | 'en-proceso' | 'finalizado';
+
+/** Modo de un campo capturable, resuelto por tipo de actividad desde Administración. */
+export type ModoCampo = 'obligatorio' | 'opcional' | 'solo-lectura' | 'oculto';
+
+// ---------- marcas de tiempo y lugar ----------
+
+/**
+ * El hecho de haber estado ahí. Inmutable una vez escrito.
+ *
+ * `precision_m` se guarda junto a las coordenadas a propósito: una ubicación sin su margen de
+ * error invita a tratarla como exacta, y dentro de un hospital el GPS se equivoca por decenas
+ * de metros con normalidad.
+ */
+export interface Marca {
+    momento: string;                  // ISO 8601
+    lat?: number;
+    lng?: number;
+    precision_m?: number;
+    direccion?: string;
+    usuario?: string;
+    dispositivo?: string;
+}
+
+/**
+ * Sello de guardado. Su PRESENCIA es lo que distingue un hecho de un borrador; no hay una
+ * bandera `bloqueada` aparte que pudiera contradecirlo.
+ */
+export interface Sello {
+    momento: string;
+    usuario?: string;
+    usuario_correo?: string;
+    dispositivo?: string;
+    /** El sello se reconstruyó en una migración; no lo puso nadie al guardar. */
+    migrada?: boolean;
+    migrado?: boolean;
+}
+
+export interface Reagenda {
+    momento: string;
+    usuario?: string;
+    motivo?: string;
+    antes: { dia: string; hora_inicio: string; hora_fin: string };
+    despues: { dia: string; hora_inicio: string; hora_fin: string };
+}
+
+// ---------- el árbol ----------
+
+export type EstadoEvidencia = 'local' | 'subida';
+
+/** Una evidencia es un ARCHIVO. Dónde vive lo decide el repositorio, no quien la muestra. */
+export interface Evidencia {
+    estado: EstadoEvidencia;
+    nombre?: string;
+    mime?: string;
+    url?: string;
+    tipo?: string;                    // "Fotografía", "Lista de asistencia"…
+    fecha_documento?: string;
+}
+
+export interface Material {
+    id: string;
+    material: string;
+    cantidad?: string | number;
+    unidad?: string;
+    origen?: string;
+    sector?: string;
+}
+
+export interface Contacto {
+    nombre?: string;
+    cargo?: string;
+    servicio?: string;
+}
+
+export interface Actividad {
+    id: string;
+    tipo?: string;
+    area_visitada?: string;
+    creada?: string;
+    /** Sin sello es un borrador: existe para no perderse, pero todavía no afirma nada. */
+    guardada?: Sello;
+    contacto?: Contacto;
+    materiales?: Material[];
+    evidencia?: Evidencia;
+    tipo_evidencia?: string;
+    fecha_documento?: string;
+}
+
+export interface Sector {
+    id: string;
+    nombre: string;
+    objetivo?: string;
+    origen?: string[];
+    solicitado_por?: string;
+    /** Sin sello el sector sigue siendo editable: la visita aún es un borrador. */
+    guardado?: Sello;
+    actividades?: Actividad[];
+}
+
+export interface Visita {
+    id: string;
+    educador?: string;
+    educador_correo?: string;
+    cliente?: string;
+    hospital?: string;
+    dia?: string;                     // 'YYYY-MM-DD'
+    hora_inicio?: string;             // 'HH:MM'
+    hora_fin?: string;
+    estado?: EstadoVisita | string;   // abierta a propósito: agregar uno no debe romper nada
+    check_in?: Marca;
+    check_out?: Marca;
+    reagendas?: Reagenda[];
+    motivo_cancelacion?: string;
+    /** Visita en captura. Desaparece al guardar; su ausencia es lo que la vuelve real. */
+    borrador?: boolean;
+    sectores?: Sector[];
+    sincronizado?: boolean;
+}
+
+// ---------- personas y permisos ----------
+
+/** Un permiso es siempre `modulo.accion`. Nunca un rol: los roles cambian, los permisos no. */
+export type Permiso = string;
+
+export interface Perfil {
+    correo: string;
+    nombre: string;
+    rol: string;
+    es_admin: boolean;
+    permisos: Permiso[];
+    /** Correos que este usuario puede ver. Lo resuelve Postgres, no el cliente. */
+    alcance: string[];
+    /** true / false / null: "no tiene" y "todavía no sé" son cosas distintas. */
+    invitado: boolean | null;
+    invitacion_estado?: string;
+    origen: 'supabase' | 'cache' | 'respaldo' | string;
+}
+
+export interface Sesion {
+    correo: string;
+    nombre?: string;
+    foto?: string;
+    id_token: string;
+    expira?: number;
+}
+
+// ---------- comentarios y revisiones ----------
+
+export type AmbitoComentario = 'visita' | 'sector' | 'actividad' | 'evidencia';
+
+/** Un comentario nunca se edita ni se borra. */
+export interface Comentario {
+    id: string;
+    ambito: AmbitoComentario;
+    id_ambito: string;
+    id_visita?: string;
+    texto: string;
+    autor?: string;
+    autor_correo?: string;
+    momento: string;
+    sincronizado?: boolean;
+}
+
+export type ResultadoRevision = 'aprobado' | 'rechazado' | 'correccion';
+
+export interface FlujoRevision {
+    clave: string;
+    nombre: string;
+    ambito: 'visita' | 'actividad';
+    /** Permiso que habilita este flujo, en forma `modulo.accion`. */
+    permiso: Permiso;
+    orden: number;
+    descripcion?: string;
+}
+
+export interface Revision {
+    id: string;
+    flujo: string;
+    ambito: 'visita' | 'actividad';
+    id_ambito: string;
+    id_visita?: string;
+    resultado: ResultadoRevision;
+    observaciones?: string;
+    revisor?: string;
+    revisor_correo?: string;
+    momento: string;
+    /**
+     * Desempate. Dentro de una transacción `now()` es constante, así que un lote subido junto
+     * comparte `momento`; sin esto, "la revisión vigente" saldría al azar.
+     */
+    seq?: number;
+    sincronizado?: boolean;
+}
+
+// ---------- indicadores ----------
+
+export interface IndicadoresEducador {
+    correo: string;
+    nombre: string;
+    visitas: number;
+    realizadas: number;
+    canceladas: number;
+    actividades: number;
+    evidencias_pendientes: number;
+    reagendaciones: number;
+    minutos: number;
+    /** Nunca debe pasar de 100: un porcentaje imposible desacredita todo el tablero. */
+    cumplimiento: number;
+    horas: number;
+}

@@ -6,7 +6,7 @@
  * y que una hoja vieja siga comportándose igual que antes.
  */
 
-import { test, describe, beforeEach } from 'node:test';
+import { test, describe, beforeEach } from 'vitest';
 import assert from 'node:assert/strict';
 import { limpiarAlmacen } from './entorno.js';
 
