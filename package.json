@@ -1,0 +1,11 @@
+{
+  "name": "plan-de-trabajo",
+  "version": "1.6.0",
+  "private": true,
+  "type": "module",
+  "description": "PWA de registro de visitas para educadores clínicos (DEGASA).",
+  "scripts": {
+    "test": "node --test --import ./tests/entorno.js \"tests/**/*.test.js\"",
+    "check": "node --check js/app.js && for f in js/*.js sw.js; do node --check \"$f\" || exit 1; done"
+  }
+}

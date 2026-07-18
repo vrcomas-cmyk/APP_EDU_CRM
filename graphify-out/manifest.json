@@ -163,5 +163,50 @@
     "mtime": 1784373170.322433,
     "ast_hash": "4a0e899583174843f87616c0df0191a6",
     "semantic_hash": "4a0e899583174843f87616c0df0191a6"
+  },
+  "package.json": {
+    "mtime": 1784400254.4915614,
+    "ast_hash": "614b716905599ebe13c2fe3b6ee60d49",
+    "semantic_hash": "614b716905599ebe13c2fe3b6ee60d49"
+  },
+  "tests/ayuda/fixtures.js": {
+    "mtime": 1784400191.849562,
+    "ast_hash": "cb98df6c04ca0dd73d68203c0470d65a",
+    "semantic_hash": "cb98df6c04ca0dd73d68203c0470d65a"
+  },
+  "tests/catalogos.test.js": {
+    "mtime": 1784400420.3275604,
+    "ast_hash": "6de9abdec0062060038637d9304bef7b",
+    "semantic_hash": "6de9abdec0062060038637d9304bef7b"
+  },
+  "tests/datos.test.js": {
+    "mtime": 1784400486.82056,
+    "ast_hash": "ed3c453d2b446614c3bd5a0571aa6213",
+    "semantic_hash": "ed3c453d2b446614c3bd5a0571aa6213"
+  },
+  "tests/entorno.js": {
+    "mtime": 1784400243.8075616,
+    "ast_hash": "fc996388f338dcc25f49bd896297db5f",
+    "semantic_hash": "fc996388f338dcc25f49bd896297db5f"
+  },
+  "tests/estado.test.js": {
+    "mtime": 1784400291.6795614,
+    "ast_hash": "73535f93e575fb578c41adf763bb0e26",
+    "semantic_hash": "73535f93e575fb578c41adf763bb0e26"
+  },
+  "tests/modulos.test.js": {
+    "mtime": 1784400635.498559,
+    "ast_hash": "6b4c73f2d295e422f6cba8deb11b8e52",
+    "semantic_hash": "6b4c73f2d295e422f6cba8deb11b8e52"
+  },
+  "tests/revisiones.test.js": {
+    "mtime": 1784400605.7535594,
+    "ast_hash": "f4b6f8fd6d832941332829cb14f26772",
+    "semantic_hash": "f4b6f8fd6d832941332829cb14f26772"
+  },
+  "tests/storage.test.js": {
+    "mtime": 1784400363.182561,
+    "ast_hash": "6cacc96dd97c739c442a81927729e673",
+    "semantic_hash": "6cacc96dd97c739c442a81927729e673"
   }
 }
