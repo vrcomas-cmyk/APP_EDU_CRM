@@ -10609,9 +10609,9 @@
       "source_file": "tests/espejo-completo.test.js",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "tests_espejo_completo_test",
       "community": 36,
-      "norm_label": "espejo-completo.test.js"
+      "norm_label": "espejo-completo.test.js",
+      "id": "tests_espejo_completo_test"
     },
     {
       "label": "raiz",
@@ -10619,9 +10619,9 @@
       "source_file": "tests/espejo-completo.test.js",
       "source_location": "L23",
       "_origin": "ast",
-      "id": "tests_espejo_completo_test_raiz",
       "community": 36,
-      "norm_label": "raiz"
+      "norm_label": "raiz",
+      "id": "tests_espejo_completo_test_raiz"
     },
     {
       "label": "codigo",
@@ -10629,9 +10629,9 @@
       "source_file": "tests/espejo-completo.test.js",
       "source_location": "L24",
       "_origin": "ast",
-      "id": "tests_espejo_completo_test_codigo",
       "community": 36,
-      "norm_label": "codigo"
+      "norm_label": "codigo",
+      "id": "tests_espejo_completo_test_codigo"
     },
     {
       "label": "cuerpoDe()",
@@ -10639,9 +10639,9 @@
       "source_file": "tests/espejo-completo.test.js",
       "source_location": "L27",
       "_origin": "ast",
-      "id": "tests_espejo_completo_test_cuerpode",
       "community": 36,
-      "norm_label": "cuerpode()"
+      "norm_label": "cuerpode()",
+      "id": "tests_espejo_completo_test_cuerpode"
     },
     {
       "label": "ESPEJOS",
@@ -10649,9 +10649,9 @@
       "source_file": "tests/espejo-completo.test.js",
       "source_location": "L44",
       "_origin": "ast",
-      "id": "tests_espejo_completo_test_espejos",
       "community": 36,
-      "norm_label": "espejos"
+      "norm_label": "espejos",
+      "id": "tests_espejo_completo_test_espejos"
     }
   ],
   "links": [
@@ -35778,9 +35778,9 @@
       "source_location": "L24",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "tests_espejo_completo_test",
-      "target": "tests_espejo_completo_test_codigo",
-      "confidence_score": 1.0
+      "target": "tests_espejo_completo_test_codigo"
     },
     {
       "relation": "contains",
@@ -35789,9 +35789,9 @@
       "source_location": "L27",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "tests_espejo_completo_test",
-      "target": "tests_espejo_completo_test_cuerpode",
-      "confidence_score": 1.0
+      "target": "tests_espejo_completo_test_cuerpode"
     },
     {
       "relation": "contains",
@@ -35800,9 +35800,9 @@
       "source_location": "L44",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "tests_espejo_completo_test",
-      "target": "tests_espejo_completo_test_espejos",
-      "confidence_score": 1.0
+      "target": "tests_espejo_completo_test_espejos"
     },
     {
       "relation": "contains",
@@ -35811,11 +35811,11 @@
       "source_location": "L23",
       "weight": 1.0,
       "_origin": "ast",
+      "confidence_score": 1.0,
       "source": "tests_espejo_completo_test",
-      "target": "tests_espejo_completo_test_raiz",
-      "confidence_score": 1.0
+      "target": "tests_espejo_completo_test_raiz"
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "8dc376782030ea633c3d599ba41f3a259530a779"
+  "built_at_commit": "4b7a81809c0c6c0cdeb9f2815f9b31e6d1761259"
 }
