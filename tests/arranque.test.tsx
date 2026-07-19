@@ -80,10 +80,19 @@ afterEach(() => {
     // desconcertante, porque el informe dice que todo pasó y aun así la ejecución falla.
     for (const id of intervalos.splice(0)) clearInterval(id as number);
 
+    // Sin esto los manejadores se acumulan sobre el mismo `document` y el de la primera prueba
+    // atiende los eventos de la última, actuando sobre nodos que ya no están en la página.
+    for (const o of oyentes.splice(0)) {
+        document.removeEventListener(o.tipo, o.fn, o.opts as boolean | undefined);
+    }
+
     vi.restoreAllMocks();
     document.body.innerHTML = '';
     delete (globalThis as Record<string, unknown>).google;
 });
+
+/** Los listeners que la app colgó de `document`, para poder descolgarlos. */
+const oyentes: Array<{ tipo: string; fn: EventListenerOrEventListenerObject; opts?: unknown }> = [];
 
 /** Los temporizadores que registró la app durante el arranque, para poder pararlos. */
 // El tipo del identificador cambia según se resuelva `setInterval` al del DOM o al de Node,
@@ -102,14 +111,20 @@ const asentar = () => new Promise(r => setTimeout(r, 50));
 /**
  * Enciende la app.
  *
- * El arranque se INVOCA directamente en vez de despachar `DOMContentLoaded`, y el motivo es
- * de aislamiento: `vi.resetModules()` reimporta `app.js` en cada prueba, y cada importación
- * añade otro listener al mismo `document` —que no se reinicia—. Despachando el evento, para
- * la sexta prueba habría seis aplicaciones peleándose por el mismo `#main`, y los fallos
- * saltarían de una prueba a otra según el orden.
+ * Todo aquí es aislamiento. `vi.resetModules()` reimporta `app.js` en cada prueba, pero el
+ * `document` NO se reinicia: sus listeners se acumulan, y cada uno cierra sobre la instancia
+ * de módulos de SU prueba, con sus contenedores ya arrancados del DOM.
  *
- * Capturar el manejador y llamarlo una vez reproduce lo que hace el navegador sin arrastrar
- * los arranques anteriores.
+ * Dos consecuencias, las dos vividas:
+ *
+ *   - `DOMContentLoaded`: despachando el evento, para la sexta prueba habría seis aplicaciones
+ *     peleándose por el mismo `#main`. Por eso el arranque se captura y se INVOCA, que es lo
+ *     mismo que hace el navegador pero sin arrastrar los anteriores.
+ *
+ *   - El resto (`keydown`, sobre todo): el manejador de la prueba 1 corre PRIMERO y gana. Con
+ *     Ctrl+K, abría la paleta de su propia instancia —dentro de un contenedor que su `afterEach`
+ *     ya había quitado—, así que la prueba 15 no veía nada y pasaba en solitario. Por eso se
+ *     apuntan todos y se retiran al terminar.
  */
 async function arrancar() {
     let arranque: (() => void) | null = null;
@@ -118,6 +133,7 @@ async function arrancar() {
     const espia = vi.spyOn(document, 'addEventListener')
         .mockImplementation((tipo: string, fn: EventListenerOrEventListenerObject, ...resto) => {
             if (tipo === 'DOMContentLoaded') { arranque = fn as () => void; return; }
+            oyentes.push({ tipo, fn, opts: resto[0] });
             return original(tipo, fn, ...resto);
         });
 
@@ -129,11 +145,16 @@ async function arrancar() {
             return id;
         }) as unknown as typeof setInterval);
 
+    const espiaDoc = espia;
     await import('../js/app.js');
-    espia.mockRestore();
 
     assert.ok(arranque, 'app.js debe registrar su arranque en DOMContentLoaded');
+
+    // El arranque registra el grueso de los listeners: el espía sigue puesto durante la
+    // llamada y se retira después.
     (arranque as () => void)();
+    espiaDoc.mockRestore();
+
     await asentar();
     espiaTimer.mockRestore();
 }
@@ -311,6 +332,23 @@ describe('cambiar de módulo', () => {
         // arrancar, aunque nadie los hubiera abierto.
         assert.equal(document.querySelectorAll('.drawer-raiz').length, 0,
             'ningún módulo monta ya un panel modal');
+    });
+
+    test('Ctrl+K abre la paleta de comandos', async () => {
+        // La paleta se monta en su propio contenedor colgado de `document.body`, no dentro del
+        // árbol de vistas: es `z-index: 55` y tiene que quedar por encima del drawer.
+        perfil();
+        await arrancar();
+
+        assert.equal(document.querySelector('.paleta-raiz'), null, 'arranca cerrada');
+
+        document.dispatchEvent(new KeyboardEvent('keydown', {
+            key: 'k', ctrlKey: true, bubbles: true, cancelable: true
+        }));
+        await asentar();
+
+        assert.ok(document.querySelector('.paleta-raiz'), 'Ctrl+K debe abrirla');
+        assert.ok(document.querySelector('.paleta-opt'), 'y ofrecer sus acciones');
     });
 
     test('se puede volver al calendario', async () => {

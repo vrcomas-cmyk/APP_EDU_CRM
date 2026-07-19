@@ -15,7 +15,7 @@ import {
     initVistas, refrescarVistas as refrescarCalendario, irAHoy, setModo, irADia, mostrarModulo
 } from '../src/app/montarVistas';
 import { initDrawer, abrirNuevaVisita, abrirVisita, hayDrawerAbierto } from '../src/modules/visitas/montarDrawer';
-import { initPaleta, abrirPaleta, hayPaletaAbierta } from './paleta.js';
+import { initPaleta, abrirPaleta, hayPaletaAbierta } from '../src/modules/paleta/montarPaleta';
 import {
     initPermisos, actualizarPerfil, olvidarPerfil,
     accesoBloqueado, aceptarInvitacion, tieneEquipo

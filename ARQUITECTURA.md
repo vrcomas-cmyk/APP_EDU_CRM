@@ -24,6 +24,7 @@ llama:
 | `js/dashboard.js` (583 líneas) | `modules/dashboard/` — 4 archivos | ~207 |
 | `js/revision.js` (379 líneas) | `modules/revision/` — 7 archivos | ~92 |
 | `js/admin.js` (562 líneas) | `modules/administracion/` — 7 archivos | ~148 |
+| `js/paleta.js` (187 líneas) | `modules/paleta/` — 3 archivos | ~160 |
 
 ### Los módulos son un registro de datos, no condiciones repartidas
 
@@ -242,7 +243,7 @@ publicar en internet una clave que se salta todas las políticas de la base.
 
 ## Lo que todavía no está hecho
 
-- `paleta.js` y `app.js` siguen siendo vanilla.
+- `app.js` sigue siendo vanilla: es lo último que queda del arranque.
 - `materiales.js`, `evidencias.js`, `vistaprevia.js` e `hilo.js` devuelven nodos DOM y se
   montan con `NodoVanilla`. Ese componente debe quedarse sin usos y desaparecer.
 - La barra de navegación del calendario vive en `index.html`, fuera del árbol de React, y se
@@ -271,8 +272,16 @@ Es la misma lección que ya había dado la ventana de sector: una prueba que dob
 unión no puede fallar donde el fallo vive. Cada capa nueva necesita al menos una prueba que
 atraviese la unión de verdad.
 
-Tiene un coste que conviene conocer: cada prueba enciende otra app, y `app.js` deja vivo un
-`setInterval` que repinta el calendario cada minuto —en el navegador vive lo que la pestaña, y
-no hay forma de pararlo—. Acumulados, happy-dom no consigue cerrar el entorno: se queda
-esperando y vitest mata el worker DESPUÉS de que las pruebas hayan pasado todas. El informe
-dice que todo va bien y la ejecución falla igual. Por eso el archivo los recoge y los limpia.
+Tiene un coste que conviene conocer, y que ha mordido dos veces: **el `document` no se
+reinicia entre pruebas**, aunque los módulos sí. Todo lo que la app cuelga de él se acumula, y
+cada copia cierra sobre la instancia de SU prueba —con los contenedores que su limpieza ya
+arrancó del DOM—.
+
+- Los `setInterval` que repintan el calendario: acumulados, happy-dom no consigue cerrar el
+  entorno y vitest mata el worker DESPUÉS de que todas las pruebas hayan pasado. El informe
+  dice que todo va bien y la ejecución falla igual.
+- Los `keydown`: el manejador de la primera prueba corre PRIMERO y gana. Con Ctrl+K abría la
+  paleta de su propia instancia, dentro de un contenedor ya desmontado, así que la prueba de la
+  paleta no veía nada —y pasaba en solitario, que es la peor forma de fallar—.
+
+Por eso `arrancar()` apunta unos y otros, y `afterEach` los retira.

@@ -1,8 +1,8 @@
 {
   "js/app.js": {
-    "mtime": 1784421405.7515447,
-    "ast_hash": "a80b65284dba196bbdaf88f77f2367e1",
-    "semantic_hash": "a80b65284dba196bbdaf88f77f2367e1"
+    "mtime": 1784421935.833511,
+    "ast_hash": "318b1936f9c179b69e947cf73817e84f",
+    "semantic_hash": "318b1936f9c179b69e947cf73817e84f"
   },
   "js/evidencias.js": {
     "mtime": 1784315048.3109472,
@@ -53,11 +53,6 @@
     "mtime": 1784275153.8562305,
     "ast_hash": "b08e8aa39bfc9df2643090606b7192c9",
     "semantic_hash": "b08e8aa39bfc9df2643090606b7192c9"
-  },
-  "js/paleta.js": {
-    "mtime": 1784297086.3544812,
-    "ast_hash": "432600f87be9f7a3077262626fc6e9ea",
-    "semantic_hash": "432600f87be9f7a3077262626fc6e9ea"
   },
   "js/visita.js": {
     "mtime": 1784275265.9412327,
@@ -495,9 +490,9 @@
     "semantic_hash": "2054feaf3cfaeeb71b730badd30e2320"
   },
   "tests/arranque.test.tsx": {
-    "mtime": 1784421560.8285348,
-    "ast_hash": "eed9f059e14ae5ee5dfa8ef8ba54c398",
-    "semantic_hash": "eed9f059e14ae5ee5dfa8ef8ba54c398"
+    "mtime": 1784422143.274498,
+    "ast_hash": "32f980958577571b48916efadcce4298",
+    "semantic_hash": "32f980958577571b48916efadcce4298"
   },
   "src/modules/revision/components/AccionesRevision.tsx": {
     "mtime": 1784420022.5706317,
@@ -588,5 +583,25 @@
     "mtime": 1784421602.1125321,
     "ast_hash": "e7542b97e7c78a7492111362e30f4a00",
     "semantic_hash": "e7542b97e7c78a7492111362e30f4a00"
+  },
+  "src/modules/paleta/components/Paleta.tsx": {
+    "mtime": 1784421935.8115113,
+    "ast_hash": "abc313269adcbba3ce5187cacf9ebabe",
+    "semantic_hash": "abc313269adcbba3ce5187cacf9ebabe"
+  },
+  "src/modules/paleta/montarPaleta.tsx": {
+    "mtime": 1784421919.8735123,
+    "ast_hash": "a7b2ccfe356d74b3919be54f98f9d7de",
+    "semantic_hash": "a7b2ccfe356d74b3919be54f98f9d7de"
+  },
+  "src/modules/paleta/services/busqueda.ts": {
+    "mtime": 1784421848.7525167,
+    "ast_hash": "8d5414d307a655e119f3720bd9569a75",
+    "semantic_hash": "8d5414d307a655e119f3720bd9569a75"
+  },
+  "tests/paleta.test.tsx": {
+    "mtime": 1784422023.2905056,
+    "ast_hash": "385e0951335ccb003d3e1c83135b58f5",
+    "semantic_hash": "385e0951335ccb003d3e1c83135b58f5"
   }
 }
