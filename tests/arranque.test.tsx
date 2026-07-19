@@ -109,6 +109,26 @@ const intervalos: unknown[] = [];
 const asentar = () => new Promise(r => setTimeout(r, 50));
 
 /**
+ * Espera a que algo APAREZCA, en vez de esperar un rato y confiar.
+ *
+ * `asentar()` sirve para el arranque —una secuencia de cosas asíncronas sin un final
+ * observable— pero usarlo antes de una aserción es una carrera: con la suite entera en marcha
+ * la máquina va más cargada y 50 ms dejan de alcanzar. Esa prueba falla una vez de cada
+ * varias, pasa al reintentarla, y enseña a reintentar en vez de a leer el fallo.
+ */
+async function esperarA<T>(obtener: () => T | null | undefined, que: string, ms = 3000): Promise<T> {
+    const limite = Date.now() + ms;
+
+    for (;;) {
+        const valor = obtener();
+        if (valor) return valor;
+
+        if (Date.now() > limite) throw new Error(`Nunca apareció: ${que}`);
+        await new Promise(r => setTimeout(r, 10));
+    }
+}
+
+/**
  * Enciende la app.
  *
  * Todo aquí es aislamiento. `vi.resetModules()` reimporta `app.js` en cada prueba, pero el
@@ -259,11 +279,9 @@ describe('cambiar de módulo', () => {
             .find(b => b.textContent?.includes('Indicadores')) as HTMLButtonElement;
 
         boton.click();
-        await asentar();
 
         const main = document.getElementById('main')!;
-        assert.ok(main.querySelector('.vista-dashboard'),
-            `debe verse el tablero. errores=${JSON.stringify(errores)} main=${main.innerHTML.slice(0, 400)}`);
+        await esperarA(() => main.querySelector('.vista-dashboard'), 'el tablero');
         assert.equal(main.querySelector('.grid'), null,
             'y el calendario debe dejar de ocupar la pantalla, no quedarse debajo');
     });
@@ -276,10 +294,8 @@ describe('cambiar de módulo', () => {
             .find(b => b.textContent?.includes('Indicadores')) as HTMLButtonElement;
 
         boton.click();
-        await asentar();
-
-        assert.equal((document.getElementById('cal-modo') as HTMLElement).hidden, true,
-            'dejarlo visible sugeriría que el selector de vistas sigue haciendo algo');
+        await esperarA(() => (document.getElementById('cal-modo') as HTMLElement).hidden || null,
+            'el contexto de fechas escondido');
     });
 
     test('Revisión es una vista, no un modal encima del calendario', async () => {
@@ -295,10 +311,9 @@ describe('cambiar de módulo', () => {
         assert.ok(boton, 'con permiso de aprobar evidencias, Revisión debe ofrecerse');
 
         boton.click();
-        await asentar();
 
         const main = document.getElementById('main')!;
-        assert.ok(main.querySelector('.vista-revision'), 'debe verse la bandeja');
+        await esperarA(() => main.querySelector('.vista-revision'), 'la bandeja de revisión');
         assert.equal(main.querySelector('.grid'), null,
             'el calendario deja la pantalla, no se queda debajo');
     });
@@ -321,10 +336,9 @@ describe('cambiar de módulo', () => {
             .find(b => b.textContent?.includes('Administración')) as HTMLButtonElement;
 
         boton.click();
-        await asentar();
 
         const main = document.getElementById('main')!;
-        assert.ok(main.querySelector('.vista-admin'));
+        await esperarA(() => main.querySelector('.vista-admin'), 'la pantalla de administración');
         assert.equal(main.querySelector('.grid'), null);
 
         // `.drawer-raiz` es el contenedor de los paneles modales. Con el drawer de visitas
@@ -345,10 +359,9 @@ describe('cambiar de módulo', () => {
         document.dispatchEvent(new KeyboardEvent('keydown', {
             key: 'k', ctrlKey: true, bubbles: true, cancelable: true
         }));
-        await asentar();
 
-        assert.ok(document.querySelector('.paleta-raiz'), 'Ctrl+K debe abrirla');
-        assert.ok(document.querySelector('.paleta-opt'), 'y ofrecer sus acciones');
+        await esperarA(() => document.querySelector('.paleta-raiz'), 'la paleta');
+        assert.ok(document.querySelector('.paleta-opt'), 'y debe ofrecer sus acciones');
     });
 
     test('se puede volver al calendario', async () => {
@@ -358,11 +371,12 @@ describe('cambiar de módulo', () => {
         const item = (t: string) => [...document.querySelectorAll('.nav-item')]
             .find(b => b.textContent?.includes(t)) as HTMLButtonElement;
 
-        item('Indicadores').click();
-        await asentar();
-        item('Calendario').click();
-        await asentar();
+        const main = document.getElementById('main')!;
 
-        assert.ok(document.getElementById('main')!.querySelector('.grid, .agenda-list'));
+        item('Indicadores').click();
+        await esperarA(() => main.querySelector('.vista-dashboard'), 'el tablero');
+
+        item('Calendario').click();
+        await esperarA(() => main.querySelector('.grid, .agenda-list'), 'el calendario de vuelta');
     });
 });

@@ -13,6 +13,7 @@
 import * as almacen from '../../../../js/storage.js';
 
 import type { Visita } from '@core/tipos';
+import { puedeEditarVisita } from '../permissions/edicion';
 
 export function leerVisitas(): Visita[] {
     return almacen.leerVisitas() as Visita[];
@@ -31,14 +32,29 @@ export function agregarVisita(visita: Visita): Visita {
  *
  * Todo edit pasa por aquí. Si la marca de "sin sincronizar" se olvidara en algún camino
  * alterno, el cambio se quedaría para siempre en el teléfono sin que nadie lo note.
+ *
+ * Y por eso mismo es donde vive el guardián de propiedad: siendo la única puerta, no hay
+ * ruta alterna que se lo salte, y sigue siéndolo cuando detrás haya Supabase en vez de
+ * `localStorage`. Ver `permissions/edicion.ts` para el porqué.
  */
 export function actualizarVisita(id: string, mutador: (v: Visita) => void): Visita | null {
+    if (!puedeEditarVisita(obtenerVisita(id))) return null;
     return (almacen.actualizarVisita(id, mutador) ?? null) as Visita | null;
 }
 
 export function eliminarVisita(id: string): void {
+    if (!puedeEditarVisita(obtenerVisita(id))) return;
     almacen.eliminarVisita(id);
 }
+
+/**
+ * ¿Se puede escribir sobre esta visita?
+ *
+ * Se expone para que la interfaz pueda ESCONDER lo que no se va a poder hacer, en vez de
+ * ofrecerlo y que no pase nada al pulsarlo. El repositorio lo vuelve a comprobar igualmente:
+ * un guardián que depende de que la pantalla se acuerde de preguntar no es un guardián.
+ */
+export { puedeEditarVisita };
 
 export function nuevoId(prefijo: string): string {
     return almacen.nuevoId(prefijo) as string;
