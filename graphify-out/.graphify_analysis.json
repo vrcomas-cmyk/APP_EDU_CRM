@@ -852,6 +852,27 @@
       "tests_visitadrawer_test_nada"
     ],
     "20": [
+      "src_core_puente_bloqueoparaactividades",
+      "src_core_puente_campovisible",
+      "src_core_tipos_actividad",
+      "src_core_tipos_material",
+      "src_core_tipos_sector",
+      "src_core_tipos_visita",
+      "src_modules_actividades_components_actividadsellada",
+      "src_modules_actividades_components_actividadsellada_actividadsellada",
+      "src_modules_actividades_components_actividadsellada_filamaterial",
+      "src_modules_actividades_components_actividadsellada_propssellada",
+      "src_modules_actividades_components_actividadsellada_seccion",
+      "src_modules_actividades_components_formularioactividad_propsformulario",
+      "src_modules_actividades_components_ventanaactividad_propsventana",
+      "src_modules_visitas_components_nivelsector",
+      "src_modules_visitas_components_nivelsector_bloqueactividades",
+      "src_modules_visitas_components_nivelsector_cuerposector",
+      "src_modules_visitas_components_nivelsector_props",
+      "src_shared_components_dato",
+      "src_shared_components_dato_dato"
+    ],
+    "21": [
       "src_core_tipos_perfil",
       "src_core_tipos_permiso",
       "src_modules_usuarios_permissions_can",
@@ -872,7 +893,7 @@
       "tests_permisos_can_test_como",
       "tests_permisos_can_test_perfil"
     ],
-    "21": [
+    "22": [
       "src_core_puente",
       "src_core_puente_cancelarvisita",
       "src_core_puente_describirubicacion",
@@ -892,7 +913,7 @@
       "src_modules_visitas_components_bloquecheck_bloquecheck",
       "src_modules_visitas_components_bloquecheck_marcacheck"
     ],
-    "22": [
+    "23": [
       "src_core_puente_avisar",
       "src_core_puente_origenes",
       "src_core_puente_sectores",
@@ -907,27 +928,7 @@
       "src_modules_sectores_components_ventanasector_ventanasector",
       "src_modules_sectores_montarsector",
       "src_modules_sectores_montarsector_opcionessector",
-      "src_modules_visitas_components_bloquecheck_props",
-      "src_shared_components_dato",
-      "src_shared_components_dato_dato"
-    ],
-    "23": [
-      "src_core_puente_bloqueoparaactividades",
-      "src_core_puente_estadosector",
-      "src_core_puente_estaguardada",
-      "src_core_puente_etiquetasector",
-      "src_core_puente_requiereevidencia",
-      "src_modules_visitas_components_listasectores",
-      "src_modules_visitas_components_listasectores_listasectores",
-      "src_modules_visitas_components_listasectores_propslista",
-      "src_modules_visitas_components_listasectores_propstarjeta",
-      "src_modules_visitas_components_listasectores_resumende",
-      "src_modules_visitas_components_listasectores_tarjetasector",
-      "src_modules_visitas_components_nivelsector",
-      "src_modules_visitas_components_nivelsector_bloqueactividades",
-      "src_modules_visitas_components_nivelsector_cabecerasector",
-      "src_modules_visitas_components_nivelsector_cuerposector",
-      "src_modules_visitas_components_nivelsector_filaactividad"
+      "src_modules_visitas_components_bloquecheck_props"
     ],
     "24": [
       "src_core_puente_areas",
@@ -946,21 +947,6 @@
       "src_modules_actividades_components_formularioactividad_selecttipo"
     ],
     "25": [
-      "src_core_puente_campovisible",
-      "src_core_tipos_actividad",
-      "src_core_tipos_material",
-      "src_core_tipos_sector",
-      "src_core_tipos_visita",
-      "src_modules_actividades_components_actividadsellada",
-      "src_modules_actividades_components_actividadsellada_actividadsellada",
-      "src_modules_actividades_components_actividadsellada_filamaterial",
-      "src_modules_actividades_components_actividadsellada_propssellada",
-      "src_modules_actividades_components_actividadsellada_seccion",
-      "src_modules_actividades_components_formularioactividad_propsformulario",
-      "src_modules_actividades_components_ventanaactividad_propsventana",
-      "src_modules_visitas_components_nivelsector_props"
-    ],
-    "26": [
       "src_core_tipos",
       "src_core_tipos_ambitocomentario",
       "src_core_tipos_campoconfigurable",
@@ -975,7 +961,7 @@
       "src_core_tipos_reagenda",
       "src_core_tipos_saludvisita"
     ],
-    "27": [
+    "26": [
       "tests_arranque_test",
       "tests_arranque_test_arrancar",
       "tests_arranque_test_asentar",
@@ -990,7 +976,7 @@
       "tests_arranque_test_raiz",
       "tests_arranque_test_renderbutton"
     ],
-    "28": [
+    "27": [
       "apps_script_appsscript",
       "apps_script_appsscript_dependencies",
       "apps_script_appsscript_exceptionlogging",
@@ -1003,6 +989,20 @@
       "ref_https_www_googleapis_com_auth_drive_file",
       "ref_https_www_googleapis_com_auth_script_external_request",
       "ref_https_www_googleapis_com_auth_spreadsheets"
+    ],
+    "28": [
+      "src_core_puente_estadosector",
+      "src_core_puente_estaguardada",
+      "src_core_puente_etiquetasector",
+      "src_core_puente_requiereevidencia",
+      "src_modules_visitas_components_listasectores",
+      "src_modules_visitas_components_listasectores_listasectores",
+      "src_modules_visitas_components_listasectores_propslista",
+      "src_modules_visitas_components_listasectores_propstarjeta",
+      "src_modules_visitas_components_listasectores_resumende",
+      "src_modules_visitas_components_listasectores_tarjetasector",
+      "src_modules_visitas_components_nivelsector_cabecerasector",
+      "src_modules_visitas_components_nivelsector_filaactividad"
     ],
     "29": [
       "tests_entorno",
@@ -1158,15 +1158,15 @@
     "17": 0.15019762845849802,
     "18": 0.12648221343873517,
     "19": 0.09523809523809523,
-    "20": 0.23976608187134502,
-    "21": 0.21568627450980393,
-    "22": 0.16176470588235295,
-    "23": 0.23333333333333334,
+    "20": 0.19298245614035087,
+    "21": 0.23976608187134502,
+    "22": 0.21568627450980393,
+    "23": 0.18095238095238095,
     "24": 0.21978021978021978,
-    "25": 0.2564102564102564,
-    "26": 0.15384615384615385,
+    "25": 0.15384615384615385,
+    "26": 0.16666666666666666,
     "27": 0.16666666666666666,
-    "28": 0.16666666666666666,
+    "28": 0.2727272727272727,
     "29": 0.18181818181818182,
     "30": 0.2909090909090909,
     "31": 0.4,
