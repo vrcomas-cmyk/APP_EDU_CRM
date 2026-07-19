@@ -292,6 +292,27 @@ describe('cambiar de módulo', () => {
         assert.ok(!rotulos.includes('Revisión'));
     });
 
+    test('Administración también es una vista: ya no queda ningún modal', async () => {
+        perfil({ es_admin: true, rol: 'administrador' });
+        await arrancar();
+
+        const boton = [...document.querySelectorAll('.nav-item')]
+            .find(b => b.textContent?.includes('Administración')) as HTMLButtonElement;
+
+        boton.click();
+        await asentar();
+
+        const main = document.getElementById('main')!;
+        assert.ok(main.querySelector('.vista-admin'));
+        assert.equal(main.querySelector('.grid'), null);
+
+        // `.drawer-raiz` es el contenedor de los paneles modales. Con el drawer de visitas
+        // cerrado no debe haber NINGUNO: revisión y administración montaban el suyo al
+        // arrancar, aunque nadie los hubiera abierto.
+        assert.equal(document.querySelectorAll('.drawer-raiz').length, 0,
+            'ningún módulo monta ya un panel modal');
+    });
+
     test('se puede volver al calendario', async () => {
         perfil();
         await arrancar();

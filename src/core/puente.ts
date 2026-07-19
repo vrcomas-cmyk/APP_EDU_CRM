@@ -22,7 +22,7 @@ import * as _eventos from '../../js/eventos.js';
 import type {
     Visita, Sector, Actividad, Marca, Sesion, SaludVisita, EstadoSector, ModoCampo,
     IndicadoresEducador, Revision, ResultadoRevision, FlujoRevision, Perfil,
-    PendienteRevision, Comentario
+    PendienteRevision, Comentario, CampoConfigurable, Catalogo, BorradorCatalogo
 } from './tipos';
 
 // ---------- estado (salud, ciclo de vida, tiempo) ----------
@@ -59,6 +59,25 @@ export const areas = _catalogos.areas as () => string[];
 export const tiposEvidencia = _catalogos.tiposEvidencia as () => string[];
 export const sectores = _catalogos.sectores as () => string[];
 export const origenes = _catalogos.origenes as () => string[];
+
+export const ETIQUETAS_MODO = _catalogos.ETIQUETAS_MODO as Record<string, string>;
+/**
+ * Los campos capturables de una actividad. Es la ÚNICA fuente de qué se puede configurar:
+ * Administración se dibuja recorriéndola y el formulario de captura también.
+ */
+export const CAMPOS_ACTIVIDAD = _catalogos.CAMPOS_ACTIVIDAD as CampoConfigurable[];
+export const IDS_CAMPOS = _catalogos.IDS_CAMPOS as string[];
+/** Todos los sectores que existen en Materiales, escondidos incluidos. */
+export const sectoresDelCatalogo = _catalogos.sectoresDelCatalogo as () => string[];
+
+import { leerCatalogo as _leerCatalogo } from '../../js/storage.js';
+export const leerCatalogo = _leerCatalogo as () => Catalogo | null;
+
+import * as _sync from '../../js/sync.js';
+export const guardarCatalogosAdmin = _sync.guardarCatalogosAdmin as (
+    cambios: BorradorCatalogo
+) => Promise<unknown>;
+export const descargarCatalogo = _sync.descargarCatalogo as () => Promise<unknown>;
 
 export const describirDispositivo = _geo.describirDispositivo as () => string;
 

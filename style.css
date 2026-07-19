@@ -1477,6 +1477,29 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
  */
 .vista-revision .panel-body { max-width: 860px; }
 
+.vista-admin .panel-body { max-width: 860px; }
+.vista-admin .admin-tabs { margin-bottom: 14px; }
+
+/*
+ * La barra de guardado se queda pegada al fondo de la ventana.
+ *
+ * Tipos y Equipo crecen mucho más que la pantalla, y con el botón al final del documento hay
+ * que bajar hasta el fondo para confirmar algo que se cambió arriba —o peor, uno se va sin
+ * guardar creyendo que no había nada que guardar.
+ *
+ * `position: sticky` y no `fixed`: en móvil la barra inferior de navegación ya ocupa el borde
+ * de la pantalla, y `fixed` se le montaría encima.
+ */
+.vista-foot {
+    position: sticky;
+    bottom: 0;
+    display: flex; align-items: center; gap: 10px;
+    margin-top: 18px;
+    padding: 10px 0;
+    border-top: 1px solid var(--rule);
+    background: var(--paper);
+}
+
 /* En el modal las pestañas iban a sangre contra los bordes del panel. En una vista con
    relleno, quitarles los lados las deja abiertas por la mitad. */
 .vista-revision .revision-tabs {

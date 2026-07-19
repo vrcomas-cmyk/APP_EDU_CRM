@@ -29,14 +29,6 @@ export interface Modulo {
     insignia?: () => number;
     /** Barra de contexto propia en la appbar (fechas, vistas del calendario). */
     contexto?: boolean;
-    /**
-     * Todavía se abre como MODAL en vez de ser una vista.
-     *
-     * Es transitorio: `admin.js` sigue siendo vanilla y construye su propio panel a pantalla
-     * completa. Al portarlo, esta bandera desaparece con él y el campo entero se borra. Se
-     * declara aquí en vez de esconderse en el shell para que la deuda se vea desde el registro.
-     */
-    modal?: boolean;
 }
 
 export const MODULOS: Modulo[] = [
@@ -80,8 +72,7 @@ export const MODULOS: Modulo[] = [
         nombre: 'Administración',
         corto: 'Admin',
         icono: '⚙',
-        disponible: () => esAdministrador(),
-        modal: true
+        disponible: () => esAdministrador()
     }
 ];
 
@@ -107,7 +98,7 @@ export function moduloDe(clave: ClaveModulo): Modulo | undefined {
  * permisos— cae al primero que sí lo esté en vez de dejar la pantalla en blanco.
  */
 export function resolverModulo(pedido: ClaveModulo | null): ClaveModulo {
-    const disponibles = modulosDisponibles().filter(m => !m.modal);
+    const disponibles = modulosDisponibles();
     if (pedido && disponibles.some(m => m.clave === pedido)) return pedido;
     return disponibles[0]?.clave ?? 'calendario';
 }

@@ -86,7 +86,7 @@ Si hubo un error, la salida es registrar un registro nuevo — no reescribir la 
 | `js/materiales.js` | Ventana del material: buscador por sector, cantidad, unidad, origen |
 | `js/campos.js` | Primitivas de formulario compartidas por las tres ventanas |
 | `js/catalogos.js` | Configuración: qué campo pide cada tipo de actividad, y las listas |
-| `js/admin.js` | Pantalla de Administración; el rol de admin vive en Supabase |
+| `src/modules/administracion/` | Pantalla de Administración; el rol de admin vive en Supabase |
 | `js/evidencias.js` | Captura, compresión y cola de subida |
 | `js/sync.js` | Cliente del Apps Script |
 | `js/fechas.js` | Claves de día, semanas, meses |

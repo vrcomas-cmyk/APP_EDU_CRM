@@ -4,21 +4,19 @@
  * Sustituye al modelo anterior, donde el calendario ERA la pantalla y todo lo demás se abría
  * encima como una capa. Ahora los módulos son sitios a los que se va.
  *
- * ── Lo que todavía no es una vista ───────────────────────────────────────────────────
- *
- * Administración sigue siendo vanilla y construye su propio panel a pantalla completa, así que
- * el riel lo ABRE como modal en vez de cambiar de vista. Se nota, y es deuda declarada en el
- * registro de módulos (`modal: true`). Al portarlo desaparece.
+ * Todos los módulos son ya vistas: ninguno se abre como capa encima de otro. El registro de
+ * módulos dice cuáles existen y quién los ve; aquí solo se elige cuál se pinta.
  */
 
 import { createRoot, type Root } from 'react-dom/client';
 import { StrictMode, useCallback, useState } from 'react';
 
 import { Navegacion } from './navegacion/Navegacion';
-import { moduloDe, resolverModulo, type ClaveModulo } from './navegacion/modulos';
+import { resolverModulo, type ClaveModulo } from './navegacion/modulos';
 import { Calendario, type ControlesExternos, type MandosNavegacion } from '@modules/agenda/components/Calendario';
 import { Dashboard } from '@modules/dashboard/components/Dashboard';
 import { Revision } from '@modules/revision/components/Revision';
+import { Administracion } from '@modules/administracion/components/Administracion';
 import type { Avisar } from '@core/puente';
 
 export interface OpcionesVistas {
@@ -26,8 +24,6 @@ export interface OpcionesVistas {
     onCrearEn?: (dia: string, inicio: string, fin: string | null) => void;
     onCambio?: () => void;
     onToast?: Avisar;
-    /** Abre un módulo que todavía es modal. Lo resuelve `app.js`. */
-    onAbrirModal?: (clave: ClaveModulo) => void;
 }
 
 let raiz: Root | null = null;
@@ -70,17 +66,7 @@ export function mostrarModulo(clave: ClaveModulo): void { irAModulo?.(clave); }
 function Shell() {
     const [activo, setActivo] = useState<ClaveModulo>(() => resolverModulo(null));
 
-    const elegir = useCallback((clave: ClaveModulo) => {
-        const modulo = moduloDe(clave);
-
-        // Un módulo que todavía es modal no cambia la vista: se abre encima y el riel se
-        // queda donde estaba, para no dejar la pantalla de fondo en blanco al cerrarlo.
-        if (modulo?.modal) {
-            opciones.onAbrirModal?.(clave);
-            return;
-        }
-        setActivo(clave);
-    }, []);
+    const elegir = useCallback((clave: ClaveModulo) => { setActivo(clave); }, []);
 
     irAModulo = elegir;
 
@@ -114,6 +100,15 @@ function Shell() {
                         // Revisar cambia el contador del riel, así que hay que repintarlo.
                         onCambio={() => { opciones.onCambio?.(); refrescarVistas(); }}
                         avisar={opciones.onToast}
+                    />
+                )}
+
+                {activo === 'administracion' && (
+                    <Administracion
+                        avisar={opciones.onToast}
+                        // Los catálogos acaban de cambiar: lo que se ofrece al capturar sale de
+                        // ahí, así que el resto de la app tiene que releerlos.
+                        onGuardado={() => { opciones.onCambio?.(); refrescarVistas(); }}
                     />
                 )}
             </div>

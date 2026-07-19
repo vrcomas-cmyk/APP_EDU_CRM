@@ -16,9 +16,8 @@ import {
 } from '../src/app/montarVistas';
 import { initDrawer, abrirNuevaVisita, abrirVisita, hayDrawerAbierto } from '../src/modules/visitas/montarDrawer';
 import { initPaleta, abrirPaleta, hayPaletaAbierta } from './paleta.js';
-import { initAdmin, abrirAdmin, hayAdminAbierto } from './admin.js';
 import {
-    initPermisos, actualizarPerfil, esAdministrador, olvidarPerfil,
+    initPermisos, actualizarPerfil, olvidarPerfil,
     accesoBloqueado, aceptarInvitacion, tieneEquipo
 } from './permisos.js';
 import { ponerVisitasEquipo, olvidarVisitasEquipo } from './datos.js';
@@ -191,10 +190,6 @@ function iniciarApp() {
     initVistas({
         onAbrirVisita: (id) => abrirVisita(id),
         onCrearEn: (dia, horaInicio, horaFin) => abrirNuevaVisita({ dia, hora_inicio: horaInicio, hora_fin: horaFin }),
-        // Administración sigue siendo modal; el riel la abre desde aquí.
-        onAbrirModal: (clave) => {
-            if (clave === 'administracion') abrirAdmin();
-        },
         onCambio: refrescarTodo,
         onToast: toast
     });
@@ -205,7 +200,6 @@ function iniciarApp() {
         onAbrirVisita: abrirVisita,
         onIrADia: irADia
     });
-    initAdmin({ onToast: toast });
 
     el.fab.addEventListener('click', () => abrirNuevaVisita());
     el.sync.addEventListener('click', () => sincronizar({ manual: true }));
@@ -237,7 +231,7 @@ function atajos(e) {
     if (escribiendo) return;
 
     if (e.key === 'Escape') return;              // el drawer se cierra solo
-    if (hayDrawerAbierto() || hayAdminAbierto()) return;
+    if (hayDrawerAbierto()) return;
 
     const acciones = {
         n: () => abrirNuevaVisita(),
@@ -256,7 +250,7 @@ function atajos(e) {
 function atajoPaleta(e) {
     if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'k') return;
     e.preventDefault();
-    if (hayDrawerAbierto() || hayAdminAbierto() || hayPaletaAbierta()) return;
+    if (hayDrawerAbierto() || hayPaletaAbierta()) return;
     abrirPaleta();
 }
 

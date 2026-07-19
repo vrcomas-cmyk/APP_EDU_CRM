@@ -252,6 +252,51 @@ export interface PendienteRevision {
     sector?: Sector;
 }
 
+// ---------- catálogos y administración ----------
+
+/** Una entrada de `CAMPOS_ACTIVIDAD`: qué campo es y en qué modo cae si nadie lo configura. */
+export interface CampoConfigurable {
+    id: string;
+    etiqueta: string;
+    defecto: ModoCampo;
+}
+
+export interface TipoActividad {
+    nombre: string;
+    /**
+     * Banderas heredadas de cuando la configuración era booleana. Se conservan porque la hoja
+     * de cálculo sigue teniendo esas columnas y un administrador las lee ahí; `campos` es la
+     * fuente real.
+     */
+    evidencia?: boolean;
+    materiales?: boolean;
+    campos?: Record<string, ModoCampo>;
+}
+
+export interface Educador {
+    nombre: string;
+    correo: string;
+}
+
+/** Lo que Administración edita y sube. Es el catálogo entero, no un parche. */
+export interface BorradorCatalogo {
+    tipos_actividad: TipoActividad[];
+    origenes: string[];
+    areas: string[];
+    unidades: string[];
+    tipos_evidencia: string[];
+    sectores_ocultos: string[];
+    educadores: Educador[];
+    /** Correos, no nombres: el correo es lo que la sesión verifica. */
+    admins: string[];
+}
+
+/** Lo que hay guardado en local. Todo opcional: puede no haber sincronizado nunca. */
+export interface Catalogo extends Partial<BorradorCatalogo> {
+    /** Los sectores que existen en Materiales. No se editan aquí, se curan. */
+    sectores?: string[];
+}
+
 // ---------- indicadores ----------
 
 export interface IndicadoresEducador {

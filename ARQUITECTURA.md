@@ -23,6 +23,7 @@ llama:
 | `js/sector.js` (406 líneas) | `modules/sectores/` — 4 archivos | ~330 |
 | `js/dashboard.js` (583 líneas) | `modules/dashboard/` — 4 archivos | ~207 |
 | `js/revision.js` (379 líneas) | `modules/revision/` — 7 archivos | ~92 |
+| `js/admin.js` (562 líneas) | `modules/administracion/` — 7 archivos | ~148 |
 
 ### Los módulos son un registro de datos, no condiciones repartidas
 
@@ -44,10 +45,10 @@ móvil porque la app se usa de pie y con una mano dentro de un hospital: el bord
 El módulo activo se distingue por **fondo y por una barra lateral** (`::before`), no solo por
 tono: saber dónde estoy no puede depender de percibir un color.
 
-> Solo `administracion` lleva ya `modal: true`. Es deuda declarada: `admin.js` sigue siendo
-> vanilla y construye su propio panel a pantalla completa, así que el shell lo abre en vez de
-> cambiar de vista. Al portarlo, la bandera y el campo entero desaparecen. Está en el registro,
-> y no escondida en el shell, para que la deuda se vea desde donde se lee la lista.
+**Ya no queda ningún módulo modal.** La bandera `modal: true` existió tres commits, mientras
+revisión y administración seguían siendo vanilla y construían su propio panel a pantalla
+completa; se declaraba en el registro —y no escondida en el shell— justamente para que la deuda
+se viera desde donde se lee la lista. Al portarlos, el campo se borró entero.
 
 ### Un módulo declara TODO lo que necesita para funcionar, no solo su permiso propio
 
@@ -59,6 +60,20 @@ puede ver es la misma promesa rota que un botón hacia «no tienes permiso».
 La cola está además acotada por **alcance**: se revisa al equipo que se tiene asignado, no a la
 empresa. Es correcto y conviene recordarlo al configurar un revisor —sin alcance sobre nadie,
 su bandeja está vacía aunque tenga todos los permisos.
+
+### Administración publica; por eso valida antes
+
+Es el único módulo cuyo guardado es **explícito**. En el drawer cada tecla se persiste sola,
+pero aquí un error no se queda en una pantalla: se reparte a todos los educadores en el
+siguiente sync. El botón «Guardar» existe para dar ocasión de revisar antes de que eso pase.
+
+`problemasDe` devuelve **todos** los problemas a la vez, no el primero: corregir de uno en uno,
+con una confirmación por vuelta, es cómo se abandona a la mitad.
+
+La configuración de campos se materializa al abrir, resolviendo defaults + banderas viejas + lo
+ya configurado. Mostrar la tabla vacía haría creer que el tipo está «sin configurar» e
+invitaría a rellenarlo de nuevo, cuando en realidad ya tiene reglas activas — y esas reglas SON
+el formulario de captura: la pantalla de actividad no tiene ni una condición escrita a mano.
 
 ### Las ventanas cuelgan del `host` que reciben, nunca de `document.body`
 
@@ -227,7 +242,7 @@ publicar en internet una clave que se salta todas las políticas de la base.
 
 ## Lo que todavía no está hecho
 
-- `admin.js`, `paleta.js` y `app.js` siguen siendo vanilla.
+- `paleta.js` y `app.js` siguen siendo vanilla.
 - `materiales.js`, `evidencias.js`, `vistaprevia.js` e `hilo.js` devuelven nodos DOM y se
   montan con `NodoVanilla`. Ese componente debe quedarse sin usos y desaparecer.
 - La barra de navegación del calendario vive en `index.html`, fuera del árbol de React, y se
