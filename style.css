@@ -133,6 +133,7 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 .appbar-spacer { flex: 1; }
 
 .datenav { display: flex; align-items: center; gap: 6px; }
+.datenav[hidden] { display: none; }
 .arrow {
   width: 26px; height: 26px; flex: none;
   border: 1px solid var(--rule); border-radius: 6px;
@@ -147,6 +148,11 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 }
 
 .seg { display: inline-flex; border: 1px solid var(--rule); border-radius: 7px; overflow: hidden; flex: none; }
+/* Sin esto, `elemento.hidden = true` no alcanza a esconderlo: una regla de autor con una sola
+   clase (`.seg`) le gana en especificidad a la regla `[hidden]` de la hoja de estilos del
+   navegador, sin importar qué tan tarde se aplique el atributo. Es el mismo bug que ya se
+   había resuelto para `.fab`; aquí faltaba. */
+.seg[hidden] { display: none; }
 .seg button {
   font-family: var(--mono); font-size: 10.5px; letter-spacing: .09em; text-transform: uppercase;
   padding: 5px 11px; border: 0; border-right: 1px solid var(--rule);
@@ -737,6 +743,19 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 .chip.add::before { content: "+ "; }
 /* Sector ya sellado: se ve que está puesto, pero no invita a tocarlo. */
 .chip:disabled { cursor: default; opacity: .55; }
+
+/* Chip informativo con su propia "x": a diferencia de ChipToggle, no es un botón que prende y
+   apaga solo — es una relación existente (p. ej. "Ana ya revisa a Beto") con una salida propia
+   para quitarla desde el lado contrario a donde se creó. */
+.chip-quitable { display: inline-flex; align-items: center; gap: 5px; cursor: default; }
+.chip-quitar {
+  border: 0; background: none; color: inherit; cursor: pointer;
+  font-size: 11px; line-height: 1; padding: 0; opacity: .6;
+}
+.chip-quitar:hover { opacity: 1; }
+
+.separador { border: 0; border-top: 1px solid var(--rule-soft); margin: 14px 0; }
+.tabla-jerarquia { display: flex; flex-direction: column; }
 
 /* ---------- administración ---------- */
 
@@ -1359,6 +1378,34 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 .revision-botones { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 /* Aprobar es lo que se hace casi siempre: va primero y es el único con peso. */
 .revision-botones .btn-principal { margin-right: auto; }
+
+.revision-agrupar { margin-bottom: 10px; }
+
+.revision-grupos { display: flex; flex-direction: column; gap: 18px; }
+.revision-grupo-titulo {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em;
+  color: var(--muted); margin-bottom: 8px;
+}
+
+/* Mismo look que `.historial` (plegable con <details>) pero con su propia clase: no es
+   historial de veredictos, es el árbol completo de la visita, y compartir la clase confundía
+   a las pruebas que buscan "el" `.historial` de la tarjeta. */
+.expediente-plegable {
+  border: 1px solid var(--rule); border-radius: 8px; background: var(--surface-2);
+}
+.expediente-plegable summary {
+  padding: 8px 10px; font-size: 11.5px; font-weight: 600; cursor: pointer;
+}
+.expediente-plegable .expediente { padding: 4px 10px 10px; }
+.expediente-sector { padding: 8px 0; border-top: 1px solid var(--rule); }
+.expediente-sector:first-child { border-top: 0; }
+.expediente-sector-nombre { font-size: 12px; font-weight: 600; }
+.expediente-sector-obj { font-weight: 400; color: var(--muted); }
+.expediente-actividad { padding: 6px 0 6px 10px; border-left: 2px solid var(--rule-soft); margin-top: 6px; }
+.expediente-actividad-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.expediente-actividad-tipo { font-size: 11.5px; font-weight: 600; }
+.expediente-dato { font-size: 11px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
 
 /* ---------- tabla (dashboard gerencial) ---------- */
 

@@ -146,6 +146,8 @@ export const etiquetaRangoSemana = _fechas.etiquetaRangoSemana as (d: Date) => s
 export const inicialesDias = _fechas.inicialesDias as () => string[];
 export const DIAS_ABREV = _fechas.DIAS_ABREV as string[];
 export const hora = _fechas.hora as (h: string) => string;
+/** Lunes de la semana que contiene a `fecha` (la semana laboral arranca en lunes). */
+export const inicioSemana = _fechas.inicioSemana as (fecha: Date) => Date;
 
 export const SALUD = _estado.SALUD as Record<string, string>;
 export const duracionHoras = _estado.duracionHoras as (v: Visita) => number;
@@ -200,6 +202,11 @@ export const opcionesDeFiltro = _datos.opcionesDeFiltro as (v?: Visita[]) => {
 export const filtroVacio = _datos.filtroVacio as () => Filtro;
 export const top = _datos.top as (mapa: Record<string, number>, n?: number) => Array<[string, number]>;
 
+/** Dónde vive el archivo de una evidencia, o `null` si no hay nada que mostrar todavía. */
+export const urlEvidencia = _datos.urlEvidencia as (
+    actividad: Actividad
+) => { tipo: 'remota' | 'local'; url?: string; id?: string; mime: string } | null;
+
 export const etiquetaEstado = _estado.etiquetaEstado as (e: string) => string;
 export const ESTADOS_VISITA = _estado.ESTADOS as Record<string, string>;
 
@@ -247,6 +254,22 @@ import * as _comentarios from '../../js/comentarios.js';
 export const comentariosDeVisita = _comentarios.comentariosDeVisita as (
     idVisita: string
 ) => Comentario[];
+/** Lo que ya se dijo antes de este hospital, de lo más reciente hacia atrás. */
+export const historicoDeHospital = _comentarios.historicoDeHospital as (
+    hospital: string, opciones?: { excluirVisita?: string | null; limite?: number }
+) => Comentario[];
+
+import * as _hilo from '../../js/hilo.js';
+/** Los cuatro ámbitos a los que se puede enganchar un comentario. */
+export const AMBITOS = _hilo.AMBITOS as { VISITA: string; SECTOR: string; ACTIVIDAD: string; EVIDENCIA: string };
+/** El hilo de comentarios completo (lista + redactor), como nodo DOM. Se monta con `NodoVanilla`. */
+export const hiloComentarios = _hilo.hiloComentarios as (opciones: {
+    ambito: string;
+    idAmbito: string;
+    visita?: Visita;
+    alToast?: Avisar;
+    compacto?: boolean;
+}) => HTMLElement;
 
 import * as _vistaprevia from '../../js/vistaprevia.js';
 /** Devuelve un nodo DOM; se monta con `NodoVanilla` hasta que se porte. */

@@ -11,6 +11,7 @@ import { Combo, filtrar } from '@shared/components/Combo';
 import { etiquetaDiaLarga, buscarSolapes, estadoDe, ESTADOS, type Avisar } from '@core/puente';
 import { moverInicio, cambiarFin } from '../services/horario';
 import * as repo from '../repository/visitasRepo';
+import { HistoricoCliente } from './HistoricoCliente';
 import type { Visita } from '@core/tipos';
 
 interface Props {
@@ -25,6 +26,7 @@ export function FormularioVisita({ visita, editar, avisar }: Props) {
             <CampoEducador visita={visita} />
             <CampoCliente visita={visita} editar={editar} />
             <CampoHospital visita={visita} editar={editar} />
+            <HistoricoCliente visita={visita} />
 
             <label className="campo">
                 <span className="campo-lbl">Fecha</span>

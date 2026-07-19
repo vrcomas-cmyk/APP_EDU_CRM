@@ -7,14 +7,19 @@
  * se viene a hacer aquí.
  */
 
-import { estadoSector, etiquetaSector, estaGuardada, requiereEvidencia, bloqueoParaActividades } from '@core/puente';
+import {
+    estadoSector, etiquetaSector, estaGuardada, requiereEvidencia, bloqueoParaActividades,
+    hiloComentarios, AMBITOS, type Avisar
+} from '@core/puente';
 import type { Visita, Sector, Actividad } from '@core/tipos';
 import { Dato } from '@shared/components/Dato';
+import { NodoVanilla } from '@shared/components/NodoVanilla';
 
 interface Props {
     visita: Visita;
     sector: Sector;
     onAbrirActividad: (actividadId: string | null) => void;
+    avisar: Avisar;
 }
 
 export function CabeceraSector({ visita, sector, onVolver, onCerrar }: {
@@ -37,7 +42,7 @@ export function CabeceraSector({ visita, sector, onVolver, onCerrar }: {
     );
 }
 
-export function CuerpoSector({ visita, sector, onAbrirActividad }: Props) {
+export function CuerpoSector({ visita, sector, onAbrirActividad, avisar }: Props) {
     return (
         <div className="drawer-body">
             <div className="campo panel-info">
@@ -53,11 +58,28 @@ export function CuerpoSector({ visita, sector, onAbrirActividad }: Props) {
             </div>
 
             <BloqueActividades visita={visita} sector={sector} onAbrirActividad={onAbrirActividad} />
+
+            {/* Comentarios propios de ESTE sector: lo que el cliente dijo puntualmente de él,
+                distinto de los comentarios generales de la visita. */}
+            <div className="campo">
+                <span className="campo-lbl">Comentarios del sector</span>
+                <NodoVanilla
+                    clave={sector.id}
+                    construir={() => hiloComentarios({
+                        ambito: AMBITOS.SECTOR,
+                        idAmbito: sector.id,
+                        visita,
+                        alToast: avisar
+                    })}
+                />
+            </div>
         </div>
     );
 }
 
-function BloqueActividades({ visita, sector, onAbrirActividad }: Props) {
+function BloqueActividades({ visita, sector, onAbrirActividad }: {
+    visita: Visita; sector: Sector; onAbrirActividad: (actividadId: string | null) => void;
+}) {
     const actividades = sector.actividades || [];
 
     // Hay estados en que capturar no tiene sentido —cancelada, sin haber llegado— y el motivo

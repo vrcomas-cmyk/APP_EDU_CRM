@@ -15,13 +15,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     saludDe, detalleEstado, estadoDe, ESTADOS, duracionTexto, etiquetaDiaLarga,
-    sesionActual, registrar, TIPOS_EVENTO, cancelarVisita, reactivarVisita, type Avisar
+    sesionActual, registrar, TIPOS_EVENTO, cancelarVisita, reactivarVisita,
+    hiloComentarios, AMBITOS, type Avisar
 } from '@core/puente';
 
 import { useVisita } from '../hooks/useVisita';
 import { selloDeGuardado, sellarVisita, duplicarVisita } from '../services/fabricas';
 import { faltaParaGuardar, tieneCapturaPerdible } from '../validators/requisitos';
 import * as repo from '../repository/visitasRepo';
+import { NodoVanilla } from '@shared/components/NodoVanilla';
 
 import { FormularioVisita, PanelInformacion } from './FormularioVisita';
 import { BloqueCheck, AvisoCancelada } from './BloqueCheck';
@@ -270,6 +272,7 @@ export function VisitaDrawer({
                         <CuerpoSector
                             visita={visita}
                             sector={sector}
+                            avisar={avisar}
                             onAbrirActividad={(actividadId) =>
                                 abrirVentanaActividad(sector.id, actividadId,
                                     () => { refrescar(); alCambiar(); },
@@ -292,6 +295,23 @@ export function VisitaDrawer({
                                                        alTerminar={() => { refrescar(); alCambiar(); }} />}
 
                                     <PanelInformacion visita={visita} />
+
+                                    {/* Comentarios de la visita completa: lo que el cliente dijo
+                                        en general, no atado a un sector en particular. Vive
+                                        aquí y no en `FormularioVisita` porque una visita en
+                                        borrador todavía no tiene identidad propia que comentar. */}
+                                    <div className="campo">
+                                        <span className="campo-lbl">Comentarios de la visita</span>
+                                        <NodoVanilla
+                                            clave={visita.id}
+                                            construir={() => hiloComentarios({
+                                                ambito: AMBITOS.VISITA,
+                                                idAmbito: visita.id,
+                                                visita,
+                                                alToast: avisar
+                                            })}
+                                        />
+                                    </div>
 
                                     {reagendando && (
                                         <BloqueReagendar

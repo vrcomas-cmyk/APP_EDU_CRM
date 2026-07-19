@@ -19,6 +19,7 @@ import * as repo from '@modules/visitas/repository/visitasRepo';
 import type { Visita } from '@core/tipos';
 
 import { guardarVisitas, guardarCatalogo } from '../js/storage.js';
+import { olvidarPerfil } from '../js/permisos.js';
 
 const nada = () => {};
 
@@ -70,6 +71,7 @@ const guardada = (campos: Partial<Visita> = {}): Visita => ({
 
 beforeEach(() => {
     localStorage.clear();
+    olvidarPerfil();
     guardarCatalogo({ clientes: ['Cliente Uno', 'Cliente Dos'], sectores: ['GASAS'] });
 });
 
@@ -399,5 +401,72 @@ describe('contadores del sector', () => {
         const meta = document.querySelector('.sector-card-meta')!.textContent!;
         assert.match(meta, /1 sin guardar/, 'el borrador sí se señala, con su propia pastilla');
         assert.ok(!/evid\./.test(meta), 'pero no como deuda imposible de saldar');
+    });
+});
+
+describe('comentarios (Fase 4)', () => {
+    /** Sin esto, `puede('comentarios', ...)` es siempre falso y el hilo se pinta vacío. */
+    function conPermisoDeComentar() {
+        localStorage.setItem('sesion', JSON.stringify({
+            correo: 'ana@x.com', nombre: 'Ana López', id_token: 'x', expira: Date.now() + 3600e3
+        }));
+        localStorage.setItem('pdt_perfil_cache', JSON.stringify({
+            correo: 'ana@x.com', nombre: 'Ana López', rol: 'educador', es_admin: false,
+            permisos: ['comentarios.leer', 'comentarios.crear', 'visitas.crear'],
+            alcance: ['ana@x.com'], invitado: true, invitacion_estado: 'aceptada', origen: 'prueba'
+        }));
+    }
+
+    test('la visita guardada trae su propio hilo de comentarios', () => {
+        conPermisoDeComentar();
+        montar(guardada());
+
+        assert.ok(screen.getByText('Comentarios de la visita'));
+        assert.ok(document.querySelector('.hilo'), 'el hilo se monta, aunque esté vacío');
+    });
+
+    test('comentar en la visita lo deja visible sin recargar', () => {
+        conPermisoDeComentar();
+        montar(guardada());
+
+        const area = document.querySelector('.hilo-area') as HTMLTextAreaElement;
+        // El redactor es vanilla y escucha 'input' (no 'change') para habilitar el botón.
+        fireEvent.input(area, { target: { value: 'El cliente pidió más gasas.' } });
+        fireEvent.click(screen.getByText('Comentar'));
+
+        assert.ok(document.querySelector('.coment-txt')?.textContent?.includes('más gasas'));
+    });
+
+    test('el sector tiene su propio hilo, distinto del de la visita', () => {
+        conPermisoDeComentar();
+        montar(guardada());
+
+        fireEvent.click(document.querySelector('.sector-card')!);
+
+        assert.ok(screen.getByText('Comentarios del sector'));
+
+        const area = document.querySelector('.hilo-area') as HTMLTextAreaElement;
+        fireEvent.input(area, { target: { value: 'Piden reforzar la técnica.' } });
+        fireEvent.click(screen.getByText('Comentar'));
+
+        assert.ok(document.querySelector('.coment-txt')?.textContent?.includes('reforzar la técnica'));
+    });
+
+    test('un perfil sin el permiso de crear no ofrece redactor', () => {
+        // Sin sesión, el perfil de respaldo YA incluye `comentarios.leer/crear` —es el piso de
+        // un educador (`PERMISOS_EDUCADOR` en `js/permisos.js`)—, así que "sin permiso" hay que
+        // probarlo con un perfil explícito que los excluya, no con la ausencia de perfil.
+        localStorage.setItem('sesion', JSON.stringify({
+            correo: 'ana@x.com', nombre: 'Ana López', id_token: 'x', expira: Date.now() + 3600e3
+        }));
+        localStorage.setItem('pdt_perfil_cache', JSON.stringify({
+            correo: 'ana@x.com', nombre: 'Ana López', rol: 'gerente', es_admin: false,
+            permisos: ['visitas.consultar'],
+            alcance: ['ana@x.com'], invitado: true, invitacion_estado: 'aceptada', origen: 'prueba'
+        }));
+
+        montar(guardada());
+
+        assert.equal(document.querySelector('.hilo-area'), null);
     });
 });
