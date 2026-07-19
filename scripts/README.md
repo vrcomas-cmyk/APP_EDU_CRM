@@ -40,3 +40,24 @@ de `demo_session.py` y comprueba que el FAB "Nueva visita" solo aparezca en Cale
 npm run dev
 python scripts/check_modulos.py
 ```
+
+## `check_accesos.py`
+
+Verifica Administración → Accesos (Roles, Usuarios, Jerarquía) interceptando el Apps Script real
+con respuestas fijas, porque `leerRBAC`/`guardarRoles`/`guardarUsuarios` verifican identidad
+Google de verdad y un JWT falso no las pasaría.
+
+```
+npm run dev
+python scripts/check_accesos.py
+```
+
+## `limpiar_demo.sql`
+
+Revierte la semilla de datos demo de `supabase/migrations/20260719e_semilla_demo.sql`: quita el
+solape de jerarquía de prueba (`vcomas@degasa.com` / `analista.demo@demo.degasa.com` sobre
+`ana.demo`/`beto.demo`/`caro.demo`) y los comentarios `demo-c*`. **No toca** el dataset demo
+original (`v-demo-*`, `gerente.demo@degasa.com`) que ya existía antes de esta ronda de trabajo.
+
+Ejecutar contra el proyecto Supabase (SQL editor o el MCP `execute_sql`) cuando ya no se
+necesite seguir probando con este solape.
