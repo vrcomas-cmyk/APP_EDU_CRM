@@ -9,10 +9,10 @@
 import { useCallback, useMemo, useState } from 'react';
 import {
     flujosDisponibles, pendientesDe, conteoPendientes, revisar, consultarVisitas,
-    ETIQUETAS_RESULTADO, RESULTADOS,
-    type Avisar
+    resultadoDe,
+    type Avisar, type EstadoAviso
 } from '@core/puente';
-import type { FlujoRevision, PendienteRevision, ResultadoRevision } from '@core/tipos';
+import type { FlujoRevision, PendienteRevision } from '@core/tipos';
 
 interface Opciones {
     onCambio?: () => void;
@@ -27,7 +27,7 @@ export interface EstadoRevision {
     porFlujo: Record<string, number>;
     total: number;
     /** Devuelve el error a mostrar, o `null` si se registró. */
-    enviar: (item: PendienteRevision, resultado: ResultadoRevision, observaciones: string) => string | null;
+    enviar: (item: PendienteRevision, resultado: string, observaciones: string) => string | null;
 }
 
 export function useRevision({ onCambio, avisar }: Opciones = {}): EstadoRevision {
@@ -55,7 +55,7 @@ export function useRevision({ onCambio, avisar }: Opciones = {}): EstadoRevision
 
     const enviar = useCallback((
         item: PendienteRevision,
-        resultado: ResultadoRevision,
+        resultado: string,
         observaciones: string
     ): string | null => {
         if (!flujo) return 'Ese flujo de revisión ya no está disponible.';
@@ -71,8 +71,11 @@ export function useRevision({ onCambio, avisar }: Opciones = {}): EstadoRevision
 
         if (!r.ok) return r.error ?? 'No se pudo registrar la revisión.';
 
-        avisar?.(`${ETIQUETAS_RESULTADO[resultado] || resultado} · ${item.titulo}`, {
-            estado: resultado === RESULTADOS.APROBADO ? 'completa' : 'programada'
+        // El aviso se lee del propio resultado en vez de comparar contra «aprobado»: así un
+        // flujo con veredictos propios anuncia el suyo con su nombre y su color.
+        const def = resultadoDe(flujo, resultado);
+        avisar?.(`${def?.etiqueta || resultado} · ${item.titulo}`, {
+            estado: (def?.tono as EstadoAviso) || 'programada'
         });
 
         onCambio?.();

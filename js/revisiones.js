@@ -30,17 +30,76 @@ import { requiereEvidencia } from './catalogos.js';
 
 const CLAVE_PENDIENTES = 'revisiones_pendientes';
 
+/**
+ * Los veredictos posibles.
+ *
+ * Cada uno declara TODO lo que la app necesita saber de él, y ese es el punto: ningún sitio
+ * pregunta "¿este es el aprobado?". Antes lo hacían nueve —el color, el estilo del botón, el
+ * tono del aviso, si exige explicación, si saca el elemento de la cola— y cada criterio nuevo
+ * obligaba a encontrarlos todos.
+ *
+ *   valor                 lo que se guarda; es lo único que viaja al servidor
+ *   etiqueta              participio, para el historial: "Aprobado el 3 de julio"
+ *   accion                imperativo, para el botón: "Aprobar"
+ *   tono                  cromía de salud, la misma del calendario y el tablero
+ *   estilo                peso visual del botón: principal | txt | peligro
+ *   exige_observaciones   no se puede mandar sin explicar
+ *   acepta                el trabajo se da por bueno
+ *   cierra                saca el elemento de la cola; si es false, vuelve al educador
+ *
+ * `acepta` y `cierra` son ejes distintos y hacen falta los dos. "Rechazado" cierra la
+ * revisión pero no acepta el trabajo; "requiere corrección" tampoco acepta y además no
+ * cierra. Un "Parcial" futuro podría aceptar y cerrar. Colapsarlos en uno obligaría a volver
+ * a preguntar por el valor concreto, que es lo que esto viene a quitar.
+ *
+ * `cierra` es la pieza que convierte esto en datos de verdad. Sin ella, "sigue pendiente"
+ * seguiría siendo una comparación contra 'correccion' escrita en el código, y un flujo con
+ * resultados propios no podría expresar "esto vuelve a quien lo hizo".
+ */
+export const RESULTADOS_POR_DEFECTO = [
+    { valor: 'aprobado', etiqueta: 'Aprobado', accion: '✓ Aprobar',
+      tono: 'completa', estilo: 'principal', acepta: true, cierra: true },
+
+    // No cierra: pedir corrección devuelve el elemento a la cola para volver a mirarlo.
+    { valor: 'correccion', etiqueta: 'Requiere corrección', accion: '↺ Requiere corrección',
+      tono: 'faltan-evidencias', estilo: 'txt', exige_observaciones: true,
+      acepta: false, cierra: false },
+
+    { valor: 'rechazado', etiqueta: 'Rechazado', accion: '✕ Rechazar',
+      tono: 'sin-registrar', estilo: 'peligro', exige_observaciones: true,
+      acepta: false, cierra: true }
+];
+
+/**
+ * Los resultados de un flujo: los suyos si los declara, y si no los tres de siempre.
+ *
+ * El respaldo no es cortesía: los flujos que ya existen en la base no traen `resultados`, y
+ * sin él la bandeja se quedaría sin botones el día que se despliegue esto.
+ */
+export function resultadosDe(flujo) {
+    const def = typeof flujo === 'string' ? flujos.find(f => f.clave === flujo) : flujo;
+    const propios = def?.resultados;
+    return Array.isArray(propios) && propios.length ? propios : RESULTADOS_POR_DEFECTO;
+}
+
+/** Un resultado concreto de un flujo, o `null` si ese flujo no lo admite. */
+export function resultadoDe(flujo, valor) {
+    return resultadosDe(flujo).find(r => r.valor === valor) || null;
+}
+
+/**
+ * Atajos a los tres de siempre. Se conservan porque media app los nombra y porque siguen
+ * siendo el vocabulario por defecto; lo que ya NO se hace es asumir que son los únicos.
+ */
 export const RESULTADOS = {
     APROBADO: 'aprobado',
     RECHAZADO: 'rechazado',
     CORRECCION: 'correccion'
 };
 
-export const ETIQUETAS_RESULTADO = {
-    [RESULTADOS.APROBADO]: 'Aprobado',
-    [RESULTADOS.RECHAZADO]: 'Rechazado',
-    [RESULTADOS.CORRECCION]: 'Requiere corrección'
-};
+export const ETIQUETAS_RESULTADO = Object.fromEntries(
+    RESULTADOS_POR_DEFECTO.map(r => [r.valor, r.etiqueta])
+);
 
 /**
  * Flujos por defecto. Los reales llegan de la base de datos; estos existen para que el
@@ -127,10 +186,22 @@ export function revisionVigente(flujo, idAmbito) {
     return h.length ? h[h.length - 1] : null;
 }
 
-/** Un elemento sigue en la cola si nunca se revisó o si se pidió corregirlo. */
+/**
+ * Un elemento sigue en la cola si nunca se revisó, o si el veredicto que tiene NO cierra.
+ *
+ * Lo decide el propio resultado y no una comparación contra 'correccion': así un flujo con
+ * sus propios veredictos puede declarar cuáles devuelven el trabajo al educador.
+ *
+ * Un resultado que el flujo ya no reconoce —se renombró en la base, y en local quedó el
+ * viejo— cuenta como pendiente. Es el lado seguro: revisar dos veces molesta, dar por bueno
+ * lo que nadie aprobó, no.
+ */
 export function estaPendiente(flujo, idAmbito) {
     const v = revisionVigente(flujo, idAmbito);
-    return !v || v.resultado === RESULTADOS.CORRECCION;
+    if (!v) return true;
+
+    const def = resultadoDe(flujo, v.resultado);
+    return !def || !def.cierra;
 }
 
 // ---------- qué se puede revisar ----------
@@ -279,11 +350,15 @@ export function revisar({ flujo, ambito, idAmbito, idVisita, resultado, observac
     if (!puede(modulo, accion)) {
         return { ok: false, error: 'No tienes permiso para revisar en este flujo.' };
     }
-    if (!Object.values(RESULTADOS).includes(resultado)) {
-        return { ok: false, error: 'Resultado no válido.' };
+    // Se valida contra los resultados DE ESTE FLUJO, no contra una lista global: "efectiva"
+    // puede ser válida en calidad de visita y no significar nada en evidencias.
+    const defResultado = resultadoDe(def, resultado);
+    if (!defResultado) {
+        return { ok: false, error: 'Ese resultado no aplica a este flujo de revisión.' };
     }
-    // Rechazar o pedir corrección sin decir por qué deja al educador sin nada que hacer.
-    if (resultado !== RESULTADOS.APROBADO && !String(observaciones || '').trim()) {
+    // Un veredicto que devuelve trabajo sin decir cuál deja al educador sabiendo que algo
+    // está mal, pero no qué arreglar.
+    if (defResultado.exige_observaciones && !String(observaciones || '').trim()) {
         return { ok: false, error: 'Explica qué hay que corregir.' };
     }
 

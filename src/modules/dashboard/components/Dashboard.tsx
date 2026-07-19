@@ -6,8 +6,8 @@
 import { useCallback, useMemo, useState } from 'react';
 import {
     consultarVisitas, calcularIndicadores, indicadoresPorEducador, filtroVacio, top,
-    etiquetaEstado, ESTADOS_VISITA, revisionVigente, RESULTADOS,
-    perfilActual, tieneEquipo, type Filtro, type Indicadores
+    etiquetaEstado, ESTADOS_VISITA, revisionVigente,
+    perfilActual, tieneEquipo, resultadoDe, type Filtro, type Indicadores
 } from '@core/puente';
 
 import { BarraFiltros } from './BarraFiltros';
@@ -181,24 +181,31 @@ function medidasDeEvidencia(ind: Indicadores, visitas: Visita[]): Medida[] {
     return [
         { nombre: 'Cargadas', valor: ind.evidencias_subidas, tono: 'completa' },
         { nombre: 'Pendientes', valor: ind.evidencias_pendientes, tono: 'faltan-evidencias' },
-        { nombre: 'Rechazadas o a corregir', valor: contarRechazadas(visitas), tono: 'sin-registrar' }
+        { nombre: 'Rechazadas o a corregir', valor: contarNoAceptadas(visitas), tono: 'sin-registrar' }
     ];
 }
 
 /**
  * Sale del flujo de REVISIÓN, no del árbol de la visita: "rechazada" es el juicio de una
  * persona sobre el archivo, no un estado del archivo.
+ *
+ * Se cuenta lo que un revisor NO dio por bueno, preguntándoselo al propio veredicto en vez de
+ * enumerar cuáles son malos. Enumerarlos dejaba fuera, en silencio, cualquier resultado que un
+ * flujo añadiera después.
  */
-function contarRechazadas(visitas: Visita[]): number {
+function contarNoAceptadas(visitas: Visita[]): number {
     let n = 0;
 
     for (const v of visitas) {
         for (const s of v.sectores || []) {
             for (const a of s.actividades || []) {
                 const r = revisionVigente('evidencia', a.id);
-                if (r && (r.resultado === RESULTADOS.RECHAZADO || r.resultado === RESULTADOS.CORRECCION)) {
-                    n++;
-                }
+                if (!r) continue;
+
+                // Un veredicto que el flujo ya no reconoce no se cuenta como problema: no se
+                // sabe qué quiso decir, y suponer lo peor infla el indicador sin motivo.
+                const def = resultadoDe('evidencia', r.resultado);
+                if (def && def.acepta === false) n++;
             }
         }
     }

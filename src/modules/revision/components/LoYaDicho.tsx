@@ -6,9 +6,8 @@
  * elementos de la cola. Desplegado empujaría cada tarjeta fuera de la pantalla.
  */
 
-import type { Comentario, Revision } from '@core/tipos';
-import { ETIQUETAS_RESULTADO } from '@core/puente';
-import { fechaCorta, plural, tonoResultado } from '../services/formato';
+import type { Comentario, FlujoRevision, Revision } from '@core/tipos';
+import { etiquetaResultado, fechaCorta, plural, tonoResultado } from '../services/formato';
 
 function Plegable({ resumen, children }: { resumen: string; children: React.ReactNode }) {
     return (
@@ -19,7 +18,9 @@ function Plegable({ resumen, children }: { resumen: string; children: React.Reac
     );
 }
 
-export function HistorialRevisiones({ historial }: { historial: Revision[] }) {
+export function HistorialRevisiones(
+    { flujo, historial }: { flujo: FlujoRevision; historial: Revision[] }
+) {
     if (!historial.length) return null;
 
     return (
@@ -28,8 +29,8 @@ export function HistorialRevisiones({ historial }: { historial: Revision[] }) {
             {historial.slice().reverse().map(r => (
                 <div className="historial-item" key={r.id}>
                     <p>
-                        <span className={`dot st-${tonoResultado(r.resultado)}`} aria-hidden="true" />
-                        <span> {ETIQUETAS_RESULTADO[r.resultado] || r.resultado}</span>
+                        <span className={`dot st-${tonoResultado(flujo, r.resultado)}`} aria-hidden="true" />
+                        <span> {etiquetaResultado(flujo, r.resultado)}</span>
                     </p>
                     <p className="historial-meta">
                         {r.revisor || r.revisor_correo || 'Sin revisor'} · {fechaCorta(r.momento)}

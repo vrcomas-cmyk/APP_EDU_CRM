@@ -198,7 +198,46 @@ export interface Comentario {
     sincronizado?: boolean;
 }
 
-export type ResultadoRevision = 'aprobado' | 'rechazado' | 'correccion';
+/**
+ * El valor que se guarda como veredicto.
+ *
+ * Es `string` y no una unión cerrada a propósito: cada flujo declara los suyos y pueden
+ * llegar de la base de datos sin desplegar la app. Los tres de siempre se nombran aparte
+ * porque siguen siendo el vocabulario por defecto, no porque sean los únicos.
+ */
+export type ResultadoRevision = string;
+
+export type ResultadoClasico = 'aprobado' | 'rechazado' | 'correccion';
+
+/**
+ * Un veredicto posible, con todo lo que la app necesita saber de él.
+ *
+ * Que esté todo aquí es el punto: ningún componente pregunta "¿este es el aprobado?" para
+ * decidir un color, un estilo o si exige explicación.
+ */
+export interface ResultadoFlujo {
+    /** Lo que se guarda y lo único que viaja al servidor. */
+    valor: string;
+    /** Participio, para el historial: «Aprobado el 3 de julio». */
+    etiqueta: string;
+    /** Imperativo, para el botón: «Aprobar». */
+    accion: string;
+    /** Cromía de salud, la misma del calendario y el tablero. */
+    tono: string;
+    /** Peso visual del botón. */
+    estilo?: 'principal' | 'txt' | 'peligro';
+    /** No se puede mandar sin explicar por qué. */
+    exige_observaciones?: boolean;
+    /**
+     * El trabajo se da por bueno.
+     *
+     * Eje distinto de `cierra`: «rechazado» cierra la revisión y no acepta el trabajo;
+     * «requiere corrección» ni acepta ni cierra. Un «parcial» futuro podría aceptar y cerrar.
+     */
+    acepta?: boolean;
+    /** Saca el elemento de la cola. Si es `false`, vuelve al educador. */
+    cierra?: boolean;
+}
 
 export interface FlujoRevision {
     clave: string;
@@ -208,6 +247,11 @@ export interface FlujoRevision {
     permiso: Permiso;
     orden: number;
     descripcion?: string;
+    /**
+     * Los veredictos que admite este flujo. Si falta, se usan los tres de siempre — que es
+     * el caso de todos los flujos que ya existen en la base.
+     */
+    resultados?: ResultadoFlujo[];
 }
 
 export interface Revision {

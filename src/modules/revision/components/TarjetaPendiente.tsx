@@ -8,7 +8,7 @@
 import {
     comentariosDeVisita, historialDe, miniaturaEvidencia, minutosDeRetraso
 } from '@core/puente';
-import type { FlujoRevision, PendienteRevision, ResultadoRevision } from '@core/tipos';
+import type { FlujoRevision, PendienteRevision } from '@core/tipos';
 import { Dato } from '@shared/components/Dato';
 import { NodoVanilla } from '@shared/components/NodoVanilla';
 
@@ -18,7 +18,7 @@ import { ComentariosDeVisita, HistorialRevisiones } from './LoYaDicho';
 interface Props {
     flujo: FlujoRevision;
     item: PendienteRevision;
-    onEnviar: (resultado: ResultadoRevision, observaciones: string) => string | null;
+    onEnviar: (resultado: string, observaciones: string) => string | null;
 }
 
 export function TarjetaPendiente({ flujo, item, onEnviar }: Props) {
@@ -45,10 +45,10 @@ export function TarjetaPendiente({ flujo, item, onEnviar }: Props) {
 
             <Contexto flujo={flujo} item={item} />
 
-            <HistorialRevisiones historial={historial} />
+            <HistorialRevisiones flujo={flujo} historial={historial} />
             <ComentariosDeVisita charla={charla} />
 
-            <AccionesRevision item={item} onEnviar={onEnviar} />
+            <AccionesRevision flujo={flujo} item={item} onEnviar={onEnviar} />
         </div>
     );
 }

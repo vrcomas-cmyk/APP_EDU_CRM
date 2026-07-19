@@ -62,6 +62,49 @@ La cola está además acotada por **alcance**: se revisa al equipo que se tiene 
 empresa. Es correcto y conviene recordarlo al configurar un revisor —sin alcance sobre nadie,
 su bandeja está vacía aunque tenga todos los permisos.
 
+### Ver, calificar y modificar son tres verbos, no uno
+
+Es el modelo de acceso de esta app y conviene leerlo junto:
+
+| Verbo | Quién | Dónde se decide |
+|---|---|---|
+| **Ver** | Tu alcance jerárquico | `visiblePara()` compara `educador_correo` contra `alcance()`, que resuelve Postgres recursivamente |
+| **Calificar** | Quien tenga el permiso que declara el flujo | `revisar()` lee `flujo.permiso`; nunca pregunta por el rol |
+| **Modificar** | Solo el dueño | `visitasRepo`, vía `permissions/edicion.ts` |
+
+Modificar **no** escala con la jerarquía, y es la parte que más sorprende: un administrador
+tampoco puede editar la visita de otro. No es un permiso que falte. La fila del servidor se
+indexa por `visita.id::sector.id` y `guardarVisitas` reescribe el correo con la identidad
+verificada, así que editar lo ajeno no lo deja «editado por el jefe»: lo pasa **a nombre** del
+jefe y lo borra del historial de quien lo hizo. Darle el paso al administrador produciría esa
+corrupción más a menudo, no menos.
+
+El guardián está en el repositorio y no en la pantalla porque hasta ahora la regla la sostenía
+la **forma del almacenamiento** —el drawer lee `localStorage`, donde las visitas del equipo no
+llegan— y esa forma va a cambiar en cuanto Supabase entre por `registrarFuente`.
+
+### Los veredictos también son datos
+
+`pdt_revisiones.resultado` tenía tres valores fijos en un CHECK. Sirve para «¿pasa o no
+pasa?», que es la pregunta de una evidencia, pero no para calificar: *«¿fue efectiva la
+visita?»* no se responde con «aprobado», y un gerente que la viera floja tenía que elegir entre
+«rechazado» —que suena a fraude— y aprobarla igual.
+
+Ahora cada flujo declara sus veredictos, como cada tipo de actividad declara sus campos. Y cada
+veredicto trae **todo lo que la app necesita saber de él**: su etiqueta, su color, el peso del
+botón, si exige explicación, si acepta el trabajo y si cierra la revisión. Ese es el punto —
+antes nueve sitios preguntaban «¿este es el aprobado?» y cada criterio nuevo obligaba a
+encontrarlos todos.
+
+`acepta` y `cierra` son ejes distintos y hacen falta los dos: «rechazado» cierra la revisión
+sin aceptar el trabajo, «requiere corrección» ni acepta ni cierra, y un «parcial» acepta y
+cierra. Colapsarlos obligaría a volver a preguntar por el valor concreto.
+
+Un flujo sin `resultados` cae en los tres de siempre, que es lo que permite desplegar el
+esquema sin coordinarlo con el despliegue de la app. Y un veredicto que el flujo ya no
+reconoce cuenta como **pendiente**: revisar dos veces molesta; dar por bueno lo que nadie
+aprobó, no.
+
 ### Administración publica; por eso valida antes
 
 Es el único módulo cuyo guardado es **explícito**. En el drawer cada tecla se persiste sola,

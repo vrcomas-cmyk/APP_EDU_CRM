@@ -22,7 +22,8 @@ import * as _eventos from '../../js/eventos.js';
 import type {
     Visita, Sector, Actividad, Marca, Sesion, SaludVisita, EstadoSector, ModoCampo,
     IndicadoresEducador, Revision, ResultadoRevision, FlujoRevision, Perfil,
-    PendienteRevision, Comentario, CampoConfigurable, Catalogo, BorradorCatalogo
+    PendienteRevision, Comentario, CampoConfigurable, Catalogo, BorradorCatalogo,
+    ResultadoFlujo
 } from './tipos';
 
 // ---------- estado (salud, ciclo de vida, tiempo) ----------
@@ -190,6 +191,14 @@ export const conteoPendientes = _revisiones.conteoPendientes as (
 ) => { porFlujo: Record<string, number>; total: number };
 
 export const ETIQUETAS_RESULTADO = _revisiones.ETIQUETAS_RESULTADO as Record<string, string>;
+
+/** Los veredictos que admite un flujo: los suyos, o los tres de siempre. */
+export const resultadosDe = _revisiones.resultadosDe as (
+    flujo: FlujoRevision | string
+) => ResultadoFlujo[];
+export const resultadoDe = _revisiones.resultadoDe as (
+    flujo: FlujoRevision | string, valor: string
+) => ResultadoFlujo | null;
 export const pendientesDe = _revisiones.pendientesDe as (
     flujo: FlujoRevision, visitas?: Visita[]
 ) => PendienteRevision[];

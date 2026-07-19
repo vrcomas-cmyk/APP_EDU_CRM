@@ -2,35 +2,46 @@
  * El veredicto.
  *
  * Revisar es una acción de negocio, no una edición: no se toca ni un dato de lo revisado.
- * Queda una revisión nueva, firmada y fechada, y el elemento sale de la cola.
+ * Queda una revisión nueva, firmada y fechada, y el elemento sale de la cola —o vuelve al
+ * educador, si el veredicto elegido no cierra—.
+ *
+ * Los botones salen del FLUJO, no de una lista escrita aquí. Un flujo de calidad puede
+ * ofrecer «Efectiva / Parcial / No efectiva» y uno de evidencias «Aprobar / Rechazar», sin
+ * que este componente sepa que existe ninguno de los dos.
  */
 
 import { useState } from 'react';
-import { RESULTADOS } from '@core/puente';
-import type { PendienteRevision, ResultadoRevision } from '@core/tipos';
-import { exigeObservaciones } from '../services/formato';
+import { resultadosDe } from '@core/puente';
+import type { FlujoRevision, PendienteRevision, ResultadoFlujo } from '@core/tipos';
 
 interface Props {
+    flujo: FlujoRevision;
     item: PendienteRevision;
-    onEnviar: (resultado: ResultadoRevision, observaciones: string) => string | null;
+    onEnviar: (resultado: string, observaciones: string) => string | null;
 }
 
-const BOTONES: Array<[ResultadoRevision, string, string]> = [
-    [RESULTADOS.APROBADO as ResultadoRevision, '✓ Aprobar', 'btn btn-principal'],
-    [RESULTADOS.CORRECCION as ResultadoRevision, '↺ Requiere corrección', 'btn-txt'],
-    [RESULTADOS.RECHAZADO as ResultadoRevision, '✕ Rechazar', 'btn-txt peligro']
-];
+const CLASES: Record<string, string> = {
+    principal: 'btn btn-principal',
+    txt: 'btn-txt',
+    peligro: 'btn-txt peligro'
+};
 
-export function AccionesRevision({ item, onEnviar }: Props) {
+export function AccionesRevision({ flujo, item, onEnviar }: Props) {
     const [obs, setObs] = useState('');
     const [aviso, setAviso] = useState('');
+
+    const resultados = resultadosDe(flujo);
 
     // Cada tarjeta necesita su propio id: hay muchas en la página y un `htmlFor` repetido
     // llevaría el foco siempre al primer campo.
     const idObs = `obs-${item.id_ambito}`;
 
-    const mandar = (resultado: ResultadoRevision) => {
-        const error = onEnviar(resultado, obs);
+    // Solo se anuncia si TODOS los veredictos que devuelven trabajo lo exigen; con un flujo
+    // donde ninguno lo pide, la frase sobra y estorba.
+    const algunoExige = resultados.some(r => r.exige_observaciones);
+
+    const mandar = (r: ResultadoFlujo) => {
+        const error = onEnviar(r.valor, obs);
 
         if (error) {
             setAviso(error);
@@ -58,22 +69,26 @@ export function AccionesRevision({ item, onEnviar }: Props) {
             {aviso && <span className="pista" role="alert">{aviso}</span>}
 
             <div className="revision-botones">
-                {BOTONES.map(([resultado, etiqueta, clase]) => (
+                {resultados.map(r => (
                     <button
-                        key={resultado}
+                        key={r.valor}
                         type="button"
-                        className={clase}
+                        className={CLASES[r.estilo || 'txt'] || 'btn-txt'}
                         // Deshabilitarlo escondería el porqué. Se deja pulsable y se explica.
-                        aria-disabled={exigeObservaciones(resultado) && !obs.trim() || undefined}
-                        onClick={() => mandar(resultado)}
+                        aria-disabled={(r.exige_observaciones && !obs.trim()) || undefined}
+                        onClick={() => mandar(r)}
                     >
-                        {etiqueta}
+                        {r.accion}
                     </button>
                 ))}
             </div>
 
-            {/* Aprobar sin escribir nada es válido; rechazar no. Se dice antes de intentarlo. */}
-            <p className="ayuda">Rechazar o pedir corrección exige explicar qué hay que arreglar.</p>
+            {algunoExige && (
+                <p className="ayuda">
+                    {resultados.filter(r => r.exige_observaciones).map(r => r.etiqueta).join(' o ')}
+                    {' '}exige explicar qué hay que arreglar.
+                </p>
+            )}
         </div>
     );
 }
