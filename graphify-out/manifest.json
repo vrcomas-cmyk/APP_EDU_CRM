@@ -618,5 +618,15 @@
     "mtime": 1784425525.2442849,
     "ast_hash": "2e3295c78380204978535c25baa16379",
     "semantic_hash": "2e3295c78380204978535c25baa16379"
+  },
+  "supabase/migrations/20260719b_pdt_espejo_completo.sql": {
+    "mtime": 1784426000.174255,
+    "ast_hash": "09ae1bcd2a41939223c90f42236df0e6",
+    "semantic_hash": "09ae1bcd2a41939223c90f42236df0e6"
+  },
+  "tests/espejo-completo.test.js": {
+    "mtime": 1784426111.8872478,
+    "ast_hash": "56cac3753457b12853c0ef2e9207e4d2",
+    "semantic_hash": "56cac3753457b12853c0ef2e9207e4d2"
   }
 }

@@ -83,6 +83,38 @@ El guardián está en el repositorio y no en la pantalla porque hasta ahora la r
 la **forma del almacenamiento** —el drawer lee `localStorage`, donde las visitas del equipo no
 llegan— y esa forma va a cambiar en cuanto Supabase entre por `registrarFuente`.
 
+### El espejo: Sheets manda, Supabase copia
+
+Todo lo que la app guarda pasa por Apps Script y se escribe **en los dos sitios**:
+
+| Qué | Hoja | Espejo |
+|---|---|---|
+| Visitas, sectores, actividades, materiales | Sí | `pdt_espejo_guardar` |
+| Bitácora de negocio | Sí | `pdt_eventos_guardar` |
+| Comentarios | Sí | `pdt_comentarios_guardar` |
+| Revisiones | Sí | `pdt_revision_guardar` |
+| Catálogos de Administración | Sí | `pdt_catalogos_guardar` |
+| Evidencias (el archivo) | Drive | indirecto: la URL viaja en la actividad |
+
+Tres reglas, y las tres importan:
+
+**Sheets primero.** El espejo se escribe DESPUÉS. La hoja es la fuente operativa y una captura
+válida no puede perderse porque la copia esté caída. Al revés sí: si el espejo falla, la PWA
+deja el lote marcado como no sincronizado y lo reintenta solo.
+
+**`supabaseRPC` devuelve `null` y nunca lanza**, en sus tres caminos —sin clave, respuesta que
+no es 200, excepción de red—. Si lanzara, un Supabase caído haría fallar el guardado en Sheets.
+
+**La identidad la pone el servidor.** El correo que llega a Postgres sale siempre de la sesión
+verificada contra Google, nunca del cuerpo de la petición. Un cliente manipulado no puede
+escribir bitácora, comentarios ni revisiones a nombre de otro.
+
+`tests/espejo-completo.test.js` fija las tres leyendo el código de Apps Script. Es una prueba
+estática y eso basta, porque lo que falló no fue que el espejo dejara de funcionar: fue que
+eventos, comentarios y catálogos nunca se escribieron, y nadie lo notó porque la app funciona
+igual de bien sin espejo. Se habría notado el día de la migración, cuando esos datos no
+existieran.
+
 ### Los veredictos también son datos
 
 `pdt_revisiones.resultado` tenía tres valores fijos en un CHECK. Sirve para «¿pasa o no

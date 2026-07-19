@@ -761,7 +761,21 @@ function guardarEventos(eventos, identidad) {
     });
 
     upsert(hoja, ENCABEZADOS_EVENTOS, filas, []);
-    return { status: 'ok', ids: eventos.map(function (e) { return e.id; }) };
+
+    // ESPEJO. Después de Sheets y a propósito: la hoja es la fuente operativa y no debe
+    // depender de que Supabase esté arriba. Si falla, los eventos siguen marcados como no
+    // sincronizados en la PWA y se reintentan solos en el siguiente envío.
+    var espejo = supabaseRPC('pdt_eventos_guardar', {
+        p_educador_correo: identidad.correo,
+        p_educador: identidad.nombre || '',
+        p_eventos: eventos
+    });
+
+    return {
+        status: 'ok',
+        espejo: espejo !== null,
+        ids: eventos.map(function (e) { return e.id; })
+    };
 }
 
 /**
@@ -899,8 +913,16 @@ function guardarComentarios(comentarios, identidad) {
             .setValues(filas);
     }
 
+    // ESPEJO, igual que los eventos: después de la hoja y sin poder tumbarla.
+    var espejo = supabaseRPC('pdt_comentarios_guardar', {
+        p_usuario_correo: identidad.correo,
+        p_usuario: identidad.nombre || '',
+        p_comentarios: comentarios
+    });
+
     return {
         status: 'ok',
+        espejo: espejo !== null,
         ids: comentarios.map(function (c) { return c.id; }),
         insertados: filas.length
     };
@@ -958,7 +980,24 @@ function guardarCatalogosAdmin(body, identidad) {
         reemplazarHoja(db, HOJA_ADMINS, ['correo'], body.admins.map(function (a) { return [a]; }));
     }
 
-    return { status: 'ok' };
+    // ESPEJO. Solo se mandan las secciones que vinieron en el envío, con la misma condición
+    // que usa cada `reemplazarHoja` de arriba: si un despliegue viejo de la PWA no manda una,
+    // el espejo conserva la que ya tenía en vez de vaciarla en silencio.
+    var secciones = {};
+    ['tipos_actividad', 'origenes', 'areas', 'unidades', 'tipos_evidencia',
+     'sectores_ocultos', 'educadores', 'admins'].forEach(function (clave) {
+        if (Array.isArray(body[clave])) secciones[clave] = body[clave];
+    });
+
+    var espejo = null;
+    if (Object.keys(secciones).length > 0) {
+        espejo = supabaseRPC('pdt_catalogos_guardar', {
+            p_publicado_por: identidad.correo,
+            p_catalogos: secciones
+        });
+    }
+
+    return { status: 'ok', espejo: espejo !== null };
 }
 
 /** Vacía la pestaña y la vuelve a escribir completa, con encabezados. */
