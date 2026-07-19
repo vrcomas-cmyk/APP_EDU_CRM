@@ -625,9 +625,9 @@
     "semantic_hash": "09ae1bcd2a41939223c90f42236df0e6"
   },
   "tests/espejo-completo.test.js": {
-    "mtime": 1784426111.8872478,
-    "ast_hash": "56cac3753457b12853c0ef2e9207e4d2",
-    "semantic_hash": "56cac3753457b12853c0ef2e9207e4d2"
+    "mtime": 1784438357.4836385,
+    "ast_hash": "c5ef7ec4b3a57f58f9d95f1c53233c7b",
+    "semantic_hash": "c5ef7ec4b3a57f58f9d95f1c53233c7b"
   },
   "skills-lock.json": {
     "mtime": 1784427183.6081803,
@@ -638,5 +638,10 @@
     "mtime": 1784427326.1161714,
     "ast_hash": "65a93e7f8d2c11791f191de9852834b3",
     "semantic_hash": "65a93e7f8d2c11791f191de9852834b3"
+  },
+  "supabase/migrations/20260719d_pdt_roles_escritura.sql": {
+    "mtime": 1784437954.3436558,
+    "ast_hash": "66ff3659d3ea1377e6754a25129a08ec",
+    "semantic_hash": "66ff3659d3ea1377e6754a25129a08ec"
   }
 }

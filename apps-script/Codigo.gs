@@ -228,6 +228,54 @@ function supabaseRPC(funcion, carga) {
         return null;
     }
 }
+
+/**
+ * Como `supabaseRPC`, pero DEVUELVE EL ERROR en vez de tragárselo.
+ *
+ * `supabaseRPC` calla a propósito: la visita ya quedó en Sheets, así que un Supabase caído no
+ * puede tumbar una captura y el espejo se pone al día en el siguiente envío. Ese razonamiento
+ * depende por completo de que exista una copia en la hoja.
+ *
+ * Los roles no tienen esa copia: viven SOLO en Postgres, porque una hoja no puede sostener
+ * herencia entre roles ni impedir que se conceda una capacidad inexistente. Sin red debajo,
+ * callar el fallo sería lo peor que se puede hacer — el administrador vería «guardado», nada
+ * habría cambiado, y el registro de permisos diría una cosa mientras la aplicación hace otra.
+ *
+ * Además, aquí el mensaje de Postgres ES la respuesta útil: «ese cambio dejaría la instalación
+ * sin ningún administrador» es exactamente lo que hay que enseñar en pantalla, y `supabaseRPC`
+ * lo convertiría en un `null` mudo.
+ *
+ * Devuelve { ok, datos, error }.
+ */
+function supabaseRPCEstricto(funcion, carga) {
+    var clave = claveServicioSupabase();
+    if (!clave) {
+        return { ok: false, error: 'Supabase no está configurado en este script (falta '
+                                 + PROP_SUPABASE_KEY + ').' };
+    }
+
+    try {
+        var resp = UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/rpc/' + funcion, {
+            method: 'post',
+            contentType: 'application/json',
+            headers: { apikey: clave, Authorization: 'Bearer ' + clave },
+            payload: JSON.stringify(carga),
+            muteHttpExceptions: true
+        });
+
+        var texto = resp.getContentText();
+        if (resp.getResponseCode() !== 200) {
+            // Postgres manda su `raise exception` en `message`. Es un texto escrito para que
+            // lo lea una persona, así que se pasa tal cual en vez de resumirlo.
+            var detalle = texto;
+            try { detalle = JSON.parse(texto).message || texto; } catch (e) {}
+            return { ok: false, error: detalle };
+        }
+        return { ok: true, datos: JSON.parse(texto) };
+    } catch (err) {
+        return { ok: false, error: String(err) };
+    }
+}
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpcGxmc3Voc3FpYnpycHZqdmJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyODAyNjgsImV4cCI6MjA4OTg1NjI2OH0.YG3Fk8XJ_n9PGIYUHtoiy-MJNuWqJTsFBwooKnt1X5s';
 
 /**
@@ -322,7 +370,8 @@ function doGet() {
 // identidad viaja en el body en vez de en el webapp, y este script la valida él mismo.
 var ACCIONES_CON_IDENTIDAD = ['guardarVisitas', 'subirEvidencia', 'guardarEventos',
                               'guardarCatalogosAdmin', 'guardarComentarios',
-                              'leerVisitasEquipo', 'guardarRevisiones', 'leerRevisiones'];
+                              'leerVisitasEquipo', 'guardarRevisiones', 'leerRevisiones',
+                              'leerRBAC', 'guardarRoles', 'guardarUsuarios'];
 
 function doPost(e) {
     // La PWA manda Content-Type: text/plain para evitar el preflight OPTIONS,
@@ -355,6 +404,12 @@ function doPost(e) {
                 return json(guardarComentarios(body.comentarios || [], identidad));
             case 'guardarCatalogosAdmin':
                 return json(guardarCatalogosAdmin(body, identidad));
+            case 'leerRBAC':
+                return json(leerRBAC(identidad));
+            case 'guardarRoles':
+                return json(guardarRoles(body, identidad));
+            case 'guardarUsuarios':
+                return json(guardarUsuarios(body, identidad));
             default:
                 return json({ status: 'error', message: 'action desconocida: ' + body.action });
         }
@@ -1009,6 +1064,143 @@ function reemplazarHoja(libro, nombre, encabezados, filas) {
     hoja.getRange(1, 1, 1, encabezados.length).setValues([encabezados]).setFontWeight('bold');
     hoja.setFrozenRows(1);
     if (filas.length > 0) hoja.getRange(2, 1, filas.length, encabezados.length).setValues(filas);
+}
+
+/* ══════════════════ Roles, capacidades y usuarios ══════════════════
+ *
+ * A diferencia de todo lo demás en este script, esto NO se espeja desde Sheets: los roles
+ * viven solo en Postgres. No es una excepción por comodidad, es que una hoja no puede sostener
+ * lo que este modelo necesita —herencia entre roles, integridad referencial contra el catálogo
+ * de capacidades, negarse a borrar un rol que alguien usa— y mantener media copia en una
+ * pestaña editable a mano acabaría en dos verdades distintas sobre quién puede qué.
+ *
+ * Por eso estas tres acciones usan `supabaseRPCEstricto`: sin copia en la hoja, un fallo
+ * silencioso no tiene de dónde recuperarse.
+ *
+ * Todo pasa por aquí y no directo desde la PWA por lo mismo que `leerVisitasEquipo`: la app
+ * solo tiene la clave anónima, que es pública. Con ella cualquiera podría concederse el rol
+ * que quisiera, y la lectura expondría el organigrama completo a cualquier visitante.
+ */
+
+/** Lo que necesita la pantalla de administración: roles, catálogo de capacidades y usuarios. */
+function leerRBAC(identidad) {
+    var db = SpreadsheetApp.openById(SHEET_DB_ID);
+    if (!esAdmin(db, identidad.correo)) {
+        return { status: 'error', message: 'Tu cuenta (' + identidad.correo + ') no tiene permisos de administrador.' };
+    }
+
+    var roles = supabaseRPCEstricto('pdt_roles_admin', {});
+    if (!roles.ok) return { status: 'error', message: roles.error };
+
+    var capacidades = supabaseRPCEstricto('pdt_capacidades_admin', {});
+    if (!capacidades.ok) return { status: 'error', message: capacidades.error };
+
+    var usuarios = supabaseRPCEstricto('pdt_usuarios_admin', {});
+    if (!usuarios.ok) return { status: 'error', message: usuarios.error };
+
+    return {
+        status: 'ok',
+        roles: roles.datos || [],
+        capacidades: capacidades.datos || [],
+        usuarios: usuarios.datos || []
+    };
+}
+
+/**
+ * Guarda roles y borra los que se pidieron borrar.
+ *
+ * Carga: { roles: [ {clave, nombre, descripcion, orden, activo, hereda_de, capacidades[]} ],
+ *          eliminar: ["clave"] }
+ *
+ * NO es atómico entre roles: cada uno es su propia llamada. Se para en el primero que falle y
+ * devuelve qué alcanzó a guardar, en vez de fingir que no pasó nada. Un guardado parcial que
+ * se puede ver y reintentar es más manejable que un «error» opaco tras el cual la mitad de los
+ * cambios sí están puestos.
+ *
+ * El actor sale SIEMPRE de la identidad verificada. Postgres vuelve a comprobar que puede
+ * administrar; que aquí ya se haya comprobado no lo hace redundante, lo hace defensa en dos
+ * capas de la única operación que puede repartir permisos.
+ */
+function guardarRoles(body, identidad) {
+    var db = SpreadsheetApp.openById(SHEET_DB_ID);
+    if (!esAdmin(db, identidad.correo)) {
+        return { status: 'error', message: 'Tu cuenta (' + identidad.correo + ') no tiene permisos de administrador.' };
+    }
+
+    var guardados = [];
+    var borrados = [];
+
+    var roles = body.roles || [];
+    for (var i = 0; i < roles.length; i++) {
+        var r = supabaseRPCEstricto('pdt_rol_guardar', {
+            p_actor: identidad.correo,
+            p_rol: roles[i]
+        });
+        if (!r.ok) {
+            return { status: 'error', message: r.error, guardados: guardados, borrados: borrados };
+        }
+        guardados.push(roles[i].clave);
+    }
+
+    // Los borrados van al final: si un rol se reasignó en este mismo envío, el reasignado ya
+    // está puesto cuando le toca el turno al que se va, y Postgres deja de ver usuarios en él.
+    var eliminar = body.eliminar || [];
+    for (var j = 0; j < eliminar.length; j++) {
+        var d = supabaseRPCEstricto('pdt_rol_eliminar', {
+            p_actor: identidad.correo,
+            p_clave: eliminar[j]
+        });
+        if (!d.ok) {
+            return { status: 'error', message: d.error, guardados: guardados, borrados: borrados };
+        }
+        borrados.push(eliminar[j]);
+    }
+
+    return { status: 'ok', guardados: guardados, borrados: borrados };
+}
+
+/**
+ * Guarda usuarios —con su conjunto de roles— y la jerarquía de quién ve a quién.
+ *
+ * Carga: { usuarios: [ {correo, nombre, activo, roles[]} ],
+ *          jerarquia: [ {jefe, subordinados: []} ] }
+ *
+ * Los usuarios van antes que la jerarquía: un jefe nuevo tiene que existir como usuario antes
+ * de que se le cuelgue gente debajo.
+ */
+function guardarUsuarios(body, identidad) {
+    var db = SpreadsheetApp.openById(SHEET_DB_ID);
+    if (!esAdmin(db, identidad.correo)) {
+        return { status: 'error', message: 'Tu cuenta (' + identidad.correo + ') no tiene permisos de administrador.' };
+    }
+
+    var guardados = [];
+
+    var usuarios = body.usuarios || [];
+    for (var i = 0; i < usuarios.length; i++) {
+        var u = supabaseRPCEstricto('pdt_usuario_guardar', {
+            p_actor: identidad.correo,
+            p_usuario: usuarios[i]
+        });
+        if (!u.ok) {
+            return { status: 'error', message: u.error, guardados: guardados };
+        }
+        guardados.push(usuarios[i].correo);
+    }
+
+    var jerarquia = body.jerarquia || [];
+    for (var j = 0; j < jerarquia.length; j++) {
+        var h = supabaseRPCEstricto('pdt_jerarquia_guardar', {
+            p_actor: identidad.correo,
+            p_jefe: jerarquia[j].jefe,
+            p_subordinados: jerarquia[j].subordinados || []
+        });
+        if (!h.ok) {
+            return { status: 'error', message: h.error, guardados: guardados };
+        }
+    }
+
+    return { status: 'ok', guardados: guardados };
 }
 
 /**

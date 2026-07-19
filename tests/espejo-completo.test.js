@@ -46,15 +46,28 @@ const ESPEJOS = {
     guardarEventos: 'pdt_eventos_guardar',
     guardarComentarios: 'pdt_comentarios_guardar',
     guardarRevisiones: 'pdt_revision_guardar',
-    guardarCatalogosAdmin: 'pdt_catalogos_guardar'
+    guardarCatalogosAdmin: 'pdt_catalogos_guardar',
+
+    // Estas dos no son espejo de nada: los roles viven SOLO en Postgres, porque una hoja no
+    // puede sostener herencia entre roles ni negarse a borrar uno que alguien está usando.
+    // Aparecen aquí igual para que la última prueba —«ninguna acción de guardado sin declarar»—
+    // las siga viendo: lo que se comprueba es que toda escritura llegue a Postgres, y para
+    // estas eso es aún más cierto que para las demás, no menos.
+    guardarRoles: 'pdt_rol_guardar',
+    guardarUsuarios: 'pdt_usuario_guardar'
 };
+
+/** Las que escriben en Postgres SIN copia en la hoja: su fallo no se puede callar. */
+const SOLO_POSTGRES = ['guardarRoles', 'guardarUsuarios'];
 
 describe('el espejo de Supabase', () => {
     for (const [funcion, rpc] of Object.entries(ESPEJOS)) {
         test(`${funcion} escribe también en Supabase`, () => {
             const cuerpo = cuerpoDe(funcion);
 
-            assert.ok(cuerpo.includes(`supabaseRPC('${rpc}'`),
+            // `supabaseRPC` o `supabaseRPCEstricto`: son dos transportes con distinta política
+            // ante el fallo, y las dos cuentan como llegar a Postgres.
+            assert.ok(new RegExp(`supabaseRPC\\w*\\('${rpc}'`).test(cuerpo),
                 `${funcion}() escribe en Sheets pero no llama a ${rpc}: `
                 + 'lo que no esté espejado no existirá el día que se migre a Supabase');
         });
@@ -107,5 +120,58 @@ describe('el espejo de Supabase', () => {
             assert.ok(/p_\w*correo: identidad\.correo/.test(llamada),
                 `${funcion}(): el correo del espejo debe salir de identidad.correo`);
         }
+    });
+
+    /*
+     * Las tres siguientes cubren el reparto de permisos, que es la única escritura capaz de
+     * conceder acceso a todo lo demás. Se le pide más que al resto a propósito.
+     */
+
+    test('quien reparte permisos es la identidad verificada', () => {
+        // Si `p_actor` saliera del cuerpo, cualquiera podría decir «soy el admin» y crearse un
+        // rol con todo. Postgres lo vuelve a comprobar, pero comprobaría la mentira.
+        for (const funcion of SOLO_POSTGRES) {
+            const cuerpo = cuerpoDe(funcion);
+
+            assert.ok(/p_actor: identidad\.correo/.test(cuerpo),
+                `${funcion}(): p_actor debe salir de identidad.correo, nunca del cuerpo`);
+            assert.ok(!/p_actor: body\./.test(cuerpo),
+                `${funcion}(): p_actor jamás puede venir del body`);
+        }
+    });
+
+    test('administrar roles y usuarios exige ser admin', () => {
+        for (const funcion of [...SOLO_POSTGRES, 'leerRBAC']) {
+            const cuerpo = cuerpoDe(funcion);
+
+            assert.ok(/if \(!esAdmin\(db, identidad\.correo\)\)/.test(cuerpo),
+                `${funcion}(): tiene que negarse a quien no es admin. La lectura también: `
+                + 'expone el organigrama completo de la organización.');
+        }
+    });
+
+    test('sin copia en la hoja, el fallo no se puede callar', () => {
+        // `supabaseRPC` devuelve null y sigue, porque para una visita la hoja es la red de
+        // seguridad. Los roles no tienen hoja debajo: callar un fallo aquí dejaría al
+        // administrador viendo «guardado» sobre un cambio que nunca ocurrió.
+        for (const funcion of SOLO_POSTGRES) {
+            const cuerpo = cuerpoDe(funcion);
+
+            assert.ok(cuerpo.includes('supabaseRPCEstricto('),
+                `${funcion}(): debe usar supabaseRPCEstricto, no el transporte que calla`);
+
+            // TODAS sus llamadas, no solo una. La primera versión de esta prueba se conformaba
+            // con encontrar un `supabaseRPCEstricto` en el cuerpo, y así una función con tres
+            // llamadas podía pasar dos al transporte que calla sin que nadie se enterara.
+            assert.ok(!/[^\w]supabaseRPC\(/.test(cuerpo),
+                `${funcion}(): le queda alguna llamada a supabaseRPC, que devuelve null en `
+                + 'silencio. Sin copia en la hoja, ese null es un cambio perdido sin aviso.');
+            assert.ok(/status: 'error', message: \w+\.error/.test(cuerpo),
+                `${funcion}(): el mensaje de Postgres tiene que llegar a la pantalla`);
+        }
+
+        const estricto = cuerpoDe('supabaseRPCEstricto');
+        assert.ok(!/return null;/.test(estricto),
+            'supabaseRPCEstricto no puede devolver null: su razón de existir es no callar');
     });
 });
