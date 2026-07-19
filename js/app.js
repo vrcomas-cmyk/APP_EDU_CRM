@@ -16,6 +16,7 @@ import {
 } from '../src/app/montarVistas';
 import { initDrawer, abrirNuevaVisita, abrirVisita, hayDrawerAbierto } from '../src/modules/visitas/montarDrawer';
 import { initPaleta, abrirPaleta, hayPaletaAbierta } from '../src/modules/paleta/montarPaleta';
+import { configurarToken } from '../src/services/google/appsScript';
 import {
     initPermisos, actualizarPerfil, olvidarPerfil,
     accesoBloqueado, aceptarInvitacion, tieneEquipo
@@ -180,6 +181,8 @@ function cargarRevisiones() {
 /** Todo lo que antes vivía suelto en DOMContentLoaded: ahora espera a que haya sesión. */
 function iniciarApp() {
     appIniciada = true;
+
+    configurarToken(() => sesionActual()?.id_token || '');
 
     const migracion = migrarSiHaceFalta();
     if (migracion) {

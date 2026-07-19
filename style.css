@@ -209,6 +209,7 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
   font-size: 13.5px; font-weight: 600; letter-spacing: -.01em;
   transition: transform .1s var(--ease);
 }
+.fab[hidden] { display: none; }
 .fab:hover { transform: translateY(-1px); }
 .fab:active { transform: translateY(0); }
 .fab kbd {

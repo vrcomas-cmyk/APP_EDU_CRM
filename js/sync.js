@@ -19,44 +19,12 @@ import {
 import {
     pendientesDeSubir as revisionesPendientes, marcarSincronizadas as marcarRevisiones
 } from './revisiones.js';
-import { sesionActual } from './auth.js';
-
-export const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyRdGq_Tef6GGg8MWr7_VNLS-VLvx439MTWPpmjJQ3kjXk_6OvtrFc19ehh7_GoVBZZ/exec";
-
-
-/**
- * text/plain evita el preflight OPTIONS, que Apps Script no responde. No cambiar a
- * application/json: rompe la sincronización aunque el body siga siendo JSON.
- *
- * El id_token va en el BODY, no en un header Authorization: un header dispararía el mismo
- * preflight que se está evitando. El servidor es quien de verdad lo valida (ver Codigo.gs);
- * aquí solo se manda el que haya en caché, aunque ya esté vencido — el servidor lo rechaza
- * con un mensaje claro y la fila queda pendiente para el siguiente sync.
- */
-async function postear(cuerpo) {
-    const sesion = sesionActual();
-    const respuesta = await fetch(GOOGLE_SCRIPT_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ ...cuerpo, id_token: sesion?.id_token || '' })
-    });
-
-    if (!respuesta.ok) throw new Error(`Respuesta del servidor: ${respuesta.status}`);
-
-    const resultado = await respuesta.json().catch(() => null);
-    if (resultado && resultado.status === 'error') {
-        throw new Error(resultado.message || 'Apps Script reportó un error');
-    }
-    return resultado;
-}
+import { postear, leerCatalogos } from '../src/services/google/appsScript';
 
 // ---------- catálogos ----------
 
 export async function descargarCatalogo() {
-    const respuesta = await fetch(GOOGLE_SCRIPT_URL);
-    if (!respuesta.ok) throw new Error(`Error al descargar catálogos: ${respuesta.status}`);
-
-    const datos = await respuesta.json();
+    const datos = await leerCatalogos();
     guardarCatalogo(datos);
     return datos;
 }

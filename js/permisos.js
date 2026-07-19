@@ -22,9 +22,7 @@
  */
 
 import { sesionActual } from './auth.js';
-
-const SUPABASE_URL = 'https://fiplfsuhsqibzrpvjvbx.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpcGxmc3Voc3FpYnpycHZqdmJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyODAyNjgsImV4cCI6MjA4OTg1NjI2OH0.YG3Fk8XJ_n9PGIYUHtoiy-MJNuWqJTsFBwooKnt1X5s';
+import { rpc, rpcEstricto } from '../src/services/supabase/rpc';
 
 const CLAVE_CACHE = 'pdt_perfil_cache';
 
@@ -101,18 +99,7 @@ export async function actualizarPerfil() {
     if (!sesion || !navigator.onLine) return null;
 
     try {
-        const resp = await fetch(`${SUPABASE_URL}/rest/v1/rpc/pdt_perfil`, {
-            method: 'POST',
-            headers: {
-                apikey: SUPABASE_ANON_KEY,
-                Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ p_correo: sesion.correo })
-        });
-        if (!resp.ok) throw new Error(`Supabase respondió ${resp.status}`);
-
-        const datos = await resp.json();
+        const datos = await rpcEstricto('pdt_perfil', { p_correo: sesion.correo });
         if (!datos || typeof datos !== 'object') throw new Error('Perfil vacío');
 
         // Un correo que no está dado de alta no tiene rol. Se le deja el piso de educador:
@@ -220,19 +207,7 @@ export async function aceptarInvitacion() {
     const sesion = sesionActual();
     if (!sesion || !navigator.onLine) return;
 
-    try {
-        await fetch(`${SUPABASE_URL}/rest/v1/rpc/pdt_aceptar_invitacion`, {
-            method: 'POST',
-            headers: {
-                apikey: SUPABASE_ANON_KEY,
-                Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ p_correo: sesion.correo })
-        });
-    } catch (err) {
-        console.error('No se pudo marcar la invitación como aceptada:', err);
-    }
+    await rpc('pdt_aceptar_invitacion', { p_correo: sesion.correo });
 }
 
 /** ¿Ve a alguien además de sí mismo? Decide si tiene sentido ofrecerle vistas de equipo. */

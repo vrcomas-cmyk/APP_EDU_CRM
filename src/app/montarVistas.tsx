@@ -74,6 +74,11 @@ function Shell() {
     // esconde: dejarlo visible sugeriría que sigue haciendo algo.
     const enCalendario = activo === 'calendario';
 
+    // El FAB crea visitas; fuera del calendario no hay dónde agendarlas, así que desaparece
+    // en vez de quedarse como un atajo hacia un módulo que no lo necesita.
+    const fab = document.getElementById('fab');
+    if (fab) (fab as HTMLButtonElement).hidden = !enCalendario;
+
     return (
         <>
             <Navegacion activo={activo} onElegir={elegir} />
