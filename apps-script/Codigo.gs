@@ -276,6 +276,8 @@ function supabaseRPCEstricto(funcion, carga) {
         return { ok: false, error: String(err) };
     }
 }
+// Clave ANÓNIMA. Es pública por diseño (la misma que trae `.env` como VITE_SUPABASE_ANON_KEY):
+// lo que protege los datos son las políticas de la base, no esconder esta cadena.
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpcGxmc3Voc3FpYnpycHZqdmJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyODAyNjgsImV4cCI6MjA4OTg1NjI2OH0.YG3Fk8XJ_n9PGIYUHtoiy-MJNuWqJTsFBwooKnt1X5s';
 
 /**
