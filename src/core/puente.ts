@@ -20,7 +20,8 @@ import * as _auth from '../../js/auth.js';
 import * as _eventos from '../../js/eventos.js';
 
 import type {
-    Visita, Sector, Actividad, Marca, Sesion, SaludVisita, EstadoSector, ModoCampo
+    Visita, Sector, Actividad, Marca, Sesion, SaludVisita, EstadoSector, ModoCampo,
+    IndicadoresEducador, Revision, ResultadoRevision, FlujoRevision, Perfil
 } from './tipos';
 
 // ---------- estado (salud, ciclo de vida, tiempo) ----------
@@ -118,6 +119,60 @@ export const registrar = _eventos.registrar as (
     tipo: string, visita: Visita, extra?: Record<string, unknown>
 ) => void;
 export const TIPOS_EVENTO = _eventos.TIPOS as Record<string, string>;
+
+// ---------- consulta e indicadores ----------
+
+import * as _datos from '../../js/datos.js';
+import * as _revisiones from '../../js/revisiones.js';
+import * as _permisos from '../../js/permisos.js';
+
+export interface Filtro {
+    educador: string; cliente: string; hospital: string; sector: string;
+    tipo_actividad: string; estado: string; desde: string; hasta: string;
+}
+
+export interface Indicadores {
+    visitas: number; programadas: number; en_proceso: number; finalizadas: number;
+    canceladas: number; realizadas: number; pendientes: number;
+    actividades: number; actividades_borrador: number;
+    sectores: number; sectores_distintos: number;
+    materiales: number; piezas: number;
+    evidencias_pendientes: number; evidencias_subidas: number;
+    reagendaciones: number; retrasos: number;
+    minutos_efectivos: number; horas_efectivas: number; cumplimiento: number;
+    por_educador: Record<string, number>; por_tipo: Record<string, number>;
+    por_sector: Record<string, number>; por_cliente: Record<string, number>;
+    por_hospital: Record<string, number>; por_dia: Record<string, number>;
+}
+
+export const consultarVisitas = _datos.consultarVisitas as (f?: Partial<Filtro>) => Visita[];
+export const calcularIndicadores = _datos.calcularIndicadores as (v: Visita[]) => Indicadores;
+export const indicadoresPorEducador = _datos.indicadoresPorEducador as (
+    v: Visita[]
+) => IndicadoresEducador[];
+export const opcionesDeFiltro = _datos.opcionesDeFiltro as (v?: Visita[]) => {
+    educadores: string[]; clientes: string[]; hospitales: string[];
+    sectores: string[]; tipos: string[]; estados: string[];
+};
+export const filtroVacio = _datos.filtroVacio as () => Filtro;
+export const top = _datos.top as (mapa: Record<string, number>, n?: number) => Array<[string, number]>;
+
+export const etiquetaEstado = _estado.etiquetaEstado as (e: string) => string;
+export const ESTADOS_VISITA = _estado.ESTADOS as Record<string, string>;
+
+export const revisionVigente = _revisiones.revisionVigente as (
+    flujo: string, idAmbito: string
+) => Revision | null;
+export const RESULTADOS = _revisiones.RESULTADOS as Record<string, ResultadoRevision>;
+export const flujosDisponibles = _revisiones.flujosDisponibles as () => FlujoRevision[];
+export const conteoPendientes = _revisiones.conteoPendientes as (
+    visitas?: Visita[]
+) => { porFlujo: Record<string, number>; total: number };
+
+export const puede = _permisos.puede as (modulo: string, accion: string) => boolean;
+export const perfilActual = _permisos.perfilActual as () => Perfil | null;
+export const tieneEquipo = _permisos.tieneEquipo as () => boolean;
+export const esAdministrador = _permisos.esAdministrador as () => boolean;
 
 // ---------- avisos ----------
 

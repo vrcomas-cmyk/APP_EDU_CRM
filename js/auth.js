@@ -24,6 +24,12 @@ export function initAuth({ onSesion } = {}) {
     alCambiarSesion = onSesion || (() => {});
 
     cargarGSI().then(() => {
+        // `cargarGSI` resuelve TAMBIÉN cuando el script no cargó —sin red, la sesión cacheada
+        // sigue sirviendo para trabajar—, así que aquí `google` puede no existir. Sin esta
+        // comprobación se lanza un rechazo no manejado en cada arranque offline, que es
+        // justamente el arranque más común de esta app.
+        if (!window.google?.accounts?.id) return;
+
         google.accounts.id.initialize({
             client_id: CLIENT_ID,
             callback: manejarCredencial,
@@ -48,7 +54,10 @@ function cargarGSI() {
         s.defer = true;
         s.onload = resolve;
         s.onerror = resolve; // sin red: la sesión cacheada sigue sirviendo para trabajar offline
-        document.head.appendChild(s);
+
+        // Insertar el script puede lanzar de forma síncrona en entornos que bloquean scripts
+        // externos. Se resuelve igual: la app tiene que arrancar sin GSI.
+        try { document.head.appendChild(s); } catch { resolve(); }
     });
     return gsiPromesa;
 }

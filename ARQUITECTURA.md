@@ -21,6 +21,32 @@ llama:
 | `js/calendario.js` (759 líneas) | `modules/agenda/` — 10 archivos | ~255 |
 | `js/actividad.js` (662 líneas) | `modules/actividades/` — 6 archivos | ~265 |
 | `js/sector.js` (406 líneas) | `modules/sectores/` — 4 archivos | ~330 |
+| `js/dashboard.js` (583 líneas) | `modules/dashboard/` — 4 archivos | ~207 |
+
+### Los módulos son un registro de datos, no condiciones repartidas
+
+`src/app/navegacion/modulos.ts` es una lista. Cada entrada declara su rótulo, su icono, su
+insignia y **su propia condición de acceso**, que nunca pregunta por el rol: pregunta por un
+permiso (`puede('dashboards','personal')`) o por una capacidad (`esAdministrador()`,
+`flujosDisponibles().length > 0`). Agregar CRM o Analytics es añadir una entrada; el riel, el
+orden y quién lo ve salen solos.
+
+Lo que no se puede abrir no se dibuja. Un botón que lleva a "no tienes permiso" es una promesa
+rota, y además revela que el módulo existe.
+
+`Navegacion.tsx` es **un solo componente** para el riel lateral de escritorio y para la barra
+inferior de móvil; el CSS elige cuál de los dos rótulos —largo o corto— se ve. Duplicarlo
+garantizaría que algún día un módulo apareciera en uno y no en el otro. La barra va abajo en
+móvil porque la app se usa de pie y con una mano dentro de un hospital: el borde inferior es lo
+único que alcanza el pulgar sin recolocar el teléfono.
+
+El módulo activo se distingue por **fondo y por una barra lateral** (`::before`), no solo por
+tono: saber dónde estoy no puede depender de percibir un color.
+
+> `revision` y `administracion` llevan `modal: true`. Es deuda declarada: `revision.js` y
+> `admin.js` siguen siendo vanilla y construyen su propio panel a pantalla completa, así que el
+> shell los abre en vez de cambiar de vista. Al portarlos la bandera desaparece. Está en el
+> registro, y no escondida en el shell, para que la deuda se vea desde donde se lee la lista.
 
 ### Las ventanas cuelgan del `host` que reciben, nunca de `document.body`
 
@@ -189,7 +215,7 @@ publicar en internet una clave que se salta todas las políticas de la base.
 
 ## Lo que todavía no está hecho
 
-- `dashboard.js`, `admin.js`, `revision.js`, `paleta.js` y `app.js` siguen siendo vanilla.
+- `admin.js`, `revision.js`, `paleta.js` y `app.js` siguen siendo vanilla.
 - `materiales.js`, `evidencias.js`, `vistaprevia.js` e `hilo.js` devuelven nodos DOM y se
   montan con `NodoVanilla`. Ese componente debe quedarse sin usos y desaparecer.
 - La barra de navegación del calendario vive en `index.html`, fuera del árbol de React, y se
@@ -203,3 +229,17 @@ publicar en internet una clave que se salta todas las políticas de la base.
 - Nada se ha visto en un navegador: en este entorno no hay uno. Lo que sí hay ahora son
   pruebas de render contra un DOM real (`tests/VisitaDrawer.test.tsx`), que verifican
   comportamiento pero no dicen nada sobre si se ve bien.
+
+## La prueba que enciende la app
+
+`tests/arranque.test.tsx` monta el `index.html` real, invoca el arranque y comprueba que se
+pinte algo.
+
+Existe por un fallo concreto: al mover los módulos al riel quité tres botones de `index.html` y
+dejé vivo un `addEventListener` sobre uno de ellos. Eso revienta en la primera línea del
+arranque y deja la pantalla en blanco. `tsc` no lo ve, porque `app.js` es JavaScript —y **las
+465 pruebas que había pasaban con la app rota, porque ninguna la encendía**.
+
+Es la misma lección que ya había dado la ventana de sector: una prueba que dobla el punto de
+unión no puede fallar donde el fallo vive. Cada capa nueva necesita al menos una prueba que
+atraviese la unión de verdad.

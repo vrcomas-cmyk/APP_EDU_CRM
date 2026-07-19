@@ -11,7 +11,9 @@ import {
     descargarCatalogo, sincronizarTodo, descargarVisitasEquipo, descargarRevisiones
 } from './sync.js';
 import { deudaGlobal } from './estado.js';
-import { initCalendario, refrescarCalendario, irAHoy, setModo, irADia } from '../src/modules/agenda/montarCalendario';
+import {
+    initVistas, refrescarVistas as refrescarCalendario, irAHoy, setModo, irADia, mostrarModulo
+} from '../src/app/montarVistas';
 import { initDrawer, abrirNuevaVisita, abrirVisita, hayDrawerAbierto } from '../src/modules/visitas/montarDrawer';
 import { initPaleta, abrirPaleta, hayPaletaAbierta } from './paleta.js';
 import { initAdmin, abrirAdmin, hayAdminAbierto } from './admin.js';
@@ -20,7 +22,6 @@ import {
     accesoBloqueado, aceptarInvitacion, tieneEquipo
 } from './permisos.js';
 import { ponerVisitasEquipo, olvidarVisitasEquipo } from './datos.js';
-import { initDashboard, abrirDashboard, puedeVerDashboard, hayDashboardAbierto } from './dashboard.js';
 import { initRevision, abrirRevision, puedeAbrirRevision, hayRevisionAbierta } from './revision.js';
 import { ponerFlujos, ponerRevisiones, olvidarRevisiones, conteoPendientes } from './revisiones.js';
 import { initAuth, sesionActual, pintarBotonEntrada, intentarRefresco, cerrarSesion } from './auth.js';
@@ -41,9 +42,6 @@ document.addEventListener('DOMContentLoaded', () => {
         syncTxt: document.getElementById('sync-txt'),
         deuda: document.getElementById('btn-deuda'),
         deudaN: document.getElementById('deuda-n'),
-        admin: document.getElementById('btn-admin'),
-        dashboard: document.getElementById('btn-dashboard'),
-        revision: document.getElementById('btn-revision'),
         revisionN: document.getElementById('revision-n'),
         sesion: document.getElementById('btn-sesion'),
         sesionFoto: document.getElementById('sesion-foto'),
@@ -126,21 +124,25 @@ function pintarSesion(sesion) {
     pintarAccesos();
 }
 
-/** Lo que la barra ofrece depende del rol, y el rol vive en la base de datos. */
+/**
+ * Qué módulos se ofrecen lo decide el RIEL, leyendo el registro de módulos.
+ *
+ * Aquí ya no se esconden botones a mano: cada módulo declara su propia condición de acceso y
+ * el riel se redibuja. Repartir esa decisión en dos lugares es como se acaba con un botón
+ * visible que lleva a "no tienes permiso".
+ */
 function pintarAccesos() {
-    el.admin.hidden = !esAdministrador();
-    el.dashboard.hidden = !puedeVerDashboard();
-    el.revision.hidden = !puedeAbrirRevision();
+    refrescarCalendario();
     actualizarPendientesRevision();
 }
 
-/** El contador de la barra: cuánto le falta por revisar a esta persona. */
+/** El contador de pendientes. El riel lo pinta; esto solo lo mantiene al día. */
 function actualizarPendientesRevision() {
-    if (el.revision.hidden) return;
     try {
         const { total } = conteoPendientes();
         el.revisionN.textContent = String(total);
         el.revisionN.hidden = total === 0;
+        refrescarCalendario();
     } catch (err) {
         console.error('No se pudo contar lo pendiente de revisión:', err);
         el.revisionN.hidden = true;
@@ -202,9 +204,14 @@ function iniciarApp() {
     }
 
     initDrawer({ onCambio: refrescarTodo, onToast: toast });
-    initCalendario({
+    initVistas({
         onAbrirVisita: (id) => abrirVisita(id),
         onCrearEn: (dia, horaInicio, horaFin) => abrirNuevaVisita({ dia, hora_inicio: horaInicio, hora_fin: horaFin }),
+        // Revisión y Administración siguen siendo modales; el riel los abre desde aquí.
+        onAbrirModal: (clave) => {
+            if (clave === 'revision') abrirRevision();
+            if (clave === 'administracion') abrirAdmin();
+        },
         onCambio: refrescarTodo,
         onToast: toast
     });
@@ -216,15 +223,11 @@ function iniciarApp() {
         onIrADia: irADia
     });
     initAdmin({ onToast: toast });
-    initDashboard({ onToast: toast });
     initRevision({ onToast: toast, onCambio: refrescarTodo });
 
     el.fab.addEventListener('click', () => abrirNuevaVisita());
     el.sync.addEventListener('click', () => sincronizar({ manual: true }));
     el.deuda.addEventListener('click', () => toast('La bandeja de evidencias llega en el paso siguiente.'));
-    el.admin.addEventListener('click', abrirAdmin);
-    el.dashboard.addEventListener('click', abrirDashboard);
-    el.revision.addEventListener('click', abrirRevision);
 
     document.addEventListener('keydown', atajos);
     document.addEventListener('keydown', atajoPaleta);
@@ -252,8 +255,7 @@ function atajos(e) {
     if (escribiendo) return;
 
     if (e.key === 'Escape') return;              // el drawer se cierra solo
-    if (hayDrawerAbierto() || hayAdminAbierto() || hayDashboardAbierto()
-        || hayRevisionAbierta()) return;
+    if (hayDrawerAbierto() || hayAdminAbierto() || hayRevisionAbierta()) return;
 
     const acciones = {
         n: () => abrirNuevaVisita(),
@@ -261,7 +263,7 @@ function atajos(e) {
         d: () => setModo('dia'),
         s: () => setModo('semana'),
         m: () => setModo('mes'),
-        i: () => { if (puedeVerDashboard()) abrirDashboard(); },
+        i: () => mostrarModulo('dashboard'),
         r: () => { if (puedeAbrirRevision()) abrirRevision(); }
     };
     const accion = acciones[e.key.toLowerCase()];
@@ -272,8 +274,8 @@ function atajos(e) {
 function atajoPaleta(e) {
     if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'k') return;
     e.preventDefault();
-    if (hayDrawerAbierto() || hayAdminAbierto() || hayDashboardAbierto()
-        || hayRevisionAbierta() || hayPaletaAbierta()) return;
+    if (hayDrawerAbierto() || hayAdminAbierto() || hayRevisionAbierta()
+        || hayPaletaAbierta()) return;
     abrirPaleta();
 }
 

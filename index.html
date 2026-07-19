@@ -49,13 +49,7 @@
 
             <span class="appbar-spacer"></span>
 
-            <button type="button" id="btn-revision" class="btn-hoy" hidden>
-                Revisión <span id="revision-n" class="tab-badge" hidden>0</span>
-            </button>
-
-            <button type="button" id="btn-dashboard" class="btn-hoy" hidden>Indicadores</button>
-
-            <button type="button" id="btn-admin" class="btn-hoy" hidden>Admin</button>
+            <span id="revision-n" hidden>0</span>
 
             <button type="button" id="btn-deuda" class="deuda" hidden>
                 <span class="dot st-faltan-evidencias" style="--st: var(--st-part)"></span>
@@ -72,9 +66,8 @@
             </button>
         </header>
 
-        <main class="main" id="main">
-            <div class="cal" id="cal"></div>
-        </main>
+        <!-- El riel de módulos y la vista activa los renderiza React aquí. -->
+        <main class="main" id="main"></main>
     </div>
 
     <button type="button" id="fab" class="fab">

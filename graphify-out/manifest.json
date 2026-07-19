@@ -1,8 +1,8 @@
 {
   "js/app.js": {
-    "mtime": 1784402768.0905457,
-    "ast_hash": "420731aee656a61b7ae898ecd13f7bac",
-    "semantic_hash": "420731aee656a61b7ae898ecd13f7bac"
+    "mtime": 1784407194.9535174,
+    "ast_hash": "26a5e07d265034d9fe583751e8d7f1be",
+    "semantic_hash": "26a5e07d265034d9fe583751e8d7f1be"
   },
   "js/evidencias.js": {
     "mtime": 1784315048.3109472,
@@ -45,9 +45,9 @@
     "semantic_hash": "ad2fe2bd5ce7383dd852f46c424b7711"
   },
   "js/auth.js": {
-    "mtime": 1784300199.94926,
-    "ast_hash": "3b6e9b10c570a5290e424ae0c13fb477",
-    "semantic_hash": "3b6e9b10c570a5290e424ae0c13fb477"
+    "mtime": 1784407323.4625168,
+    "ast_hash": "ed59e8b977e2120a5208825ed4a31917",
+    "semantic_hash": "ed59e8b977e2120a5208825ed4a31917"
   },
   "js/eventos.js": {
     "mtime": 1784275172.192231,
@@ -83,11 +83,6 @@
     "mtime": 1784370933.4264472,
     "ast_hash": "1c1f7a1f3695ce2fbb6cd7e3226b3d01",
     "semantic_hash": "1c1f7a1f3695ce2fbb6cd7e3226b3d01"
-  },
-  "js/dashboard.js": {
-    "mtime": 1784373426.2044313,
-    "ast_hash": "c37d7ae5b17375b81b0697b86b3379d3",
-    "semantic_hash": "c37d7ae5b17375b81b0697b86b3379d3"
   },
   "js/datos.js": {
     "mtime": 1784373546.3424306,
@@ -240,9 +235,9 @@
     "semantic_hash": "20f0b6fac47bb364e64cad17dd2a0274"
   },
   "src/core/puente.ts": {
-    "mtime": 1784404641.1905336,
-    "ast_hash": "c589a518f638c205986801d4a1baed49",
-    "semantic_hash": "c589a518f638c205986801d4a1baed49"
+    "mtime": 1784407096.464518,
+    "ast_hash": "90d4e151efed0d60414b5a973266a2e2",
+    "semantic_hash": "90d4e151efed0d60414b5a973266a2e2"
   },
   "src/modules/visitas/components/BloqueCheck.tsx": {
     "mtime": 1784401633.3495529,
@@ -473,5 +468,45 @@
     "mtime": 1784404758.258533,
     "ast_hash": "e58d8f613092aba976fc5af3720f7618",
     "semantic_hash": "e58d8f613092aba976fc5af3720f7618"
+  },
+  "src/app/montarVistas.tsx": {
+    "mtime": 1784407085.7845182,
+    "ast_hash": "15963eccd9533290015ab0ebc67afa21",
+    "semantic_hash": "15963eccd9533290015ab0ebc67afa21"
+  },
+  "src/app/navegacion/Navegacion.tsx": {
+    "mtime": 1784407040.1085186,
+    "ast_hash": "6a840eebdfbfa2b3d81f6ab1ef5a56d0",
+    "semantic_hash": "6a840eebdfbfa2b3d81f6ab1ef5a56d0"
+  },
+  "src/app/navegacion/modulos.ts": {
+    "mtime": 1784407085.7795181,
+    "ast_hash": "912c1e571a24ce270a6aa8f30bdad725",
+    "semantic_hash": "912c1e571a24ce270a6aa8f30bdad725"
+  },
+  "src/modules/dashboard/components/BarraFiltros.tsx": {
+    "mtime": 1784406966.6675189,
+    "ast_hash": "b6e047674d1e2f4a7452afe9be813cd2",
+    "semantic_hash": "b6e047674d1e2f4a7452afe9be813cd2"
+  },
+  "src/modules/dashboard/components/Dashboard.tsx": {
+    "mtime": 1784406997.7115188,
+    "ast_hash": "162c120595b425a6518c9d84300cff7c",
+    "semantic_hash": "162c120595b425a6518c9d84300cff7c"
+  },
+  "src/modules/dashboard/components/Medidas.tsx": {
+    "mtime": 1784406948.5445192,
+    "ast_hash": "f11939e284627d554aec252bfb7727d3",
+    "semantic_hash": "f11939e284627d554aec252bfb7727d3"
+  },
+  "src/modules/dashboard/components/TablaEducadores.tsx": {
+    "mtime": 1784407009.0815187,
+    "ast_hash": "2054feaf3cfaeeb71b730badd30e2320",
+    "semantic_hash": "2054feaf3cfaeeb71b730badd30e2320"
+  },
+  "tests/arranque.test.tsx": {
+    "mtime": 1784407577.686515,
+    "ast_hash": "f1a5a4409650e700cf3116ca9f7f9f5d",
+    "semantic_hash": "f1a5a4409650e700cf3116ca9f7f9f5d"
   }
 }

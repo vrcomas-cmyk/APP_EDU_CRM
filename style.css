@@ -1368,3 +1368,131 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 .tabla td:first-child {
   max-width: 220px; overflow: hidden; text-overflow: ellipsis;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   NAVEGACIÓN ENTRE MÓDULOS
+
+   Riel vertical en escritorio; en móvil la misma lista pasa al borde inferior,
+   que es lo único que alcanza el pulgar sin recolocar el teléfono — y esta app
+   se usa de pie, dentro de un hospital.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.main {
+    display: flex;
+    min-height: 0;
+}
+
+.nav-modulos {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 10px 6px;
+    border-right: 1px solid var(--line);
+    background: var(--surface);
+}
+
+.nav-item {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    width: 68px;
+    padding: 9px 4px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    font-size: 10.5px;
+    line-height: 1.2;
+    cursor: pointer;
+    transition: background .12s, color .12s;
+}
+
+.nav-item:hover { background: var(--surface-2); color: var(--ink-2); }
+
+/* El activo NO se marca solo con color: lleva además la barra lateral. Distinguir
+   "dónde estoy" no puede depender de percibir un tono. */
+.nav-item.is-activo {
+    background: var(--surface-2);
+    color: var(--ink);
+    font-weight: 600;
+}
+
+.nav-item.is-activo::before {
+    content: '';
+    position: absolute;
+    left: -6px;
+    top: 8px;
+    bottom: 8px;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
+    background: var(--ink);
+}
+
+.nav-ico { font-size: 18px; line-height: 1; }
+.nav-txt-corto { display: none; }
+
+.nav-badge {
+    position: absolute;
+    top: 4px;
+    right: 10px;
+    min-width: 16px;
+    padding: 0 4px;
+    border-radius: 8px;
+    background: var(--st-part, #b45309);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 16px;
+    text-align: center;
+}
+
+.vista-host {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+}
+
+.vista { padding: 14px 16px 32px; }
+
+.vista-head { margin-bottom: 12px; }
+.vista-head h2 { font-size: 16px; margin: 0 0 2px; }
+
+@media (max-width: 720px) {
+    .main { flex-direction: column-reverse; }
+
+    .nav-modulos {
+        flex-direction: row;
+        justify-content: space-around;
+        gap: 0;
+        padding: 4px 2px;
+        border-right: 0;
+        border-top: 1px solid var(--line);
+        /* Sobre la zona del gesto de inicio en iOS. */
+        padding-bottom: calc(4px + env(safe-area-inset-bottom, 0px));
+    }
+
+    .nav-item { width: auto; flex: 1; padding: 7px 2px; }
+
+    /* En 390px "Administración" no cabe; el rótulo corto sí, y sigue siendo texto:
+       un icono solo no dice qué hay detrás. */
+    .nav-txt { display: none; }
+    .nav-txt-corto { display: block; }
+
+    .nav-item.is-activo::before {
+        left: 50%;
+        top: -4px;
+        bottom: auto;
+        width: 22px;
+        height: 3px;
+        margin-left: -11px;
+        border-radius: 0 0 3px 3px;
+    }
+
+    .nav-badge { top: 2px; right: 50%; margin-right: -22px; }
+}

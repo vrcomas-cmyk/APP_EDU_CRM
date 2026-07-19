@@ -70,7 +70,7 @@ Si hubo un error, la salida es registrar un registro nuevo — no reescribir la 
 | `js/app.js` | Arranque, sesión, atajos, sincronización, toasts |
 | `js/permisos.js` | Rol, permisos por módulo/acción y alcance jerárquico |
 | `js/datos.js` | Consulta única, filtros globales e indicadores; la costura para DuckDB/R2 |
-| `js/dashboard.js` | Indicadores con filtros globales y desglose por educador |
+| `src/modules/dashboard/` | Indicadores con filtros globales y desglose por educador |
 | `js/revisiones.js` | Flujos de revisión: cola, estado vigente, historial |
 | `js/revision.js` | Bandeja de revisión, una pestaña por flujo |
 | `js/comentarios.js` | Comentarios inmutables sobre visita/sector/actividad/evidencia |
@@ -79,10 +79,10 @@ Si hubo un error, la salida es registrar un registro nuevo — no reescribir la 
 | `js/storage.js` | localStorage (visitas/catálogo), IndexedDB (archivos), migraciones v1→v6 |
 | `js/estado.js` | Ciclo de vida, salud del registro, solapes, los sellos (`estaGuardada`) |
 | `js/visita.js` | Acciones de negocio: check-in/out, reagendar, cancelar |
-| `js/calendario.js` | Vistas Día / Semana / Mes, arrastrar para crear y reagendar |
-| `js/drawer.js` | Visita y sector: captura del borrador, panel de información, tarjetas de sector |
-| `js/sector.js` | Ventana del sector: elegir → completar → guardar, encadenando varios |
-| `js/actividad.js` | Ventana de la actividad: borrador → validar → sellar → solo lectura |
+| `src/modules/agenda/` | Vistas Día / Semana / Mes, arrastrar para crear y reagendar |
+| `src/modules/visitas/` | Visita y sector: captura del borrador, panel de información, tarjetas de sector |
+| `src/modules/sectores/` | Ventana del sector: elegir → completar → guardar, encadenando varios |
+| `src/modules/actividades/` | Ventana de la actividad: borrador → validar → sellar → solo lectura |
 | `js/materiales.js` | Ventana del material: buscador por sector, cantidad, unidad, origen |
 | `js/campos.js` | Primitivas de formulario compartidas por las tres ventanas |
 | `js/catalogos.js` | Configuración: qué campo pide cada tipo de actividad, y las listas |
