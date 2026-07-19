@@ -743,6 +743,11 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 .admin-tabs { width: 100%; }
 .admin-tabs button { flex: 1; }
 
+/* El conmutador de área (Catálogos / Accesos) es más ancho a propósito: separa dos backends
+   de guardado distintos, y confundirlo con una pestaña más haría creer que comparten botón. */
+.admin-area { width: 100%; max-width: 320px; margin-bottom: 10px; }
+.admin-area button { flex: 1; }
+
 .admin-fila {
   display: flex; align-items: center; gap: 8px;
   padding: 7px 0; border-bottom: 1px solid var(--rule-soft);
@@ -750,6 +755,12 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 .admin-fila .inp { flex: 1; min-width: 0; }
 .admin-fila .chips { flex: none; }
 .admin-fila .icon-btn { margin-left: 0; }
+
+/* Una fila de usuario lleva sus roles debajo, no al lado: con seis roles la fila se rompería
+   en dos líneas de todos modos, y así queda predecible en vez de saltar según el ancho. */
+.admin-fila-col { padding: 7px 0; border-bottom: 1px solid var(--rule-soft); }
+.admin-fila-col .admin-fila { padding: 0 0 6px; border-bottom: 0; }
+.admin-fila-col .chips { padding-left: 2px; }
 
 .admin-chip {
   display: inline-flex; align-items: center; gap: 6px;

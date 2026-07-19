@@ -190,6 +190,32 @@ export async function guardarCatalogosAdmin(cambios) {
     return postear({ action: 'guardarCatalogosAdmin', ...cambios });
 }
 
+// ---------- roles, capacidades y usuarios ----------
+
+/**
+ * Roles, catálogo de capacidades y usuarios, en una sola ida. Requiere ser admin: el servidor
+ * lo vuelve a revisar (`Codigo.gs: leerRBAC`) antes de tocar Supabase.
+ */
+export async function leerRBAC() {
+    return postear({ action: 'leerRBAC' });
+}
+
+/**
+ * Guarda roles y borra los que se pidieron borrar.
+ * Carga: { roles: [...], eliminar: ["clave"] }.
+ */
+export async function guardarRoles(cambios) {
+    return postear({ action: 'guardarRoles', ...cambios });
+}
+
+/**
+ * Guarda usuarios —con su conjunto de roles— y la jerarquía de quién ve a quién.
+ * Carga: { usuarios: [...], jerarquia: [...] }.
+ */
+export async function guardarUsuarios(cambios) {
+    return postear({ action: 'guardarUsuarios', ...cambios });
+}
+
 // ---------- eventos ----------
 
 /** Bitácora de negocio. Va al final: referencia visitas y no bloquea nada si falla. */

@@ -23,7 +23,7 @@ import type {
     Visita, Sector, Actividad, Marca, Sesion, SaludVisita, EstadoSector, ModoCampo,
     IndicadoresEducador, Revision, ResultadoRevision, FlujoRevision, Perfil,
     PendienteRevision, Comentario, CampoConfigurable, Catalogo, BorradorCatalogo,
-    ResultadoFlujo
+    ResultadoFlujo, RolAdmin, CapacidadAdmin, UsuarioAdmin
 } from './tipos';
 
 // ---------- estado (salud, ciclo de vida, tiempo) ----------
@@ -79,6 +79,28 @@ export const guardarCatalogosAdmin = _sync.guardarCatalogosAdmin as (
     cambios: BorradorCatalogo
 ) => Promise<unknown>;
 export const descargarCatalogo = _sync.descargarCatalogo as () => Promise<unknown>;
+
+/** Roles, catálogo de capacidades y usuarios, en una sola ida. Ver `js/sync.js: leerRBAC`. */
+export const leerRBAC = _sync.leerRBAC as () => Promise<{
+    roles: RolAdmin[];
+    capacidades: CapacidadAdmin[];
+    usuarios: UsuarioAdmin[];
+}>;
+
+/** Guarda roles y borra los que se pidieron borrar. */
+export const guardarRoles = _sync.guardarRoles as (cambios: {
+    roles: Array<{
+        clave: string; nombre: string; descripcion: string | null; orden: number;
+        activo: boolean; hereda_de: string | null; capacidades: string[];
+    }>;
+    eliminar: string[];
+}) => Promise<unknown>;
+
+/** Guarda usuarios —con su conjunto de roles— y la jerarquía de quién ve a quién. */
+export const guardarUsuarios = _sync.guardarUsuarios as (cambios: {
+    usuarios: Array<{ correo: string; nombre: string | null; activo: boolean; roles: string[] }>;
+    jerarquia: Array<{ jefe: string; subordinados: string[] }>;
+}) => Promise<unknown>;
 
 export const describirDispositivo = _geo.describirDispositivo as () => string;
 

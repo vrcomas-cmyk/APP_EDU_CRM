@@ -357,3 +357,63 @@ export interface IndicadoresEducador {
     cumplimiento: number;
     horas: number;
 }
+
+// ---------- RBAC: roles, capacidades, usuarios ----------
+
+/**
+ * Un rol tal como lo devuelve `pdt_roles_admin`.
+ *
+ * `capacidades` son las PROPIAS del rol —lo que la pantalla deja marcar—; `efectivas` suma las
+ * heredadas de `hereda_de`, resueltas por Postgres. La pantalla edita `capacidades` y solo
+ * muestra `efectivas` para que se vea qué concede de verdad.
+ */
+export interface RolAdmin {
+    clave: string;
+    nombre: string;
+    descripcion: string | null;
+    orden: number;
+    activo: boolean;
+    /** Un rol del sistema (p. ej. `administrador`) no se puede borrar ni desactivar. */
+    sistema: boolean;
+    hereda_de: string | null;
+    capacidades: string[];
+    efectivas: string[];
+    /** Cuántos usuarios lo tienen hoy: si es más de cero, no se puede borrar. */
+    usuarios: number;
+    /** Cuántos roles heredan de él: si es más de cero, no se puede borrar. */
+    herederos: number;
+}
+
+/** Una capacidad del catálogo, tal como la devuelve `pdt_capacidades_admin`. */
+export interface CapacidadAdmin {
+    clave: string;
+    modulo: string;
+    accion: string;
+    nombre: string;
+    descripcion: string | null;
+    grupo: string;
+    orden: number;
+}
+
+/**
+ * Un usuario tal como lo devuelve `pdt_usuarios_admin`: sus roles y su jerarquía en un solo
+ * lugar, porque las tres cosas —el correo, sus roles, a quién ve— se editan juntas.
+ */
+export interface UsuarioAdmin {
+    correo: string;
+    nombre: string | null;
+    activo: boolean;
+    roles: string[];
+    invitacion: string | null;
+    /** Quién ve a este correo en su alcance. */
+    jefes: string[];
+    /** A quién ve este correo en su alcance. Es lo que edita el panel de Jerarquía. */
+    subordinados: string[];
+}
+
+/** Lo que la pantalla de Accesos edita: el espejo local de `leerRBAC`. */
+export interface BorradorRBAC {
+    roles: RolAdmin[];
+    capacidades: CapacidadAdmin[];
+    usuarios: UsuarioAdmin[];
+}
