@@ -27,6 +27,10 @@ interface Props {
 
 export function GestionAccesos({ estado, confirmar }: Props) {
     const [sub, setSub] = useState<Subpestana>('roles');
+    // Elevado aquí (y no dentro de PanelJerarquia) porque las sub-pestañas se desmontan al
+    // cambiar: sin esto, entrar y salir de Jerarquía olvidaba a quién se estaba mirando y volvía
+    // siempre al primero de la lista — parecía que "otra persona" se había vuelto el jefe.
+    const [analista, setAnalista] = useState<string>('');
     const { borrador, cambiar, cargando, error } = estado;
 
     if (cargando && borrador.roles.length === 0) {
@@ -64,7 +68,14 @@ export function GestionAccesos({ estado, confirmar }: Props) {
                     <PanelRoles borrador={borrador} cambiar={cambiar} confirmar={confirmar} />
                 )}
                 {sub === 'usuarios' && <PanelUsuarios borrador={borrador} cambiar={cambiar} />}
-                {sub === 'jerarquia' && <PanelJerarquia borrador={borrador} cambiar={cambiar} />}
+                {sub === 'jerarquia' && (
+                    <PanelJerarquia
+                        borrador={borrador}
+                        cambiar={cambiar}
+                        analista={analista}
+                        elegirAnalista={setAnalista}
+                    />
+                )}
             </div>
         </>
     );

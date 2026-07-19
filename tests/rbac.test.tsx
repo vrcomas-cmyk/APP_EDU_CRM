@@ -191,4 +191,38 @@ describe('jerarquía', () => {
         const enviado = usuariosGuardados[0] as { jerarquia: Array<{ jefe: string; subordinados: string[] }> };
         assert.deepEqual(enviado.jerarquia, [{ jefe: 'ana@x.com', subordinados: [] }]);
     });
+
+    test('la sección "quién revisa a quién" no depende del analista elegido arriba', async () => {
+        pintar();
+        await act(async () => { irAAccesos(); });
+        await waitFor(() => assert.ok(nombreDeRol('Administrador')));
+
+        await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Jerarquía' })); });
+
+        // Beto ya está a cargo de Ana en el fixture (ana.subordinados incluye a beto). Eso debe
+        // verse en la tabla de abajo aunque el selector de arriba tenga elegida a Ana, no a Beto.
+        assert.ok(screen.getByRole('button', {
+            name: 'Quitar a Ana como analista de Beto'
+        }), 'la relación existente se ve sin tener que elegir a Beto en el selector');
+    });
+
+    test('elegir un analista sobrevive a salir y volver a la sub-pestaña Jerarquía', async () => {
+        pintar();
+        await act(async () => { irAAccesos(); });
+        await waitFor(() => assert.ok(nombreDeRol('Administrador')));
+
+        await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Jerarquía' })); });
+        const selector = screen.getByRole('combobox', { name: 'Elegir analista' }) as HTMLSelectElement;
+        await act(async () => { fireEvent.change(selector, { target: { value: 'beto@x.com' } }); });
+        assert.equal(selector.value, 'beto@x.com');
+
+        // Salir a Roles y volver: antes del fix esto desmontaba el panel y el selector volvía
+        // al primer usuario (Ana), que es justo el síntoma reportado ("aparece otra persona
+        // como jefe" al no encontrar el estado que se acababa de dejar).
+        await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Roles' })); });
+        await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Jerarquía' })); });
+
+        const selectorDeNuevo = screen.getByRole('combobox', { name: 'Elegir analista' }) as HTMLSelectElement;
+        assert.equal(selectorDeNuevo.value, 'beto@x.com', 'la elección no se perdió al cambiar de sub-pestaña');
+    });
 });

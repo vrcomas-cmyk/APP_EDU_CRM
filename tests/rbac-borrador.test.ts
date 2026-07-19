@@ -8,8 +8,8 @@ import assert from 'node:assert/strict';
 
 import {
     candidatosDeHerencia, capacidadesPorGrupo, cerrariaCiclo, conActivoDeUsuario, conCapacidad,
-    conRolesDeUsuario, conSubordinados, duplicarRol, jerarquiaParaGuardar, problemasDeRoles,
-    problemasDeUsuarios, rolNuevo, rolesParaGuardar, usuarioNuevo, usuariosParaGuardar
+    conRolesDeUsuario, conSubordinados, duplicarRol, jefesDe, jerarquiaParaGuardar, problemasDeRoles,
+    problemasDeUsuarios, quitarJefe, rolNuevo, rolesParaGuardar, usuarioNuevo, usuariosParaGuardar
 } from '@modules/administracion/services/borradorRBAC';
 import type { CapacidadAdmin, RolAdmin, UsuarioAdmin } from '@core/tipos';
 
@@ -151,6 +151,31 @@ describe('jerarquía', () => {
     test('jerarquiaParaGuardar no incluye a quien nunca tuvo subordinados', () => {
         const usuarios = [usuario({ correo: 'solo@x.com', subordinados: [] })];
         assert.deepEqual(jerarquiaParaGuardar(usuarios, usuarios), []);
+    });
+
+    test('jefesDe encuentra a todos los que revisan a alguien, no solo al jefe elegido en pantalla', () => {
+        const usuarios = [
+            usuario({ correo: 'ana@x.com', subordinados: ['ed@x.com'] }),
+            usuario({ correo: 'beto@x.com', subordinados: ['ed@x.com', 'otro@x.com'] }),
+            usuario({ correo: 'ed@x.com', subordinados: [] })
+        ];
+
+        assert.deepEqual(jefesDe(usuarios, 'ed@x.com').map(u => u.correo), ['ana@x.com', 'beto@x.com'],
+            'dos analistas pueden compartir el mismo educador');
+        assert.deepEqual(jefesDe(usuarios, 'otro@x.com').map(u => u.correo), ['beto@x.com']);
+        assert.deepEqual(jefesDe(usuarios, 'ana@x.com'), [], 'nadie revisa a ana en este set');
+    });
+
+    test('quitarJefe saca al subordinado solo de ESE jefe, sin tocar a otros que lo comparten', () => {
+        const usuarios = [
+            usuario({ correo: 'ana@x.com', subordinados: ['ed@x.com'] }),
+            usuario({ correo: 'beto@x.com', subordinados: ['ed@x.com'] })
+        ];
+
+        const salida = quitarJefe(usuarios, 'ana@x.com', 'ed@x.com');
+        assert.deepEqual(salida.find(u => u.correo === 'ana@x.com')!.subordinados, []);
+        assert.deepEqual(salida.find(u => u.correo === 'beto@x.com')!.subordinados, ['ed@x.com'],
+            'beto sigue revisando a ed: el solape es válido, no se rompe al quitar al otro');
     });
 });
 

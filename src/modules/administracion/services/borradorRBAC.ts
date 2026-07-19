@@ -139,6 +139,22 @@ export function conSubordinados(usuarios: UsuarioAdmin[], jefe: string, subordin
 }
 
 /**
+ * Quita a `subordinado` de la lista de subordinados de `jefe`.
+ *
+ * Es la misma operación que desmarcar el chip desde la ficha del jefe, pero expresada desde el
+ * lado del subordinado —"quítame a este jefe de encima"—, que es como se nota el problema
+ * cuando alguien tiene un jefe de más y no sabía ni por dónde estaba.
+ */
+export function quitarJefe(usuarios: UsuarioAdmin[], jefe: string, subordinado: string): UsuarioAdmin[] {
+    return conSubordinados(usuarios, jefe, usuarios.find(u => u.correo === jefe)?.subordinados.filter(c => c !== subordinado) ?? []);
+}
+
+/** Los jefes actuales de `correo`, para mostrarlos aunque no sea el jefe elegido en pantalla. */
+export function jefesDe(usuarios: UsuarioAdmin[], correo: string): UsuarioAdmin[] {
+    return usuarios.filter(u => u.subordinados.includes(correo));
+}
+
+/**
  * ¿Poner a `candidato` bajo `jefe` cerraría un ciclo? Se ve mirando si el candidato YA tiene a
  * `jefe` en su propio alcance —directo o de varios saltos—, con los datos que hay en pantalla.
  *
