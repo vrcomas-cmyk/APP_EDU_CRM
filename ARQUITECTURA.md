@@ -22,6 +22,7 @@ llama:
 | `js/actividad.js` (662 líneas) | `modules/actividades/` — 6 archivos | ~265 |
 | `js/sector.js` (406 líneas) | `modules/sectores/` — 4 archivos | ~330 |
 | `js/dashboard.js` (583 líneas) | `modules/dashboard/` — 4 archivos | ~207 |
+| `js/revision.js` (379 líneas) | `modules/revision/` — 7 archivos | ~92 |
 
 ### Los módulos son un registro de datos, no condiciones repartidas
 
@@ -43,10 +44,21 @@ móvil porque la app se usa de pie y con una mano dentro de un hospital: el bord
 El módulo activo se distingue por **fondo y por una barra lateral** (`::before`), no solo por
 tono: saber dónde estoy no puede depender de percibir un color.
 
-> `revision` y `administracion` llevan `modal: true`. Es deuda declarada: `revision.js` y
-> `admin.js` siguen siendo vanilla y construyen su propio panel a pantalla completa, así que el
-> shell los abre en vez de cambiar de vista. Al portarlos la bandera desaparece. Está en el
-> registro, y no escondida en el shell, para que la deuda se vea desde donde se lee la lista.
+> Solo `administracion` lleva ya `modal: true`. Es deuda declarada: `admin.js` sigue siendo
+> vanilla y construye su propio panel a pantalla completa, así que el shell lo abre en vez de
+> cambiar de vista. Al portarlo, la bandera y el campo entero desaparecen. Está en el registro,
+> y no escondida en el shell, para que la deuda se vea desde donde se lee la lista.
+
+### Un módulo declara TODO lo que necesita para funcionar, no solo su permiso propio
+
+Revisión pedía únicamente tener flujos asignados. Pero la cola sale de `consultarVisitas()`,
+que devuelve vacío sin `visitas.consultar`: con flujos y sin consulta, la bandeja estaba
+garantizadamente vacía y el riel seguía ofreciéndola. Un botón que promete trabajo que no se
+puede ver es la misma promesa rota que un botón hacia «no tienes permiso».
+
+La cola está además acotada por **alcance**: se revisa al equipo que se tiene asignado, no a la
+empresa. Es correcto y conviene recordarlo al configurar un revisor —sin alcance sobre nadie,
+su bandeja está vacía aunque tenga todos los permisos.
 
 ### Las ventanas cuelgan del `host` que reciben, nunca de `document.body`
 
@@ -215,7 +227,7 @@ publicar en internet una clave que se salta todas las políticas de la base.
 
 ## Lo que todavía no está hecho
 
-- `admin.js`, `revision.js`, `paleta.js` y `app.js` siguen siendo vanilla.
+- `admin.js`, `paleta.js` y `app.js` siguen siendo vanilla.
 - `materiales.js`, `evidencias.js`, `vistaprevia.js` e `hilo.js` devuelven nodos DOM y se
   montan con `NodoVanilla`. Ese componente debe quedarse sin usos y desaparecer.
 - La barra de navegación del calendario vive en `index.html`, fuera del árbol de React, y se
@@ -243,3 +255,9 @@ arranque y deja la pantalla en blanco. `tsc` no lo ve, porque `app.js` es JavaSc
 Es la misma lección que ya había dado la ventana de sector: una prueba que dobla el punto de
 unión no puede fallar donde el fallo vive. Cada capa nueva necesita al menos una prueba que
 atraviese la unión de verdad.
+
+Tiene un coste que conviene conocer: cada prueba enciende otra app, y `app.js` deja vivo un
+`setInterval` que repinta el calendario cada minuto —en el navegador vive lo que la pestaña, y
+no hay forma de pararlo—. Acumulados, happy-dom no consigue cerrar el entorno: se queda
+esperando y vitest mata el worker DESPUÉS de que las pruebas hayan pasado todas. El informe
+dice que todo va bien y la ejecución falla igual. Por eso el archivo los recoge y los limpia.

@@ -21,6 +21,7 @@ import { faltaEnSector, sectorCompleto, conservables, sectoresLibres } from '../
 import { filtrarSectores } from '../services/busqueda';
 import * as repo from '@modules/visitas/repository/visitasRepo';
 import type { Sector, Visita } from '@core/tipos';
+import { Dato } from '@shared/components/Dato';
 
 export interface PropsVentanaSector {
     visitaId: string;
@@ -357,11 +358,3 @@ function ChipsOrigen({ sector, editarSector }: {
     );
 }
 
-function Dato({ etiqueta, valor }: { etiqueta: string; valor?: string }) {
-    return (
-        <div className="dato">
-            <span className="dato-lbl">{etiqueta}</span>
-            <span className={'dato-val' + (valor ? '' : ' es-vacio')}>{valor || '—'}</span>
-        </div>
-    );
-}

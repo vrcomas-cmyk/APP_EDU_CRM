@@ -71,10 +71,24 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+    // `app.js` deja un `setInterval` repintando el calendario cada minuto y no ofrece forma de
+    // pararlo: en el navegador vive tanto como la pestaña. Aquí cada prueba enciende otra app,
+    // y los temporizadores se acumulan sobre un `document` que ya no existe.
+    //
+    // No hace fallar ninguna prueba —todas pasan— pero happy-dom no logra cerrar el entorno
+    // con ellos vivos: se queda esperando ~16 s y vitest mata el worker. El síntoma es
+    // desconcertante, porque el informe dice que todo pasó y aun así la ejecución falla.
+    for (const id of intervalos.splice(0)) clearInterval(id as number);
+
     vi.restoreAllMocks();
     document.body.innerHTML = '';
     delete (globalThis as Record<string, unknown>).google;
 });
+
+/** Los temporizadores que registró la app durante el arranque, para poder pararlos. */
+// El tipo del identificador cambia según se resuelva `setInterval` al del DOM o al de Node,
+// y aquí da igual: solo se guarda para devolverlo a `clearInterval`.
+const intervalos: unknown[] = [];
 
 /**
  * Deja que React monte y corra sus efectos.
@@ -107,12 +121,21 @@ async function arrancar() {
             return original(tipo, fn, ...resto);
         });
 
+    const original_setInterval = globalThis.setInterval;
+    const espiaTimer = vi.spyOn(globalThis, 'setInterval')
+        .mockImplementation(((fn: TimerHandler, ms?: number, ...args: unknown[]) => {
+            const id = (original_setInterval as (...a: unknown[]) => unknown)(fn, ms, ...args);
+            intervalos.push(id);
+            return id;
+        }) as unknown as typeof setInterval);
+
     await import('../js/app.js');
     espia.mockRestore();
 
     assert.ok(arranque, 'app.js debe registrar su arranque en DOMContentLoaded');
     (arranque as () => void)();
     await asentar();
+    espiaTimer.mockRestore();
 }
 
 const perfil = (extra: Record<string, unknown> = {}) => {
@@ -236,6 +259,37 @@ describe('cambiar de módulo', () => {
 
         assert.equal((document.getElementById('cal-modo') as HTMLElement).hidden, true,
             'dejarlo visible sugeriría que el selector de vistas sigue haciendo algo');
+    });
+
+    test('Revisión es una vista, no un modal encima del calendario', async () => {
+        perfil({
+            permisos: ['visitas.crear', 'visitas.consultar', 'dashboards.personal',
+                       'evidencias.aprobar']
+        });
+        await arrancar();
+
+        const boton = [...document.querySelectorAll('.nav-item')]
+            .find(b => b.textContent?.includes('Revisión')) as HTMLButtonElement;
+
+        assert.ok(boton, 'con permiso de aprobar evidencias, Revisión debe ofrecerse');
+
+        boton.click();
+        await asentar();
+
+        const main = document.getElementById('main')!;
+        assert.ok(main.querySelector('.vista-revision'), 'debe verse la bandeja');
+        assert.equal(main.querySelector('.grid'), null,
+            'el calendario deja la pantalla, no se queda debajo');
+    });
+
+    test('sin permiso de consultar visitas NO se ofrece Revisión', async () => {
+        // La cola sale de `consultarVisitas()`, que sin ese permiso devuelve vacío siempre:
+        // el botón prometería trabajo que no se puede ver.
+        perfil({ permisos: ['evidencias.aprobar', 'dashboards.personal'] });
+        await arrancar();
+
+        const rotulos = [...document.querySelectorAll('.nav-item .nav-txt')].map(e => e.textContent);
+        assert.ok(!rotulos.includes('Revisión'));
     });
 
     test('se puede volver al calendario', async () => {

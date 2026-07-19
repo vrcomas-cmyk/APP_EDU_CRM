@@ -72,7 +72,7 @@ Si hubo un error, la salida es registrar un registro nuevo — no reescribir la 
 | `js/datos.js` | Consulta única, filtros globales e indicadores; la costura para DuckDB/R2 |
 | `src/modules/dashboard/` | Indicadores con filtros globales y desglose por educador |
 | `js/revisiones.js` | Flujos de revisión: cola, estado vigente, historial |
-| `js/revision.js` | Bandeja de revisión, una pestaña por flujo |
+| `src/modules/revision/` | Bandeja de revisión, una pestaña por flujo |
 | `js/comentarios.js` | Comentarios inmutables sobre visita/sector/actividad/evidencia |
 | `js/hilo.js` | Hilo de comentarios reutilizable |
 | `js/vistaprevia.js` | Miniatura y visor de evidencias (imagen, PDF, video) |

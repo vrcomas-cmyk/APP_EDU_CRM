@@ -22,8 +22,7 @@ import {
     accesoBloqueado, aceptarInvitacion, tieneEquipo
 } from './permisos.js';
 import { ponerVisitasEquipo, olvidarVisitasEquipo } from './datos.js';
-import { initRevision, abrirRevision, puedeAbrirRevision, hayRevisionAbierta } from './revision.js';
-import { ponerFlujos, ponerRevisiones, olvidarRevisiones, conteoPendientes } from './revisiones.js';
+import { ponerFlujos, ponerRevisiones, olvidarRevisiones } from './revisiones.js';
 import { initAuth, sesionActual, pintarBotonEntrada, intentarRefresco, cerrarSesion } from './auth.js';
 
 let el = {};
@@ -42,7 +41,6 @@ document.addEventListener('DOMContentLoaded', () => {
         syncTxt: document.getElementById('sync-txt'),
         deuda: document.getElementById('btn-deuda'),
         deudaN: document.getElementById('deuda-n'),
-        revisionN: document.getElementById('revision-n'),
         sesion: document.getElementById('btn-sesion'),
         sesionFoto: document.getElementById('sesion-foto'),
         sesionNombre: document.getElementById('sesion-nombre'),
@@ -133,20 +131,6 @@ function pintarSesion(sesion) {
  */
 function pintarAccesos() {
     refrescarCalendario();
-    actualizarPendientesRevision();
-}
-
-/** El contador de pendientes. El riel lo pinta; esto solo lo mantiene al día. */
-function actualizarPendientesRevision() {
-    try {
-        const { total } = conteoPendientes();
-        el.revisionN.textContent = String(total);
-        el.revisionN.hidden = total === 0;
-        refrescarCalendario();
-    } catch (err) {
-        console.error('No se pudo contar lo pendiente de revisión:', err);
-        el.revisionN.hidden = true;
-    }
 }
 
 /**
@@ -207,9 +191,8 @@ function iniciarApp() {
     initVistas({
         onAbrirVisita: (id) => abrirVisita(id),
         onCrearEn: (dia, horaInicio, horaFin) => abrirNuevaVisita({ dia, hora_inicio: horaInicio, hora_fin: horaFin }),
-        // Revisión y Administración siguen siendo modales; el riel los abre desde aquí.
+        // Administración sigue siendo modal; el riel la abre desde aquí.
         onAbrirModal: (clave) => {
-            if (clave === 'revision') abrirRevision();
             if (clave === 'administracion') abrirAdmin();
         },
         onCambio: refrescarTodo,
@@ -223,7 +206,6 @@ function iniciarApp() {
         onIrADia: irADia
     });
     initAdmin({ onToast: toast });
-    initRevision({ onToast: toast, onCambio: refrescarTodo });
 
     el.fab.addEventListener('click', () => abrirNuevaVisita());
     el.sync.addEventListener('click', () => sincronizar({ manual: true }));
@@ -255,7 +237,7 @@ function atajos(e) {
     if (escribiendo) return;
 
     if (e.key === 'Escape') return;              // el drawer se cierra solo
-    if (hayDrawerAbierto() || hayAdminAbierto() || hayRevisionAbierta()) return;
+    if (hayDrawerAbierto() || hayAdminAbierto()) return;
 
     const acciones = {
         n: () => abrirNuevaVisita(),
@@ -264,7 +246,7 @@ function atajos(e) {
         s: () => setModo('semana'),
         m: () => setModo('mes'),
         i: () => mostrarModulo('dashboard'),
-        r: () => { if (puedeAbrirRevision()) abrirRevision(); }
+        r: () => mostrarModulo('revision')
     };
     const accion = acciones[e.key.toLowerCase()];
     if (accion) { e.preventDefault(); accion(); }
@@ -274,17 +256,16 @@ function atajos(e) {
 function atajoPaleta(e) {
     if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'k') return;
     e.preventDefault();
-    if (hayDrawerAbierto() || hayAdminAbierto() || hayRevisionAbierta()
-        || hayPaletaAbierta()) return;
+    if (hayDrawerAbierto() || hayAdminAbierto() || hayPaletaAbierta()) return;
     abrirPaleta();
 }
 
 // ---------- refresco ----------
 
 export function refrescarTodo() {
+    // El riel se repinta con esto: su contador de pendientes lo calcula el propio módulo.
     refrescarCalendario();
     actualizarDeuda();
-    actualizarPendientesRevision();
 }
 
 function actualizarDeuda() {

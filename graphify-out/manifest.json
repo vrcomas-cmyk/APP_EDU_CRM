@@ -1,8 +1,8 @@
 {
   "js/app.js": {
-    "mtime": 1784407194.9535174,
-    "ast_hash": "26a5e07d265034d9fe583751e8d7f1be",
-    "semantic_hash": "26a5e07d265034d9fe583751e8d7f1be"
+    "mtime": 1784420143.8026242,
+    "ast_hash": "60f17007ceaca18ae4b387d729e559f2",
+    "semantic_hash": "60f17007ceaca18ae4b387d729e559f2"
   },
   "js/evidencias.js": {
     "mtime": 1784315048.3109472,
@@ -114,11 +114,6 @@
     "ast_hash": "de3a2062677150b58221eb28762856b2",
     "semantic_hash": "de3a2062677150b58221eb28762856b2"
   },
-  "js/revision.js": {
-    "mtime": 1784373274.2124324,
-    "ast_hash": "ba8ba0095764263da87b5d7455b1e824",
-    "semantic_hash": "ba8ba0095764263da87b5d7455b1e824"
-  },
   "js/revisiones.js": {
     "mtime": 1784373228.6384327,
     "ast_hash": "cd08f03cf5299250f7d6b63f91abe325",
@@ -175,9 +170,9 @@
     "semantic_hash": "78989117e4dd54fe38e37198cb84a967"
   },
   "src/core/tipos.ts": {
-    "mtime": 1784403597.4295404,
-    "ast_hash": "889a00de919e048fa1ac459b4ca145e6",
-    "semantic_hash": "889a00de919e048fa1ac459b4ca145e6"
+    "mtime": 1784419945.1066368,
+    "ast_hash": "775f9b09fb5fe180cf4fccb43764e428",
+    "semantic_hash": "775f9b09fb5fe180cf4fccb43764e428"
   },
   "src/modules/usuarios/permissions/can.ts": {
     "mtime": 1784400976.494557,
@@ -235,9 +230,9 @@
     "semantic_hash": "20f0b6fac47bb364e64cad17dd2a0274"
   },
   "src/core/puente.ts": {
-    "mtime": 1784407096.464518,
-    "ast_hash": "90d4e151efed0d60414b5a973266a2e2",
-    "semantic_hash": "90d4e151efed0d60414b5a973266a2e2"
+    "mtime": 1784419963.8666356,
+    "ast_hash": "3e5d1d5cb24db50352c4fc6a085b9447",
+    "semantic_hash": "3e5d1d5cb24db50352c4fc6a085b9447"
   },
   "src/modules/visitas/components/BloqueCheck.tsx": {
     "mtime": 1784401633.3495529,
@@ -260,9 +255,9 @@
     "semantic_hash": "7d2af9fddbc2bffd4bc7ae246cd5d9ed"
   },
   "src/modules/visitas/components/NivelSector.tsx": {
-    "mtime": 1784401671.4785526,
-    "ast_hash": "95b42df76fc27739e50fe376ddc808dc",
-    "semantic_hash": "95b42df76fc27739e50fe376ddc808dc"
+    "mtime": 1784420055.3646297,
+    "ast_hash": "8e977f75c2cdcf2d454d2ce8d9b7ab42",
+    "semantic_hash": "8e977f75c2cdcf2d454d2ce8d9b7ab42"
   },
   "src/modules/visitas/components/PieVisita.tsx": {
     "mtime": 1784401686.8025525,
@@ -400,9 +395,9 @@
     "semantic_hash": "8a182eb5f6b5b6e5258102e414137b44"
   },
   "src/modules/actividades/components/ActividadSellada.tsx": {
-    "mtime": 1784403763.9045393,
-    "ast_hash": "73e562b4b66fb9674b6cee83049fa83c",
-    "semantic_hash": "73e562b4b66fb9674b6cee83049fa83c"
+    "mtime": 1784420055.3656297,
+    "ast_hash": "1a9c6dda1a5428065465e0852f1aa1e3",
+    "semantic_hash": "1a9c6dda1a5428065465e0852f1aa1e3"
   },
   "src/modules/actividades/components/FormularioActividad.tsx": {
     "mtime": 1784403745.1995394,
@@ -445,9 +440,9 @@
     "semantic_hash": "a28a0052fd7e5cbc7fa95a5253b42b26"
   },
   "src/modules/sectores/components/VentanaSector.tsx": {
-    "mtime": 1784404620.5005338,
-    "ast_hash": "106a400b33468a9aa1a3ddbe3023c52a",
-    "semantic_hash": "106a400b33468a9aa1a3ddbe3023c52a"
+    "mtime": 1784420055.3626297,
+    "ast_hash": "63cdf4cf9d54617f25e95f3d49023bcd",
+    "semantic_hash": "63cdf4cf9d54617f25e95f3d49023bcd"
   },
   "src/modules/sectores/montarSector.tsx": {
     "mtime": 1784404641.2015338,
@@ -470,9 +465,9 @@
     "semantic_hash": "e58d8f613092aba976fc5af3720f7618"
   },
   "src/app/montarVistas.tsx": {
-    "mtime": 1784407085.7845182,
-    "ast_hash": "15963eccd9533290015ab0ebc67afa21",
-    "semantic_hash": "15963eccd9533290015ab0ebc67afa21"
+    "mtime": 1784420105.8246264,
+    "ast_hash": "afbc2a728e48afc02269d9a852e41824",
+    "semantic_hash": "afbc2a728e48afc02269d9a852e41824"
   },
   "src/app/navegacion/Navegacion.tsx": {
     "mtime": 1784407040.1085186,
@@ -480,9 +475,9 @@
     "semantic_hash": "6a840eebdfbfa2b3d81f6ab1ef5a56d0"
   },
   "src/app/navegacion/modulos.ts": {
-    "mtime": 1784407085.7795181,
-    "ast_hash": "912c1e571a24ce270a6aa8f30bdad725",
-    "semantic_hash": "912c1e571a24ce270a6aa8f30bdad725"
+    "mtime": 1784420362.1306105,
+    "ast_hash": "89f391dc099ba429c1e66356a6b18533",
+    "semantic_hash": "89f391dc099ba429c1e66356a6b18533"
   },
   "src/modules/dashboard/components/BarraFiltros.tsx": {
     "mtime": 1784406966.6675189,
@@ -505,8 +500,53 @@
     "semantic_hash": "2054feaf3cfaeeb71b730badd30e2320"
   },
   "tests/arranque.test.tsx": {
-    "mtime": 1784407577.686515,
-    "ast_hash": "f1a5a4409650e700cf3116ca9f7f9f5d",
-    "semantic_hash": "f1a5a4409650e700cf3116ca9f7f9f5d"
+    "mtime": 1784420903.6195762,
+    "ast_hash": "616d5c15e6ec448249417f03dda2c510",
+    "semantic_hash": "616d5c15e6ec448249417f03dda2c510"
+  },
+  "src/modules/revision/components/AccionesRevision.tsx": {
+    "mtime": 1784420022.5706317,
+    "ast_hash": "672666b989e42b08ded306ad6f7c837d",
+    "semantic_hash": "672666b989e42b08ded306ad6f7c837d"
+  },
+  "src/modules/revision/components/LoYaDicho.tsx": {
+    "mtime": 1784420008.7326326,
+    "ast_hash": "595cd72a11aa84585554a8d3c13af81f",
+    "semantic_hash": "595cd72a11aa84585554a8d3c13af81f"
+  },
+  "src/modules/revision/components/PestanasFlujo.tsx": {
+    "mtime": 1784419984.7046342,
+    "ast_hash": "2abd3c07d676be7e053a93c962c3c97b",
+    "semantic_hash": "2abd3c07d676be7e053a93c962c3c97b"
+  },
+  "src/modules/revision/components/Revision.tsx": {
+    "mtime": 1784420086.4776278,
+    "ast_hash": "e9b398714e2acbc38f163bbfe921aca4",
+    "semantic_hash": "e9b398714e2acbc38f163bbfe921aca4"
+  },
+  "src/modules/revision/components/TarjetaPendiente.tsx": {
+    "mtime": 1784420071.1976287,
+    "ast_hash": "7cf56b7800d0c493a1a70953d65cb18b",
+    "semantic_hash": "7cf56b7800d0c493a1a70953d65cb18b"
+  },
+  "src/modules/revision/hooks/useRevision.ts": {
+    "mtime": 1784419979.0546346,
+    "ast_hash": "2740dd63167a3b95e75c87558e89470a",
+    "semantic_hash": "2740dd63167a3b95e75c87558e89470a"
+  },
+  "src/modules/revision/services/formato.ts": {
+    "mtime": 1784419997.4516335,
+    "ast_hash": "00282106f6181d8938fbc68cc15680bb",
+    "semantic_hash": "00282106f6181d8938fbc68cc15680bb"
+  },
+  "src/shared/components/Dato.tsx": {
+    "mtime": 1784420045.0416303,
+    "ast_hash": "74d936d3e59b40226c984621e8efa263",
+    "semantic_hash": "74d936d3e59b40226c984621e8efa263"
+  },
+  "tests/revision-vista.test.tsx": {
+    "mtime": 1784420887.1915772,
+    "ast_hash": "2c179b836a03e5b9c8c4fa6a61997b2b",
+    "semantic_hash": "2c179b836a03e5b9c8c4fa6a61997b2b"
   }
 }

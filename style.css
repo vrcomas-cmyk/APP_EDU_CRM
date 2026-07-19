@@ -1463,6 +1463,29 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 .vista-head { margin-bottom: 12px; }
 .vista-head h2 { font-size: 16px; margin: 0 0 2px; }
 
+/*
+ * `.panel-body` viene de cuando estos módulos eran modales: allí tenía que rellenar y
+ * desplazarse solo dentro de un panel de altura fija. Dentro de una vista el que se desplaza
+ * es `.vista-host`, así que un `overflow-y` aquí anida un segundo contenedor de scroll —dos
+ * barras que se pelean por la misma rueda— y el relleno se suma al de `.vista`.
+ */
+.vista .panel-body { padding: 0; overflow: visible; flex: none; }
+
+/*
+ * Las tarjetas no se estiran a lo ancho de un monitor: una línea de texto de 1600 px obliga a
+ * mover la cabeza para leerla y se pierde el renglón al volver.
+ */
+.vista-revision .panel-body { max-width: 860px; }
+
+/* En el modal las pestañas iban a sangre contra los bordes del panel. En una vista con
+   relleno, quitarles los lados las deja abiertas por la mitad. */
+.vista-revision .revision-tabs {
+    border-radius: 8px;
+    border-left: 1px solid var(--rule);
+    border-right: 1px solid var(--rule);
+    margin-bottom: 14px;
+}
+
 @media (max-width: 720px) {
     .main { flex-direction: column-reverse; }
 

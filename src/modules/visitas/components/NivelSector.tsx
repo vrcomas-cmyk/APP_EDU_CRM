@@ -9,6 +9,7 @@
 
 import { estadoSector, etiquetaSector, estaGuardada, requiereEvidencia, bloqueoParaActividades } from '@core/puente';
 import type { Visita, Sector, Actividad } from '@core/tipos';
+import { Dato } from '@shared/components/Dato';
 
 interface Props {
     visita: Visita;
@@ -52,15 +53,6 @@ export function CuerpoSector({ visita, sector, onAbrirActividad }: Props) {
             </div>
 
             <BloqueActividades visita={visita} sector={sector} onAbrirActividad={onAbrirActividad} />
-        </div>
-    );
-}
-
-function Dato({ etiqueta, valor }: { etiqueta: string; valor?: string }) {
-    return (
-        <div className="dato">
-            <span className="dato-lbl">{etiqueta}</span>
-            <span className={'dato-val' + (valor ? '' : ' es-vacio')}>{valor || '—'}</span>
         </div>
     );
 }

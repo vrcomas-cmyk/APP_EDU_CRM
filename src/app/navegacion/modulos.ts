@@ -32,10 +32,9 @@ export interface Modulo {
     /**
      * Todavía se abre como MODAL en vez de ser una vista.
      *
-     * Es transitorio: `revision.js` y `admin.js` siguen siendo vanilla y construyen su propio
-     * panel a pantalla completa. Al portarlos, esta bandera desaparece y pasan a ser vistas
-     * como las demás. Se declara aquí en vez de esconderse en el shell para que la deuda se
-     * vea desde el registro.
+     * Es transitorio: `admin.js` sigue siendo vanilla y construye su propio panel a pantalla
+     * completa. Al portarlo, esta bandera desaparece con él y el campo entero se borra. Se
+     * declara aquí en vez de esconderse en el shell para que la deuda se vea desde el registro.
      */
     modal?: boolean;
 }
@@ -62,8 +61,10 @@ export const MODULOS: Modulo[] = [
         nombre: 'Revisión',
         corto: 'Revisar',
         icono: '✓',
-        disponible: () => flujosDisponibles().length > 0,
-        modal: true,
+        // Los dos permisos, y no solo los flujos: la cola sale de `consultarVisitas()`, que
+        // devuelve vacío sin `visitas.consultar`. Con flujos pero sin consulta, la bandeja
+        // está garantizadamente vacía y el botón solo promete trabajo que no se puede ver.
+        disponible: () => flujosDisponibles().length > 0 && puede('visitas', 'consultar'),
         insignia: () => {
             try {
                 return conteoPendientes().total;

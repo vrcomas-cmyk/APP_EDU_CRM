@@ -6,9 +6,9 @@
  *
  * ── Lo que todavía no es una vista ───────────────────────────────────────────────────
  *
- * Revisión y Administración siguen siendo vanilla y construyen su propio panel a pantalla
- * completa, así que el riel los ABRE como modal en vez de cambiar de vista. Se nota, y es
- * deuda declarada en el registro de módulos (`modal: true`). Al portarlos desaparece.
+ * Administración sigue siendo vanilla y construye su propio panel a pantalla completa, así que
+ * el riel lo ABRE como modal en vez de cambiar de vista. Se nota, y es deuda declarada en el
+ * registro de módulos (`modal: true`). Al portarlo desaparece.
  */
 
 import { createRoot, type Root } from 'react-dom/client';
@@ -18,6 +18,7 @@ import { Navegacion } from './navegacion/Navegacion';
 import { moduloDe, resolverModulo, type ClaveModulo } from './navegacion/modulos';
 import { Calendario, type ControlesExternos, type MandosNavegacion } from '@modules/agenda/components/Calendario';
 import { Dashboard } from '@modules/dashboard/components/Dashboard';
+import { Revision } from '@modules/revision/components/Revision';
 import type { Avisar } from '@core/puente';
 
 export interface OpcionesVistas {
@@ -107,6 +108,14 @@ function Shell() {
                 )}
 
                 {activo === 'dashboard' && <Dashboard />}
+
+                {activo === 'revision' && (
+                    <Revision
+                        // Revisar cambia el contador del riel, así que hay que repintarlo.
+                        onCambio={() => { opciones.onCambio?.(); refrescarVistas(); }}
+                        avisar={opciones.onToast}
+                    />
+                )}
             </div>
         </>
     );

@@ -21,7 +21,8 @@ import * as _eventos from '../../js/eventos.js';
 
 import type {
     Visita, Sector, Actividad, Marca, Sesion, SaludVisita, EstadoSector, ModoCampo,
-    IndicadoresEducador, Revision, ResultadoRevision, FlujoRevision, Perfil
+    IndicadoresEducador, Revision, ResultadoRevision, FlujoRevision, Perfil,
+    PendienteRevision, Comentario
 } from './tipos';
 
 // ---------- estado (salud, ciclo de vida, tiempo) ----------
@@ -168,6 +169,40 @@ export const flujosDisponibles = _revisiones.flujosDisponibles as () => FlujoRev
 export const conteoPendientes = _revisiones.conteoPendientes as (
     visitas?: Visita[]
 ) => { porFlujo: Record<string, number>; total: number };
+
+export const ETIQUETAS_RESULTADO = _revisiones.ETIQUETAS_RESULTADO as Record<string, string>;
+export const pendientesDe = _revisiones.pendientesDe as (
+    flujo: FlujoRevision, visitas?: Visita[]
+) => PendienteRevision[];
+export const historialDe = _revisiones.historialDe as (
+    flujo: string, idAmbito: string
+) => Revision[];
+export const minutosDeRetraso = _revisiones.minutosDeRetraso as (v: Visita) => number;
+
+/**
+ * Registra una revisión. Devuelve `{ ok: false, error }` en vez de lanzar: los rechazos que
+ * importan aquí —sin permiso, sin explicación— son cosas que el revisor debe LEER, no
+ * excepciones.
+ */
+export const revisar = _revisiones.revisar as (datos: {
+    flujo: string;
+    ambito: string;
+    idAmbito: string;
+    idVisita: string;
+    resultado: ResultadoRevision;
+    observaciones?: string;
+}) => { ok: boolean; error?: string; revision?: Revision };
+
+import * as _comentarios from '../../js/comentarios.js';
+export const comentariosDeVisita = _comentarios.comentariosDeVisita as (
+    idVisita: string
+) => Comentario[];
+
+import * as _vistaprevia from '../../js/vistaprevia.js';
+/** Devuelve un nodo DOM; se monta con `NodoVanilla` hasta que se porte. */
+export const miniaturaEvidencia = _vistaprevia.miniaturaEvidencia as (
+    actividad: Actividad
+) => HTMLElement | null;
 
 export const puede = _permisos.puede as (modulo: string, accion: string) => boolean;
 export const perfilActual = _permisos.perfilActual as () => Perfil | null;

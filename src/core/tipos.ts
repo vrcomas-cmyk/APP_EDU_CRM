@@ -186,8 +186,14 @@ export interface Comentario {
     id_ambito: string;
     id_visita?: string;
     texto: string;
-    autor?: string;
-    autor_correo?: string;
+    /**
+     * Quién lo escribió. Se llama `usuario` y no `autor` porque así lo escribe
+     * `js/comentarios.js` y así viaja a Supabase; el tipo decía `autor` y nadie lo usaba,
+     * de modo que el primer componente que lo leyera habría pintado `undefined` sin que
+     * `tsc` dijera nada.
+     */
+    usuario?: string;
+    usuario_correo?: string;
     momento: string;
     sincronizado?: boolean;
 }
@@ -221,6 +227,29 @@ export interface Revision {
      */
     seq?: number;
     sincronizado?: boolean;
+}
+
+/**
+ * Un elemento en la cola de revisión.
+ *
+ * Lo arma `js/revisiones.js` a partir del árbol de la visita. Trae la visita entera —y la
+ * actividad, si el flujo es de ámbito actividad— porque el revisor necesita el contexto para
+ * juzgar: quién, dónde, cuándo. Sin eso hay que abrir otra pantalla por cada elemento, y una
+ * bandeja que obliga a eso se deja de revisar.
+ */
+export interface PendienteRevision {
+    flujo: string;
+    ambito: 'visita' | 'actividad';
+    /** Id de lo que se revisa: la visita o la actividad, según el ámbito. */
+    id_ambito: string;
+    id_visita: string;
+    educador?: string;
+    educador_correo?: string;
+    visita: Visita;
+    titulo: string;
+    detalle: string;
+    actividad?: Actividad;
+    sector?: Sector;
 }
 
 // ---------- indicadores ----------

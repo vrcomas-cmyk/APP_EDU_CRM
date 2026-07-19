@@ -14,6 +14,7 @@ import { campoVisible } from '@core/puente';
 import { NodoVanilla } from '@shared/components/NodoVanilla';
 import { textoDelSello } from '../services/fabricas';
 import type { Actividad, Sector, Visita, Material } from '@core/tipos';
+import { Dato } from '@shared/components/Dato';
 
 export interface PropsSellada {
     visita: Visita;
@@ -90,15 +91,6 @@ export function ActividadSellada({
                 <span style={{ flex: 1 }} />
                 <button type="button" className="btn" onClick={onCerrar}>Listo</button>
             </div>
-        </div>
-    );
-}
-
-function Dato({ etiqueta, valor }: { etiqueta: string; valor?: string }) {
-    return (
-        <div className="dato">
-            <span className="dato-lbl">{etiqueta}</span>
-            <span className={'dato-val' + (valor ? '' : ' es-vacio')}>{valor || '—'}</span>
         </div>
     );
 }
