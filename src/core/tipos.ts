@@ -417,3 +417,30 @@ export interface BorradorRBAC {
     capacidades: CapacidadAdmin[];
     usuarios: UsuarioAdmin[];
 }
+
+// ---------- flujos de revisión administrables ----------
+
+/**
+ * Un flujo de revisión tal como lo devuelve `pdt_flujos_revision_admin`.
+ *
+ * `resultados` es `null` cuando el flujo usa los tres veredictos de siempre
+ * (aprobado/rechazado/corrección) — ver `RESULTADOS_POR_DEFECTO` en `js/revisiones.js`.
+ */
+export interface FlujoAdmin {
+    clave: string;
+    nombre: string;
+    descripcion: string | null;
+    ambito: 'visita' | 'actividad';
+    /** `modulo.accion`: debe existir en el catálogo de capacidades (`pdt_capacidades`). */
+    permiso: string;
+    activo: boolean;
+    orden: number;
+    resultados: ResultadoFlujo[] | null;
+    /** Cuántas revisiones ya se guardaron con este flujo: si es más de cero, no se borra. */
+    revisiones: number;
+}
+
+/** Lo que la pantalla de Flujos edita: el espejo local de `leerFlujos`. */
+export interface BorradorFlujos {
+    flujos: FlujoAdmin[];
+}

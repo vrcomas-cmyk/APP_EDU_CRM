@@ -13,11 +13,13 @@ import { useState } from 'react';
 import type { Avisar } from '@core/puente';
 import { useAdmin } from '../hooks/useAdmin';
 import { useRBAC } from '../hooks/useRBAC';
+import { useFlujos } from '../hooks/useFlujos';
 import { PanelTipos } from './PanelTipos';
 import { PanelSectores } from './PanelSectores';
 import { PanelListas } from './PanelListas';
 import { PanelEducadores } from './PanelEducadores';
 import { GestionAccesos } from './GestionAccesos';
+import { PanelFlujos } from './PanelFlujos';
 
 const PESTANAS = [
     { id: 'tipos', etiqueta: 'Tipos y campos' },
@@ -29,14 +31,15 @@ const PESTANAS = [
 type Pestana = (typeof PESTANAS)[number]['id'];
 
 /**
- * Dos áreas de primer nivel, no ocho pestañas planas: catálogos y accesos guardan contra
- * backends distintos (`guardarCatalogosAdmin` vs `guardarRoles`/`guardarUsuarios`) y cada uno
- * tiene su propio ciclo de borrador. Mezclarlos en una sola barra de guardado confundiría cuál
- * botón sube qué.
+ * Tres áreas de primer nivel, no una pila de pestañas planas: catálogos, accesos y flujos de
+ * revisión guardan contra backends distintos (`guardarCatalogosAdmin` / `guardarRoles`+
+ * `guardarUsuarios` / `guardarFlujosAdmin`) y cada uno tiene su propio ciclo de borrador.
+ * Mezclarlos en una sola barra de guardado confundiría cuál botón sube qué.
  */
 const AREAS = [
     { id: 'catalogos', etiqueta: 'Catálogos' },
-    { id: 'accesos', etiqueta: 'Accesos' }
+    { id: 'accesos', etiqueta: 'Accesos' },
+    { id: 'flujos', etiqueta: 'Flujos' }
 ] as const;
 
 type Area = (typeof AREAS)[number]['id'];
@@ -54,19 +57,24 @@ export function Administracion({ avisar, confirmar, onGuardado }: Props) {
     const preguntar = confirmar ?? ((m: string) => window.confirm(m));
 
     const catalogos = useAdmin({ avisar, confirmar: preguntar, onGuardado });
-    // La carga es perezosa (`activo`): mientras el administrador no entra a Accesos, no vale la
-    // pena gastar la ida de red en datos que quizás no va a mirar.
+    // La carga es perezosa (`activo`): mientras el administrador no entra a esa área, no vale
+    // la pena gastar la ida de red en datos que quizás no va a mirar.
     const rbac = useRBAC({ activo: area === 'accesos', avisar, confirmar: preguntar, onGuardado });
+    const flujos = useFlujos({ activo: area === 'flujos', avisar, confirmar: preguntar, onGuardado });
+
+    const activo = area === 'catalogos' ? catalogos : area === 'accesos' ? rbac : flujos;
+
+    const descripciones: Record<Area, string> = {
+        catalogos: 'Catálogos compartidos por todos los educadores.',
+        accesos: 'Quién puede hacer qué, y quién ve a quién.',
+        flujos: 'Qué se revisa en cada flujo, y con qué veredictos.'
+    };
 
     return (
         <div className="vista vista-admin">
             <header className="vista-head">
                 <h2>Administración</h2>
-                <p className="eyebrow">
-                    {area === 'catalogos'
-                        ? 'Catálogos compartidos por todos los educadores.'
-                        : 'Quién puede hacer qué, y quién ve a quién.'}
-                </p>
+                <p className="eyebrow">{descripciones[area]}</p>
             </header>
 
             <div className="seg admin-area" role="group" aria-label="Área">
@@ -82,7 +90,7 @@ export function Administracion({ avisar, confirmar, onGuardado }: Props) {
                 ))}
             </div>
 
-            {area === 'catalogos' ? (
+            {area === 'catalogos' && (
                 <>
                     <div className="seg admin-tabs" role="group" aria-label="Secciones">
                         {PESTANAS.map(p => (
@@ -112,8 +120,25 @@ export function Administracion({ avisar, confirmar, onGuardado }: Props) {
                         )}
                     </div>
                 </>
-            ) : (
-                <GestionAccesos estado={rbac} confirmar={preguntar} />
+            )}
+
+            {area === 'accesos' && <GestionAccesos estado={rbac} confirmar={preguntar} />}
+
+            {area === 'flujos' && (
+                <div className="panel-body">
+                    {flujos.cargando && flujos.borrador.flujos.length === 0 ? (
+                        <p className="ayuda">Cargando flujos de revisión…</p>
+                    ) : flujos.error && flujos.borrador.flujos.length === 0 ? (
+                        <div className="campo es-error">
+                            <p className="ayuda">No se pudo cargar: {flujos.error}</p>
+                            <button type="button" className="btn-txt" onClick={() => { void flujos.recargar(); }}>
+                                Reintentar
+                            </button>
+                        </div>
+                    ) : (
+                        <PanelFlujos borrador={flujos.borrador} cambiar={flujos.cambiar} confirmar={preguntar} />
+                    )}
+                </div>
             )}
 
             {/*
@@ -127,60 +152,32 @@ export function Administracion({ avisar, confirmar, onGuardado }: Props) {
                   esto la única forma de deshacer sería irse a otro módulo —que descarta igual,
                   pero de callado y sin que parezca esa la intención—.
                 */}
-                {area === 'catalogos' ? (
-                    <>
-                        <button
-                            type="button"
-                            className="btn-txt"
-                            disabled={!catalogos.sucio || catalogos.guardando}
-                            onClick={() => {
-                                if (preguntar('¿Descartar los cambios sin guardar?')) catalogos.descartar();
-                            }}
-                        >
-                            Descartar
-                        </button>
+                <button
+                    type="button"
+                    className="btn-txt"
+                    disabled={!activo.sucio || activo.guardando}
+                    onClick={() => {
+                        if (preguntar('¿Descartar los cambios sin guardar?')) activo.descartar();
+                    }}
+                >
+                    Descartar
+                </button>
 
-                        <span className="ayuda">
-                            {catalogos.sucio ? 'Hay cambios sin guardar.' : 'Sin cambios.'}
-                        </span>
-                        <span style={{ flex: 1 }} />
-                        <button
-                            type="button"
-                            className="btn"
-                            // No se deshabilita sin cambios: un botón apagado no explica por qué.
-                            disabled={catalogos.guardando}
-                            onClick={() => { void catalogos.guardar(); }}
-                        >
-                            {catalogos.guardando ? 'Guardando…' : 'Guardar cambios'}
-                        </button>
-                    </>
-                ) : (
-                    <>
-                        <button
-                            type="button"
-                            className="btn-txt"
-                            disabled={!rbac.sucio || rbac.guardando}
-                            onClick={() => {
-                                if (preguntar('¿Descartar los cambios sin guardar?')) rbac.descartar();
-                            }}
-                        >
-                            Descartar
-                        </button>
-
-                        <span className="ayuda">
-                            {rbac.cargando ? 'Cargando…' : rbac.sucio ? 'Hay cambios sin guardar.' : 'Sin cambios.'}
-                        </span>
-                        <span style={{ flex: 1 }} />
-                        <button
-                            type="button"
-                            className="btn"
-                            disabled={rbac.guardando || rbac.cargando}
-                            onClick={() => { void rbac.guardar(); }}
-                        >
-                            {rbac.guardando ? 'Guardando…' : 'Guardar cambios'}
-                        </button>
-                    </>
-                )}
+                <span className="ayuda">
+                    {'cargando' in activo && activo.cargando
+                        ? 'Cargando…'
+                        : activo.sucio ? 'Hay cambios sin guardar.' : 'Sin cambios.'}
+                </span>
+                <span style={{ flex: 1 }} />
+                <button
+                    type="button"
+                    className="btn"
+                    // No se deshabilita sin cambios: un botón apagado no explica por qué.
+                    disabled={activo.guardando || ('cargando' in activo && activo.cargando && area !== 'catalogos')}
+                    onClick={() => { void activo.guardar(); }}
+                >
+                    {activo.guardando ? 'Guardando…' : 'Guardar cambios'}
+                </button>
             </div>
         </div>
     );

@@ -52,6 +52,17 @@ npm run dev
 python scripts/check_accesos.py
 ```
 
+## `check_flujos.py`
+
+Verifica Administración → Flujos (los flujos de revisión administrables) interceptando el Apps
+Script real con respuestas fijas, mismo motivo que `check_accesos.py`:
+`leerFlujos`/`guardarFlujos` verifican identidad Google de verdad.
+
+```
+npm run dev
+python scripts/check_flujos.py
+```
+
 ## `limpiar_demo.sql`
 
 Revierte la semilla de datos demo de `supabase/migrations/20260719e_semilla_demo.sql`: quita el

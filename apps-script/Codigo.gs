@@ -373,7 +373,8 @@ function doGet() {
 var ACCIONES_CON_IDENTIDAD = ['guardarVisitas', 'subirEvidencia', 'guardarEventos',
                               'guardarCatalogosAdmin', 'guardarComentarios',
                               'leerVisitasEquipo', 'guardarRevisiones', 'leerRevisiones',
-                              'leerRBAC', 'guardarRoles', 'guardarUsuarios'];
+                              'leerRBAC', 'guardarRoles', 'guardarUsuarios',
+                              'leerFlujos', 'guardarFlujos'];
 
 function doPost(e) {
     // La PWA manda Content-Type: text/plain para evitar el preflight OPTIONS,
@@ -412,6 +413,10 @@ function doPost(e) {
                 return json(guardarRoles(body, identidad));
             case 'guardarUsuarios':
                 return json(guardarUsuarios(body, identidad));
+            case 'leerFlujos':
+                return json(leerFlujos(identidad));
+            case 'guardarFlujos':
+                return json(guardarFlujos(body, identidad));
             default:
                 return json({ status: 'error', message: 'action desconocida: ' + body.action });
         }
@@ -1149,6 +1154,64 @@ function guardarRoles(body, identidad) {
     var eliminar = body.eliminar || [];
     for (var j = 0; j < eliminar.length; j++) {
         var d = supabaseRPCEstricto('pdt_rol_eliminar', {
+            p_actor: identidad.correo,
+            p_clave: eliminar[j]
+        });
+        if (!d.ok) {
+            return { status: 'error', message: d.error, guardados: guardados, borrados: borrados };
+        }
+        borrados.push(eliminar[j]);
+    }
+
+    return { status: 'ok', guardados: guardados, borrados: borrados };
+}
+
+/** Los flujos de revisión, activos e inactivos, con cuántas revisiones tiene cada uno. */
+function leerFlujos(identidad) {
+    var db = SpreadsheetApp.openById(SHEET_DB_ID);
+    if (!esAdmin(db, identidad.correo)) {
+        return { status: 'error', message: 'Tu cuenta (' + identidad.correo + ') no tiene permisos de administrador.' };
+    }
+
+    var flujos = supabaseRPCEstricto('pdt_flujos_revision_admin', {});
+    if (!flujos.ok) return { status: 'error', message: flujos.error };
+
+    return { status: 'ok', flujos: flujos.datos || [] };
+}
+
+/**
+ * Guarda flujos de revisión y borra los que se pidieron borrar.
+ *
+ * Carga: { flujos: [ {clave, nombre, descripcion, ambito, permiso, activo, orden, resultados} ],
+ *          eliminar: ["clave"] }
+ *
+ * Mismo patrón que `guardarRoles`: no es atómico entre flujos, se para en el primero que falle,
+ * y el actor sale siempre de la identidad verificada.
+ */
+function guardarFlujos(body, identidad) {
+    var db = SpreadsheetApp.openById(SHEET_DB_ID);
+    if (!esAdmin(db, identidad.correo)) {
+        return { status: 'error', message: 'Tu cuenta (' + identidad.correo + ') no tiene permisos de administrador.' };
+    }
+
+    var guardados = [];
+    var borrados = [];
+
+    var flujos = body.flujos || [];
+    for (var i = 0; i < flujos.length; i++) {
+        var r = supabaseRPCEstricto('pdt_flujo_guardar', {
+            p_actor: identidad.correo,
+            p_flujo: flujos[i]
+        });
+        if (!r.ok) {
+            return { status: 'error', message: r.error, guardados: guardados, borrados: borrados };
+        }
+        guardados.push(flujos[i].clave);
+    }
+
+    var eliminar = body.eliminar || [];
+    for (var j = 0; j < eliminar.length; j++) {
+        var d = supabaseRPCEstricto('pdt_flujo_eliminar', {
             p_actor: identidad.correo,
             p_clave: eliminar[j]
         });

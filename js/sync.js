@@ -216,6 +216,21 @@ export async function guardarUsuarios(cambios) {
     return postear({ action: 'guardarUsuarios', ...cambios });
 }
 
+// ---------- flujos de revisión ----------
+
+/** Todos los flujos de revisión, activos e inactivos, con su conteo de uso. */
+export async function leerFlujos() {
+    return postear({ action: 'leerFlujos' });
+}
+
+/**
+ * Guarda flujos de revisión y borra los que se pidieron borrar.
+ * Carga: { flujos: [...], eliminar: ["clave"] }.
+ */
+export async function guardarFlujos(cambios) {
+    return postear({ action: 'guardarFlujos', ...cambios });
+}
+
 // ---------- eventos ----------
 
 /** Bitácora de negocio. Va al final: referencia visitas y no bloquea nada si falla. */

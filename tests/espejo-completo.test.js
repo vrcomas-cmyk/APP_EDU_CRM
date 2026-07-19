@@ -48,17 +48,19 @@ const ESPEJOS = {
     guardarRevisiones: 'pdt_revision_guardar',
     guardarCatalogosAdmin: 'pdt_catalogos_guardar',
 
-    // Estas dos no son espejo de nada: los roles viven SOLO en Postgres, porque una hoja no
-    // puede sostener herencia entre roles ni negarse a borrar uno que alguien está usando.
-    // Aparecen aquí igual para que la última prueba —«ninguna acción de guardado sin declarar»—
-    // las siga viendo: lo que se comprueba es que toda escritura llegue a Postgres, y para
-    // estas eso es aún más cierto que para las demás, no menos.
+    // Estas tres no son espejo de nada: los roles y los flujos de revisión viven SOLO en
+    // Postgres, porque una hoja no puede sostener herencia entre roles, negarse a borrar un rol
+    // que alguien está usando, ni el CHECK de forma de los veredictos de un flujo. Aparecen aquí
+    // igual para que la última prueba —«ninguna acción de guardado sin declarar»— las siga
+    // viendo: lo que se comprueba es que toda escritura llegue a Postgres, y para estas eso es
+    // aún más cierto que para las demás, no menos.
     guardarRoles: 'pdt_rol_guardar',
-    guardarUsuarios: 'pdt_usuario_guardar'
+    guardarUsuarios: 'pdt_usuario_guardar',
+    guardarFlujos: 'pdt_flujo_guardar'
 };
 
 /** Las que escriben en Postgres SIN copia en la hoja: su fallo no se puede callar. */
-const SOLO_POSTGRES = ['guardarRoles', 'guardarUsuarios'];
+const SOLO_POSTGRES = ['guardarRoles', 'guardarUsuarios', 'guardarFlujos'];
 
 describe('el espejo de Supabase', () => {
     for (const [funcion, rpc] of Object.entries(ESPEJOS)) {

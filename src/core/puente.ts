@@ -23,7 +23,7 @@ import type {
     Visita, Sector, Actividad, Marca, Sesion, SaludVisita, EstadoSector, ModoCampo,
     IndicadoresEducador, Revision, ResultadoRevision, FlujoRevision, Perfil,
     PendienteRevision, Comentario, CampoConfigurable, Catalogo, BorradorCatalogo,
-    ResultadoFlujo, RolAdmin, CapacidadAdmin, UsuarioAdmin
+    ResultadoFlujo, RolAdmin, CapacidadAdmin, UsuarioAdmin, FlujoAdmin
 } from './tipos';
 
 // ---------- estado (salud, ciclo de vida, tiempo) ----------
@@ -100,6 +100,19 @@ export const guardarRoles = _sync.guardarRoles as (cambios: {
 export const guardarUsuarios = _sync.guardarUsuarios as (cambios: {
     usuarios: Array<{ correo: string; nombre: string | null; activo: boolean; roles: string[] }>;
     jerarquia: Array<{ jefe: string; subordinados: string[] }>;
+}) => Promise<unknown>;
+
+/** Todos los flujos de revisión (activos e inactivos), con su conteo de uso. Ver `js/sync.js: leerFlujos`. */
+export const leerFlujosAdmin = _sync.leerFlujos as () => Promise<{ flujos: FlujoAdmin[] }>;
+
+/** Guarda flujos de revisión y borra los que se pidieron borrar. */
+export const guardarFlujosAdmin = _sync.guardarFlujos as (cambios: {
+    flujos: Array<{
+        clave: string; nombre: string; descripcion: string | null;
+        ambito: 'visita' | 'actividad'; permiso: string; activo: boolean; orden: number;
+        resultados: ResultadoFlujo[] | null;
+    }>;
+    eliminar: string[];
 }) => Promise<unknown>;
 
 export const describirDispositivo = _geo.describirDispositivo as () => string;

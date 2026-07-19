@@ -781,6 +781,9 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 .admin-fila-col .admin-fila { padding: 0 0 6px; border-bottom: 0; }
 .admin-fila-col .chips { padding-left: 2px; }
 
+/* Un veredicto trae dos filas de campos antes de sus chips; sin el margen se ven pegadas. */
+.veredicto-fila .admin-fila + .admin-fila { margin-top: 6px; }
+
 .admin-chip {
   display: inline-flex; align-items: center; gap: 6px;
   cursor: default;
