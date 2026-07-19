@@ -948,18 +948,6 @@
       "tests_arranque_test_renderbutton"
     ],
     "26": [
-      "src_app_generarsw",
-      "src_app_generarsw_generarsw",
-      "src_app_generarsw_listadeassets",
-      "src_app_generarsw_opcionessw",
-      "tests_sw_test",
-      "tests_sw_test_construidos",
-      "vite_config",
-      "vite_config_manualchunks",
-      "vite_config_ruta",
-      "vite_config_serviceworkergenerado"
-    ],
-    "27": [
       "src_core_puente_diasdecuadriculames",
       "src_core_puente_salud",
       "src_modules_agenda_components_vistames",
@@ -971,7 +959,7 @@
       "src_shared_components_indicadores_pastilla",
       "src_shared_components_indicadores_puntosalud"
     ],
-    "28": [
+    "27": [
       "tests_ayuda_fixtures",
       "tests_ayuda_fixtures_actividad",
       "tests_ayuda_fixtures_borrador",
@@ -983,7 +971,7 @@
       "tests_ayuda_fixtures_visita",
       "tests_ayuda_fixtures_visitacompleta"
     ],
-    "29": [
+    "28": [
       "public_manifest",
       "public_manifest_background_color",
       "public_manifest_display",
@@ -994,7 +982,7 @@
       "public_manifest_start_url",
       "public_manifest_theme_color"
     ],
-    "30": [
+    "29": [
       "js_evidencias",
       "js_evidencias_adjuntarevidencia",
       "js_evidencias_comprimirimagen",
@@ -1004,7 +992,7 @@
       "js_evidencias_quitarevidencia",
       "js_evidencias_selectorarchivo"
     ],
-    "31": [
+    "30": [
       "tests_calendario_test",
       "tests_calendario_test_arrastrar",
       "tests_calendario_test_darletama\u00f1oalascolumnas",
@@ -1013,6 +1001,14 @@
       "tests_calendario_test_montarenmes",
       "tests_calendario_test_nada",
       "tests_calendario_test_visita"
+    ],
+    "31": [
+      "src_app_generarsw",
+      "src_app_generarsw_generarsw",
+      "src_app_generarsw_listadeassets",
+      "src_app_generarsw_opcionessw",
+      "tests_sw_test",
+      "tests_sw_test_construidos"
     ],
     "32": [
       "src_core_puente_dias_abrev",
@@ -1029,28 +1025,34 @@
       "tests_flujo_nueva_visita_test_boton"
     ],
     "34": [
+      "vite_config",
+      "vite_config_manualchunks",
+      "vite_config_ruta",
+      "vite_config_serviceworkergenerado"
+    ],
+    "35": [
       "tests_modulos_test",
       "tests_modulos_test_modulos",
       "tests_modulos_test_raiz"
     ],
-    "35": [
+    "36": [
       "tests_revisiones_test",
       "tests_revisiones_test_comousuario",
       "tests_revisiones_test_rev"
     ],
-    "36": [
+    "37": [
       "tests_storage_test",
       "tests_storage_test_sembrar",
       "tests_storage_test_todaslasacts"
     ],
-    "37": [
+    "38": [
       "tests_catalogos_test",
       "tests_catalogos_test_ponercatalogo"
     ],
-    "38": [
+    "39": [
       "tests_datos_test"
     ],
-    "39": [
+    "40": [
       "tests_estado_test"
     ]
   },
@@ -1081,20 +1083,21 @@
     "23": 0.16666666666666666,
     "24": 0.18181818181818182,
     "25": 0.2,
-    "26": 0.3111111111111111,
-    "27": 0.24444444444444444,
-    "28": 0.37777777777777777,
-    "29": 0.2222222222222222,
-    "30": 0.5,
-    "31": 0.32142857142857145,
+    "26": 0.24444444444444444,
+    "27": 0.37777777777777777,
+    "28": 0.2222222222222222,
+    "29": 0.5,
+    "30": 0.32142857142857145,
+    "31": 0.5333333333333333,
     "32": 0.4,
     "33": 0.5,
-    "34": 0.6666666666666666,
+    "34": 0.5,
     "35": 0.6666666666666666,
     "36": 0.6666666666666666,
-    "37": 1.0,
+    "37": 0.6666666666666666,
     "38": 1.0,
-    "39": 1.0
+    "39": 1.0,
+    "40": 1.0
   },
   "gods": [
     {
@@ -1150,17 +1153,6 @@
   ],
   "surprises": [
     {
-      "source": "serviceWorkerGenerado()",
-      "target": "generarSW()",
-      "source_files": [
-        "vite.config.ts",
-        "src/app/generarSW.ts"
-      ],
-      "confidence": "EXTRACTED",
-      "relation": "calls",
-      "why": "connects across different repos/directories; peripheral node `serviceWorkerGenerado()` unexpectedly reaches hub `generarSW()`"
-    },
-    {
       "source": "iniciarApp()",
       "target": "irADia()",
       "source_files": [
@@ -1203,6 +1195,17 @@
       "confidence": "EXTRACTED",
       "relation": "calls",
       "why": "connects across different repos/directories"
+    },
+    {
+      "source": "Props",
+      "target": "Avisar",
+      "source_files": [
+        "src/modules/visitas/components/BloqueCheck.tsx",
+        "src/core/puente.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "references",
+      "why": "bridges separate communities; peripheral node `Props` unexpectedly reaches hub `Avisar`"
     }
   ],
   "tokens": {

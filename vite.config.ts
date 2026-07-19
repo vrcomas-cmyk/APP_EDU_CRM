@@ -57,6 +57,40 @@ export default defineConfig({
         }
     },
 
+    /**
+     * El servidor de desarrollo se expone al exterior.
+     *
+     * Por defecto Vite escucha solo en loopback, y en un Codespace eso llegaba a atarse
+     * únicamente a `[::1]` —loopback IPv6—. El agente de reenvío de GitHub se conecta por IPv4
+     * a `127.0.0.1`, no encuentra nada, y el navegador recibe la página de "no se encontró"
+     * del propio GitHub: parece que la app no existe cuando en realidad sí arrancó.
+     *
+     * Es además lo que hace falta para lo único que aquí no se puede probar: abrirla en un
+     * teléfono de verdad, que es donde se usa.
+     */
+    server: {
+        host: true,          // 0.0.0.0 y ::, para que el reenvío la alcance
+        port: 5173,
+        // Sin esto, al ocupar el puerto se cambia solo al 5174 y el reenvío —configurado para
+        // el 5173— sigue apuntando a un puerto vacío. Fallar es mejor que fallar en silencio.
+        strictPort: true,
+        // Vite rechaza peticiones cuyo `Host` no reconoce, protección contra DNS rebinding.
+        // El dominio de Codespaces es de confianza aquí y no lo sería en producción; esto solo
+        // afecta al servidor de desarrollo, que nunca se despliega.
+        allowedHosts: ['.app.github.dev', '.githubpreview.dev', 'localhost'],
+        // El cliente de recarga habla por WSS contra el puerto 443 del túnel, no contra el
+        // 5173 local: sin esto el HMR no conecta y hay que recargar a mano en cada cambio.
+        hmr: process.env.CODESPACE_NAME
+            ? {
+                  protocol: 'wss',
+                  clientPort: 443,
+                  host: `${process.env.CODESPACE_NAME}-5173.${
+                      process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN ?? 'app.github.dev'
+                  }`
+              }
+            : undefined
+    },
+
     build: {
         // Los navegadores objetivo son teléfonos Android de gama media en hospitales. No hay
         // razón para transpilar a ES5 y engordar el paquete: todos soportan módulos ES.

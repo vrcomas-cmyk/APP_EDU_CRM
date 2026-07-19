@@ -220,9 +220,9 @@
     "semantic_hash": "85ddd6f3285c9d259806ad91288bf844"
   },
   "vite.config.ts": {
-    "mtime": 1784402008.5305505,
-    "ast_hash": "acd4ba38e120be6c32e13722a72743f5",
-    "semantic_hash": "acd4ba38e120be6c32e13722a72743f5"
+    "mtime": 1784419827.8496442,
+    "ast_hash": "1f12b5468b019af34ff395c1d9581346",
+    "semantic_hash": "1f12b5468b019af34ff395c1d9581346"
   },
   "public/manifest.json": {
     "mtime": 1784250989.147776,
