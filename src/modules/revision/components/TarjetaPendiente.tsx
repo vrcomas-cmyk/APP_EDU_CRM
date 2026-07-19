@@ -13,6 +13,7 @@ import { Dato } from '@shared/components/Dato';
 import { NodoVanilla } from '@shared/components/NodoVanilla';
 
 import { AccionesRevision } from './AccionesRevision';
+import { ExpedienteVisita } from './ExpedienteVisita';
 import { ComentariosDeVisita, HistorialRevisiones } from './LoYaDicho';
 
 interface Props {
@@ -44,6 +45,15 @@ export function TarjetaPendiente({ flujo, item, onEnviar }: Props) {
             </div>
 
             <Contexto flujo={flujo} item={item} />
+
+            {/* Plegado: el registro completo (sectores, actividades, materiales y evidencia)
+                pesa mucho para tenerlo siempre abierto en una cola de veinte elementos, pero
+                tiene que estar a un clic — es justo lo que falta para calificar "calidad de la
+                visita" viendo si la evidencia respalda lo capturado, no solo un resumen. */}
+            <details className="expediente-plegable">
+                <summary>Ver registro completo de la visita</summary>
+                <ExpedienteVisita visita={item.visita} />
+            </details>
 
             <HistorialRevisiones flujo={flujo} historial={historial} />
             <ComentariosDeVisita charla={charla} />

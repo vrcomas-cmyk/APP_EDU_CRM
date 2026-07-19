@@ -483,3 +483,124 @@ describe('lo ya dicho', () => {
             'ver lo que ya pasó por tus manos es exactamente lo que hace que la bandeja se abandone');
     });
 });
+
+describe('el expediente completo', () => {
+    test('en "calidad de la visita" (ámbito VISITA) también se ve la evidencia cargada', () => {
+        // Antes solo se veía la miniatura en flujos de ámbito ACTIVIDAD (`item.actividad`
+        // existe). Calidad de la visita es de ámbito VISITA: sin el expediente, quien juzga
+        // la calidad no tenía forma de ver si la evidencia respalda lo capturado.
+        comoRevisor(['visitas.calificar']);
+        ponerFlujos([{
+            clave: 'calidad_visita', nombre: 'Calidad de la visita', ambito: 'visita',
+            permiso: 'visitas.calificar', orden: 1
+        }]);
+        guardarVisitas([visitaConEvidencia()]);
+        pintar();
+
+        const plegable = document.querySelector('.expediente-plegable') as HTMLDetailsElement;
+        assert.ok(plegable, 'el expediente vive dentro de la tarjeta de calidad de la visita');
+
+        plegable.open = true;
+        assert.ok(plegable.querySelector('.evid-mini'), 'la evidencia de la actividad se ve, no solo se describe');
+        assert.ok(plegable.textContent?.includes('Dr. Pérez'), 'también trae el contacto de la actividad');
+    });
+
+    test('una actividad sin evidencia lo dice, en vez de dejar el hueco en blanco', () => {
+        comoRevisor(['visitas.calificar']);
+        ponerFlujos([{
+            clave: 'calidad_visita', nombre: 'Calidad de la visita', ambito: 'visita',
+            permiso: 'visitas.calificar', orden: 1
+        }]);
+        guardarVisitas([visita({
+            id: 'v-sin-ev', check_in: checkIn('09:00'),
+            sectores: [sector({ actividades: [actividad({ id: 'a-sin-ev', evidencia: { estado: 'pendiente' } })] })]
+        })]);
+        pintar();
+
+        const plegable = document.querySelector('.expediente-plegable') as HTMLDetailsElement;
+        plegable.open = true;
+        assert.ok(plegable.textContent?.includes('Sin evidencia'));
+    });
+});
+
+describe('agrupar la cola', () => {
+    function dosVisitasDeDosEducadores() {
+        return [
+            visita({
+                id: 'v-ana', educador: 'Ana López', educador_correo: 'ana@degasa.com',
+                dia: '2026-07-13', check_in: checkIn('09:00'),
+                sectores: [sector({ actividades: [actividad({ id: 'a-ana' })] })]
+            }),
+            visita({
+                id: 'v-beto', educador: 'Beto Ruiz', educador_correo: 'beto@degasa.com',
+                dia: '2026-06-29', check_in: checkIn('09:00'),
+                sectores: [sector({ actividades: [actividad({ id: 'a-beto' })] })]
+            })
+        ];
+    }
+
+    test('sin agrupar es la lista de siempre, sin encabezados', () => {
+        comoRevisor(['visitas.calificar']);
+        ponerFlujos([{
+            clave: 'calidad_visita', nombre: 'Calidad de la visita', ambito: 'visita',
+            permiso: 'visitas.calificar', orden: 1
+        }]);
+        localStorage.setItem('pdt_perfil_cache', JSON.stringify({
+            correo: 'rev@x.com', nombre: 'Quien Revisa', rol: 'gerente', es_admin: false,
+            permisos: ['visitas.calificar', 'visitas.consultar'],
+            alcance: ['rev@x.com', 'ana@degasa.com', 'beto@degasa.com'],
+            invitado: true, invitacion_estado: 'aceptada', origen: 'prueba'
+        }));
+        guardarVisitas(dosVisitasDeDosEducadores());
+        pintar();
+
+        assert.equal(document.querySelectorAll('.revision-grupo-titulo').length, 0);
+        assert.equal(document.querySelectorAll('.revision-card').length, 2);
+    });
+
+    test('agrupar por educador separa la cola en un grupo por persona', async () => {
+        comoRevisor(['visitas.calificar']);
+        ponerFlujos([{
+            clave: 'calidad_visita', nombre: 'Calidad de la visita', ambito: 'visita',
+            permiso: 'visitas.calificar', orden: 1
+        }]);
+        localStorage.setItem('pdt_perfil_cache', JSON.stringify({
+            correo: 'rev@x.com', nombre: 'Quien Revisa', rol: 'gerente', es_admin: false,
+            permisos: ['visitas.calificar', 'visitas.consultar'],
+            alcance: ['rev@x.com', 'ana@degasa.com', 'beto@degasa.com'],
+            invitado: true, invitacion_estado: 'aceptada', origen: 'prueba'
+        }));
+        guardarVisitas(dosVisitasDeDosEducadores());
+        pintar();
+
+        await act(async () => { fireEvent.click(screen.getByText('Agrupar por educador')); });
+
+        const titulos = [...document.querySelectorAll('.revision-grupo-titulo')].map(t => t.textContent);
+        assert.equal(titulos.length, 2, 'un grupo por educador');
+        assert.ok(titulos.some(t => t?.includes('Ana López')));
+        assert.ok(titulos.some(t => t?.includes('Beto Ruiz')));
+    });
+
+    test('agrupar por semana junta lo de la misma semana y separa lo de otra', async () => {
+        comoRevisor(['visitas.calificar']);
+        ponerFlujos([{
+            clave: 'calidad_visita', nombre: 'Calidad de la visita', ambito: 'visita',
+            permiso: 'visitas.calificar', orden: 1
+        }]);
+        localStorage.setItem('pdt_perfil_cache', JSON.stringify({
+            correo: 'rev@x.com', nombre: 'Quien Revisa', rol: 'gerente', es_admin: false,
+            permisos: ['visitas.calificar', 'visitas.consultar'],
+            alcance: ['rev@x.com', 'ana@degasa.com', 'beto@degasa.com'],
+            invitado: true, invitacion_estado: 'aceptada', origen: 'prueba'
+        }));
+        // Las dos visitas de `dosVisitasDeDosEducadores` caen en semanas distintas (13 de julio
+        // y 29 de junio de 2026 no comparten lunes).
+        guardarVisitas(dosVisitasDeDosEducadores());
+        pintar();
+
+        await act(async () => { fireEvent.click(screen.getByText('Agrupar por semana')); });
+
+        assert.equal(document.querySelectorAll('.revision-grupo-titulo').length, 2,
+            'dos semanas distintas, dos grupos');
+    });
+});

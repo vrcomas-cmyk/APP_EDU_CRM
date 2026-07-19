@@ -9,8 +9,11 @@
  * es una interrupción de dos segundos, es a lo que alguien se sienta durante un rato.
  */
 
+import { useState } from 'react';
 import type { Avisar } from '@core/puente';
+import { ChipToggle } from '@shared/components/ChipToggle';
 import { plural } from '../services/formato';
+import { agruparPendientes, SIN_AGRUPAR, type CriteriosAgrupacion } from '../services/agrupar';
 import { useRevision } from '../hooks/useRevision';
 import { PestanasFlujo } from './PestanasFlujo';
 import { TarjetaPendiente } from './TarjetaPendiente';
@@ -23,6 +26,11 @@ interface Props {
 export function Revision({ onCambio, avisar }: Props) {
     const { flujos, flujo, elegirFlujo, pendientes, porFlujo, total, enviar } =
         useRevision({ onCambio, avisar });
+
+    // Vive aquí y no en el hook: es puramente cómo se PINTA la misma cola, no qué hay en ella.
+    // Sobrevive a cambiar de pestaña de flujo porque el componente no se desmonta al hacerlo.
+    const [criterios, setCriterios] = useState<CriteriosAgrupacion>(SIN_AGRUPAR);
+    const grupos = agruparPendientes(pendientes, criterios);
 
     return (
         <div className="vista vista-revision">
@@ -47,18 +55,45 @@ export function Revision({ onCambio, avisar }: Props) {
                 <div className="panel-body">
                     {flujo.descripcion && <p className="ayuda">{flujo.descripcion}</p>}
 
+                    {pendientes.length > 0 && (
+                        <div className="revision-agrupar chips" role="group" aria-label="Agrupar la cola">
+                            <ChipToggle
+                                etiqueta="Agrupar por educador"
+                                activo={criterios.educador}
+                                onCambiar={v => setCriterios(c => ({ ...c, educador: v }))}
+                            />
+                            <ChipToggle
+                                etiqueta="Agrupar por semana"
+                                activo={criterios.semana}
+                                onCambiar={v => setCriterios(c => ({ ...c, semana: v }))}
+                            />
+                        </div>
+                    )}
+
                     {pendientes.length === 0 ? <AlDia nombre={flujo.nombre} /> : (
-                        <div className="revision-lista">
-                            {pendientes.map(item => (
-                                // La clave lleva el flujo: el mismo elemento puede estar en la
-                                // cola de dos flujos, y sin él React reutilizaría la tarjeta
-                                // —con sus observaciones a medio escribir— al cambiar de pestaña.
-                                <TarjetaPendiente
-                                    key={`${flujo.clave}:${item.id_ambito}`}
-                                    flujo={flujo}
-                                    item={item}
-                                    onEnviar={(r, obs) => enviar(item, r, obs)}
-                                />
+                        <div className="revision-grupos">
+                            {grupos.map(grupo => (
+                                <div key={grupo.clave} className="revision-grupo">
+                                    {grupo.etiqueta && (
+                                        <p className="revision-grupo-titulo">
+                                            {grupo.etiqueta} <span className="tab-badge">{grupo.items.length}</span>
+                                        </p>
+                                    )}
+                                    <div className="revision-lista">
+                                        {grupo.items.map(item => (
+                                            // La clave lleva el flujo: el mismo elemento puede
+                                            // estar en la cola de dos flujos, y sin él React
+                                            // reutilizaría la tarjeta —con sus observaciones a
+                                            // medio escribir— al cambiar de pestaña.
+                                            <TarjetaPendiente
+                                                key={`${flujo.clave}:${item.id_ambito}`}
+                                                flujo={flujo}
+                                                item={item}
+                                                onEnviar={(r, obs) => enviar(item, r, obs)}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
                             ))}
                         </div>
                     )}
