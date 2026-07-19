@@ -325,7 +325,7 @@ describe('vista de mes', () => {
         document.body.appendChild(modos);
 
         const r = montar({
-            controles: { titulo: null, anterior: null, siguiente: null, hoy: null, modos }
+            controles: { datenav: null, titulo: null, anterior: null, siguiente: null, hoy: null, modos }
         });
 
         fireEvent.click(modos.querySelector('[data-modo="mes"]')!);

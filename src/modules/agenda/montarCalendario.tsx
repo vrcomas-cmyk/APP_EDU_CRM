@@ -55,6 +55,7 @@ export function initCalendario({ onAbrirVisita, onCrearEn, onCambio, onToast }: 
     if (!host) return;
 
     controles = {
+        datenav: document.getElementById('cal-datenav'),
         titulo: document.getElementById('cal-titulo'),
         anterior: document.getElementById('cal-anterior'),
         siguiente: document.getElementById('cal-siguiente'),

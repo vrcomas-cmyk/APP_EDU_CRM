@@ -296,6 +296,28 @@ describe('cambiar de módulo', () => {
         boton.click();
         await esperarA(() => (document.getElementById('cal-modo') as HTMLElement).hidden || null,
             'el contexto de fechas escondido');
+
+        // El selector Día/Semana/Mes Y el contenedor de flechas+título+«Hoy» son dos elementos
+        // separados en index.html: escondiendo solo uno, el otro se queda huérfano y visible.
+        assert.equal((document.getElementById('cal-datenav') as HTMLElement).hidden, true,
+            'las flechas, el título y «Hoy» tampoco pintan nada fuera del calendario');
+    });
+
+    test('volver al calendario devuelve el contexto de fechas', async () => {
+        perfil();
+        await arrancar();
+
+        const botones = [...document.querySelectorAll('.nav-item')] as HTMLButtonElement[];
+        const indicadores = botones.find(b => b.textContent?.includes('Indicadores'))!;
+        const calendario = botones.find(b => b.textContent?.includes('Calendario'))!;
+
+        indicadores.click();
+        await esperarA(() => (document.getElementById('cal-modo') as HTMLElement).hidden || null,
+            'escondido en Indicadores');
+
+        calendario.click();
+        await esperarA(() => (document.getElementById('cal-datenav') as HTMLElement).hidden === false || null,
+            'el contexto de fechas vuelve a mostrarse al regresar al calendario');
     });
 
     test('Revisión es una vista, no un modal encima del calendario', async () => {

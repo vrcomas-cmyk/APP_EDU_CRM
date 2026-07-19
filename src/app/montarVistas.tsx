@@ -41,6 +41,7 @@ export function initVistas(op: OpcionesVistas = {}): void {
     if (!host) return;
 
     controles = {
+        datenav: document.getElementById('cal-datenav'),
         titulo: document.getElementById('cal-titulo'),
         anterior: document.getElementById('cal-anterior'),
         siguiente: document.getElementById('cal-siguiente'),
@@ -123,6 +124,7 @@ function Shell() {
 
 /** Esconde la barra de fechas y el selector de vistas mientras el calendario no está. */
 function ContextoOculto({ controles }: { controles?: ControlesExternos }) {
+    if (controles?.datenav) (controles.datenav as HTMLElement).hidden = true;
     if (controles?.modos) (controles.modos as HTMLElement).hidden = true;
     if (controles?.titulo) controles.titulo.textContent = '';
     return null;

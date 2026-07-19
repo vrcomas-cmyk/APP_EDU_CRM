@@ -152,6 +152,8 @@ export function Calendario({
 // ---------- puente con los controles de index.html ----------
 
 export interface ControlesExternos {
+    /** El contenedor de fechas entero (flechas, título, «Hoy»). Solo tiene sentido en el calendario. */
+    datenav: HTMLElement | null;
     titulo: HTMLElement | null;
     anterior: HTMLElement | null;
     siguiente: HTMLElement | null;
@@ -180,6 +182,12 @@ function useControlesExternos(
     }
 ) {
     const { titulo, modo, movil, setModo, irAHoy, mover } = estado;
+
+    // Se muestra mientras el calendario esté montado. Que otro módulo la esconda al salir es
+    // trabajo de `ContextoOculto`; esto solo la vuelve a mostrar al regresar.
+    useEffect(() => {
+        if (controles?.datenav) (controles.datenav as HTMLElement & { hidden: boolean }).hidden = false;
+    }, [controles]);
 
     useEffect(() => {
         if (controles?.titulo) controles.titulo.textContent = titulo;
