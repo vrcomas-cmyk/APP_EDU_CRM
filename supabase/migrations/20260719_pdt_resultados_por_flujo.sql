@@ -38,6 +38,10 @@ comment on column pdt_flujos_revision.resultados is
  * Forma mínima exigible. No se valida cada campo —eso vive en la app, que es quien los
  * dibuja— pero sí que sea una lista no vacía con `valor` y `etiqueta`: un flujo con
  * `resultados: []` dejaría la bandeja sin un solo botón y sin forma de saber por qué.
+ *
+ * Se expresa con `jsonb_path_exists` y no con un `not exists (select ...)`, que es la forma
+ * que sale sola: Postgres no admite subconsultas dentro de un CHECK. La ruta busca el primer
+ * elemento MAL formado; que no haya ninguno es la condición.
  */
 alter table pdt_flujos_revision
     drop constraint if exists pdt_flujos_resultados_forma;
@@ -48,11 +52,10 @@ alter table pdt_flujos_revision
         or (
             jsonb_typeof(resultados) = 'array'
             and jsonb_array_length(resultados) > 0
-            and not exists (
-                select 1
-                from jsonb_array_elements(resultados) r
-                where coalesce(r->>'valor', '') = ''
-                   or coalesce(r->>'etiqueta', '') = ''
+            and not jsonb_path_exists(
+                resultados,
+                '$[*] ? (!exists(@.valor) || !exists(@.etiqueta)'
+                ' || @.valor == "" || @.etiqueta == "")'
             )
         )
     );

@@ -615,8 +615,8 @@
     "semantic_hash": "764bacb36e2b83d7f2c5ea02a9cee3f3"
   },
   "supabase/migrations/20260719_pdt_resultados_por_flujo.sql": {
-    "mtime": 1784425160.6183078,
-    "ast_hash": "4e6d97bed182d0c5c5231b474f71b8af",
-    "semantic_hash": "4e6d97bed182d0c5c5231b474f71b8af"
+    "mtime": 1784425525.2442849,
+    "ast_hash": "2e3295c78380204978535c25baa16379",
+    "semantic_hash": "2e3295c78380204978535c25baa16379"
   }
 }
