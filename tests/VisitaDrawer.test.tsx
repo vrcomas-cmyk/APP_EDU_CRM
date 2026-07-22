@@ -197,7 +197,21 @@ describe('borrador — nada existe hasta guardar', () => {
         const enDisco = repo.obtenerVisita(v.id)!;
         assert.equal(enDisco.zona, '801');
         assert.equal(enDisco.ejecutivo, 'Sandra Carbajal');
-        assert.ok(screen.getByText('Sandra Carbajal'), 'el Ejecutivo se muestra, no se escribe');
+
+        // Se muestran como subíndice del Cliente (una sola línea "Zona … · Ejecutivo …"),
+        // no como campos: por eso se busca en la línea, no un nodo de texto exacto.
+        const subindice = document.querySelector('.subindice-zona');
+        assert.ok(subindice, 'el subíndice Zona · Ejecutivo existe bajo el Cliente');
+        assert.match(subindice!.textContent!, /801/);
+        assert.match(subindice!.textContent!, /Sandra Carbajal/);
+    });
+
+    test('la Zona no es editable: no existe ningún campo de texto para escribirla', () => {
+        montar(borrador());
+
+        const inputs = [...document.querySelectorAll<HTMLInputElement>('input.inp')];
+        assert.ok(!inputs.some(i => i.placeholder?.toLowerCase().includes('zona')),
+            'antes la Zona era un Combo editable; ahora es un dato derivado del Cliente');
     });
 
     test('escribir un cliente que no está en el catálogo no inventa Zona ni Ejecutivo', () => {

@@ -14,9 +14,11 @@ import assert from 'node:assert/strict';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 
 import { Calendario } from '@modules/agenda/components/Calendario';
+import { FilaAgenda } from '@modules/agenda/components/AgendaMovil';
 import type { Visita } from '@core/tipos';
 
 import { guardarVisitas } from '../js/storage.js';
+import { olvidarPerfil } from '../js/permisos.js';
 
 const nada = () => {};
 
@@ -74,6 +76,10 @@ function arrastrar(desde: number, hasta: number) {
 
 beforeEach(() => {
     localStorage.clear();
+    // `perfilActual()` cachea el perfil en un singleton de módulo: sin esto, un test que fijó
+    // `pdt_perfil_cache` (equipo a cargo) dejaría ese alcance filtrado para todos los que
+    // corran después en el mismo archivo, aunque su propio `localStorage.clear()` no lo toque.
+    olvidarPerfil();
 
     // El calendario ahora lee `consultarVisitas()` (propias + equipo por jerarquía), igual que
     // "Mi día": sin sesión, `alcance()` queda vacío y ninguna visita con correo pasa el filtro
@@ -363,6 +369,33 @@ describe('vista de mes', () => {
         assert.match(document.querySelector('.mes-more')!.textContent!, /\+2 más/,
             'una celda que intenta mostrarlo todo no muestra nada');
     });
+
+    test('una visita del equipo lleva la clase es-equipo y el nombre en el título', () => {
+        // Sin esto, `visiblePara` (alcance = solo el propio correo) ni siquiera dejaría ver la
+        // visita de Luis: el escenario a probar es justo el de un gerente con equipo a cargo.
+        // `olvidarPerfil()` es necesario porque `perfilActual()` cachea el perfil en un
+        // singleton de módulo la primera vez que se pide en el archivo — sin limpiarlo, fijar
+        // la caché de localStorage aquí no tiene ningún efecto.
+        olvidarPerfil();
+        localStorage.setItem('pdt_perfil_cache', JSON.stringify({
+            correo: 'ana@x.com', nombre: 'Ana López', rol: 'gerente', es_admin: false,
+            permisos: ['visitas.consultar'], alcance: ['ana@x.com', 'luis@x.com'],
+            invitado: true, origen: 'prueba'
+        }));
+        guardarVisitas([visita({ educador: 'Luis Mora', educador_correo: 'luis@x.com' })]);
+        montarEnMes();
+
+        const linea = document.querySelector('.mes-ev')!;
+        assert.ok(linea.classList.contains('es-equipo'));
+        assert.match(linea.getAttribute('title') || '', /Luis Mora/);
+    });
+
+    test('la visita propia no lleva la marca de equipo', () => {
+        guardarVisitas([visita()]);
+        montarEnMes();
+
+        assert.ok(!document.querySelector('.mes-ev')!.classList.contains('es-equipo'));
+    });
 });
 
 describe('móvil', () => {
@@ -413,6 +446,30 @@ describe('móvil', () => {
 
         const puntos = document.querySelectorAll('.wkstrip .carga i');
         assert.equal(puntos.length, 2, 'la semana se lee sin abrirla');
+    });
+});
+
+describe('visitas del equipo se distinguen de las propias', () => {
+    // Se prueba la fila directamente: en el flujo completo, una visita ajena solo llega vía el
+    // espejo de Supabase (alcance jerárquico), que aquí no existe. El criterio que importa
+    // —correo distinto al de la sesión ⇒ marca de equipo con el nombre— vive en el componente.
+    test('la visita de alguien a mi cargo lleva su nombre y la clase es-equipo', () => {
+        render(<FilaAgenda
+            visita={visita({ educador: 'Luis Mora', educador_correo: 'luis@x.com' })}
+            onAbrir={nada}
+        />);
+
+        const fila = document.querySelector('.arow')!;
+        assert.ok(fila.classList.contains('es-equipo'));
+        assert.match(fila.querySelector('.arow-educador')!.textContent!, /Luis Mora/);
+    });
+
+    test('la visita propia NO lleva marca: etiquetar lo mío sería ruido', () => {
+        render(<FilaAgenda visita={visita()} onAbrir={nada} />);
+
+        const fila = document.querySelector('.arow')!;
+        assert.ok(!fila.classList.contains('es-equipo'));
+        assert.equal(fila.querySelector('.arow-educador'), null);
     });
 });
 

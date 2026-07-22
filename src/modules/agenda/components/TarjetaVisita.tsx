@@ -9,7 +9,7 @@
 
 import {
     saludDe, detalleEstado, estadoDe, ESTADOS, duracionHoras, duracionTexto, inicioDe,
-    tieneCheckOut, hora as formatearHora
+    tieneCheckOut, sesionActual, hora as formatearHora
 } from '@core/puente';
 import { BanderasVisita } from '@shared/components/Indicadores';
 import type { Ventana } from '../services/ventana';
@@ -39,21 +39,40 @@ export function TarjetaVisita({
         : 0;
 
     /**
-     * Una cancelada o ya finalizada no se arrastra: solo se abre.
-     *
-     * Reagendarlas ya está prohibido por las reglas de negocio, así que ofrecer el gesto sería
-     * prometer algo que el guardado va a rechazar — y el usuario culparía a la app, no a la regla.
+     * Visita del EQUIPO, no propia. Un gerente ve las suyas y las de su gente en la misma
+     * rejilla; sin esta marca, distinguirlas exige abrir una por una. Se compara por correo
+     * —igual que `puedeEditarVisita`— y sin correo (captura local vieja) cuenta como propia:
+     * el lado que no pinta una etiqueta de más.
      */
-    const movible = estado !== ESTADOS.CANCELADA && !tieneCheckOut(visita);
+    const yo = (sesionActual()?.correo || '').trim().toLowerCase();
+    const dueno = (visita.educador_correo || '').trim().toLowerCase();
+    const esDelEquipo = Boolean(dueno && yo && dueno !== yo);
+
+    /**
+     * Una cancelada o ya finalizada no se arrastra: solo se abre. Y la de un compañero
+     * tampoco: reagendar la visita de otro ya lo rechaza el guardado, así que ofrecer el
+     * gesto sería prometer algo que va a fallar.
+     */
+    const movible = estado !== ESTADOS.CANCELADA && !tieneCheckOut(visita) && !esDelEquipo;
 
     const clases = [
         'ev', `st-${salud}`,
         // Late mientras el educador está dentro: es lo único que está pasando AHORA.
         estado === ESTADOS.EN_PROCESO ? 'es-viva' : '',
-        duracion < 0.75 ? 'compacta' : ''
+        duracion < 0.75 ? 'compacta' : '',
+        esDelEquipo ? 'es-equipo' : ''
     ].filter(Boolean).join(' ');
 
     const sectores = visita.sectores || [];
+
+    // La columna de Semana es angosta y el texto se recorta con "…": el tooltip lleva TODO,
+    // para poder leer la visita completa sin abrirla.
+    const tooltip = [
+        `${visita.hora_inicio || ''}–${visita.hora_fin || ''} · ${visita.cliente || 'Sin cliente'}`,
+        visita.hospital || '',
+        esDelEquipo ? `Educador: ${visita.educador || visita.educador_correo}` : '',
+        detalleEstado(visita)
+    ].filter(Boolean).join('\n');
 
     return (
         <button
@@ -61,6 +80,7 @@ export function TarjetaVisita({
             className={clases}
             data-id={visita.id}
             data-estado={estado}
+            title={tooltip}
             style={{
                 '--s': desplazamiento.toFixed(3),
                 '--dur': duracion.toFixed(3),
@@ -81,6 +101,12 @@ export function TarjetaVisita({
             </span>
 
             <span className="ev-client">{visita.cliente || 'Sin cliente'}</span>
+
+            {/* De quién es, cuando no es propia: primero que el hospital, porque para quien
+                mira la agenda del equipo "¿de quién?" va antes que "¿dónde?". */}
+            {esDelEquipo && duracion >= 0.75 && (
+                <span className="ev-educador">{visita.educador || visita.educador_correo}</span>
+            )}
 
             {duracion >= 0.75 && (
                 <span className="ev-hosp">{visita.hospital || 'Sin hospital'}</span>

@@ -88,6 +88,22 @@ describe('HistoricoCliente', () => {
         assert.equal(document.querySelector('.historico-cliente'), null);
     });
 
+    test('con Zona y Ejecutivo ya resueltos, se repiten en el resumen', () => {
+        // Zona · Ejecutivo se resuelven arriba al elegir el Cliente; repetirlos aquí evita que
+        // quien revisa el histórico tenga que subir la mirada para confirmarlos.
+        conPermisoDeComentar();
+        comentar({
+            ambito: 'visita', idAmbito: 'v-anterior', texto: 'Piden reforzar gasas y apósitos.',
+            visita: { id: 'v-anterior', hospital: 'Hospital Español', cliente: 'Cliente Uno' }
+        });
+
+        render(<HistoricoCliente visita={visita({ zona: '801', ejecutivo: 'Sandra Carbajal' })} />);
+
+        const resumen = document.querySelector('.historico-cliente summary')!;
+        assert.match(resumen.textContent!, /801/);
+        assert.match(resumen.textContent!, /Sandra Carbajal/);
+    });
+
     test('sin hospital todavía capturado, no muestra nada', () => {
         conPermisoDeComentar();
         comentar({

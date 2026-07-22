@@ -28,6 +28,7 @@ export function FormularioVisita({ visita, editar, avisar }: Props) {
         <>
             <CampoEducador visita={visita} />
             <CampoCliente visita={visita} editar={editar} />
+            <SubindiceZonaEjecutivo visita={visita} />
             <CampoHospital visita={visita} editar={editar} />
             <HistoricoCliente visita={visita} />
 
@@ -43,11 +44,6 @@ export function FormularioVisita({ visita, editar, avisar }: Props) {
 
             <CampoHoras visita={visita} editar={editar} avisar={avisar} />
 
-            <div className="grid-2">
-                <CampoZona visita={visita} editar={editar} />
-                <DatoEjecutivo visita={visita} />
-            </div>
-
             <label className="campo">
                 <span className="campo-lbl">Notas</span>
                 <textarea
@@ -62,39 +58,28 @@ export function FormularioVisita({ visita, editar, avisar }: Props) {
 }
 
 /**
- * Zona automática: se resuelve sola al elegir el Cliente (ver `CampoCliente`), desde
- * "Gpo. vendedores" de la hoja Clientes. Sigue siendo un Combo editable —no un dato fijo—
- * porque un cliente que el catálogo todavía no trae deja la Zona vacía, y alguien tiene que
- * poder escribirla a mano para que la visita no se quede sin Ejecutivo tampoco.
+ * Zona y Ejecutivo: 100% automáticos (Cliente → Zona → Ejecutivo), en una sola línea como
+ * subíndice del Cliente. NO se escriben — antes la Zona era un Combo editable "por si el
+ * catálogo no traía al cliente", pero eso abría la puerta a inventar zonas que no existen en
+ * la hoja de Clientes y a desalinear el Ejecutivo. Si el cliente no está en el catálogo, la
+ * línea lo dice y el dato queda vacío hasta que el catálogo lo traiga: mejor un hueco honesto
+ * que un dato escrito a mano que ningún reporte puede cruzar.
  */
-function CampoZona({ visita, editar }: { visita: Visita; editar: Props['editar'] }) {
-    const previas = useMemo(() => repo.historialDeCampo('zona'), []);
-    const opciones = useCallback((q: string) => filtrar(previas, q), [previas]);
-
-    /** Corregir la Zona a mano recalcula el Ejecutivo: son un salto, no dos datos sueltos. */
-    function fijarZona(zona: string) {
-        editar(v => { v.zona = zona; v.ejecutivo = ejecutivoDeZona(zona); });
+function SubindiceZonaEjecutivo({ visita }: { visita: Visita }) {
+    if (!visita.zona && !visita.ejecutivo) {
+        return (
+            <p className="ayuda subindice-zona">
+                Zona y Ejecutivo se llenan solos al elegir un cliente del catálogo.
+            </p>
+        );
     }
 
     return (
-        <Combo
-            etiqueta="Zona"
-            valor={visita.zona || ''}
-            placeholder="Se llena sola al elegir el cliente"
-            opciones={opciones}
-            onElegir={fijarZona}
-            onEscribir={fijarZona}
-        />
-    );
-}
-
-/** Ejecutivo: 100% automático (Zona → Ejecutivo). No se escribe, solo se muestra. */
-function DatoEjecutivo({ visita }: { visita: Visita }) {
-    return (
-        <div className="campo">
-            <span className="campo-lbl">Ejecutivo</span>
-            <p className="dato-val">{visita.ejecutivo || '—'}</p>
-        </div>
+        <p className="subindice-zona">
+            <span className="subindice-lbl">Zona</span> {visita.zona || '—'}
+            <span className="subindice-sep"> · </span>
+            <span className="subindice-lbl">Ejecutivo</span> {visita.ejecutivo || '—'}
+        </p>
     );
 }
 
@@ -257,12 +242,13 @@ function AvisoSolape({ visita }: { visita: Visita }) {
 
 /** Lo que identifica a la visita, en frío. Reemplaza al formulario una vez guardada. */
 export function PanelInformacion({ visita, editar }: { visita: Visita; editar?: Props['editar'] }) {
+    // Zona y Ejecutivo van pegados al Cliente, como en el formulario: son un dato derivado
+    // de él (Cliente → Zona → Ejecutivo), no dos campos independientes que buscar aparte.
     const filas: Array<[string, string]> = [
         ['Educador', visita.educador || '—'],
         ['Cliente', visita.cliente || '—'],
+        ['Zona · Ejecutivo', `${visita.zona || '—'} · ${visita.ejecutivo || '—'}`],
         ['Hospital', visita.hospital || '—'],
-        ['Zona', visita.zona || '—'],
-        ['Ejecutivo', visita.ejecutivo || '—'],
         ['Fecha', etiquetaDiaLarga(visita.dia)],
         ['Horario', `${visita.hora_inicio}–${visita.hora_fin}`],
         ['Sectores', String((visita.sectores || []).length)]

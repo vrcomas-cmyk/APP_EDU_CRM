@@ -9,7 +9,7 @@
 import { useMemo } from 'react';
 import {
     claveDia, claveHoy, desdeClave, diasDeSemana, etiquetaDiaLarga, inicialesDias,
-    saludDe, detalleEstado, estadoDe, ESTADOS, inicioDe
+    saludDe, detalleEstado, estadoDe, ESTADOS, inicioDe, sesionActual
 } from '@core/puente';
 import { BanderasVisita } from '@shared/components/Indicadores';
 import type { Visita } from '@core/tipos';
@@ -96,10 +96,18 @@ export function FilaAgenda({ visita, onAbrir }: { visita: Visita; onAbrir: (id: 
     const salud = saludDe(visita);
     const estado = estadoDe(visita);
 
+    // Del equipo, no propia: mismo criterio que la tarjeta del calendario. Sin correo
+    // (captura local vieja) cuenta como propia — el lado que no pinta etiqueta de más.
+    const yo = (sesionActual()?.correo || '').trim().toLowerCase();
+    const dueno = (visita.educador_correo || '').trim().toLowerCase();
+    const esDelEquipo = Boolean(dueno && yo && dueno !== yo);
+
     return (
         <button
             type="button"
-            className={`arow st-${salud}` + (estado === ESTADOS.EN_PROCESO ? ' es-viva' : '')}
+            className={`arow st-${salud}`
+                + (estado === ESTADOS.EN_PROCESO ? ' es-viva' : '')
+                + (esDelEquipo ? ' es-equipo' : '')}
             data-id={visita.id}
             data-estado={estado}
             onClick={() => onAbrir(visita.id)}
@@ -111,7 +119,12 @@ export function FilaAgenda({ visita, onAbrir }: { visita: Visita; onAbrir: (id: 
             </span>
 
             <span className="arow-body">
-                <span className="arow-client">{visita.cliente || 'Sin cliente'}</span>
+                <span className="arow-client">
+                    {visita.cliente || 'Sin cliente'}
+                    {esDelEquipo && (
+                        <span className="arow-educador"> · {visita.educador || visita.educador_correo}</span>
+                    )}
+                </span>
                 <span className="arow-hosp">{visita.hospital || 'Sin hospital'}</span>
                 <BanderasVisita
                     clase="arow-meta"

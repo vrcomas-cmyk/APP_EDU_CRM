@@ -22,7 +22,17 @@ export function HistoricoCliente({ visita }: { visita: Visita }) {
 
     return (
         <details className="expediente-plegable historico-cliente">
-            <summary>Lo ya dicho de {visita.hospital} ({historico.length})</summary>
+            <summary>
+                Lo ya dicho de {visita.hospital} ({historico.length})
+                {/* Zona · Ejecutivo se resuelven arriba al elegir el Cliente; repetirlos aquí
+                    evita que quien revisa el histórico tenga que subir la mirada para
+                    confirmar que está viendo al cliente/zona correctos. */}
+                {(visita.zona || visita.ejecutivo) && (
+                    <span className="historico-zona">
+                        {' '}· {visita.zona || '—'} · {visita.ejecutivo || '—'}
+                    </span>
+                )}
+            </summary>
             <div className="expediente">
                 {historico.map(c => (
                     <div className="historial-item" key={c.id}>
