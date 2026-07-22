@@ -282,10 +282,33 @@ let toastSeq = 0;
  * Un toast nombra qué pasó y, si aplica, qué hacer. Nunca se disculpa ni dice
  * "algo salió mal": eso no es información.
  */
-export function toast(texto, { estado = null, accion = null, ms = 4000 } = {}) {
+// ---------- toasts ----------
+//
+// Severidad derivada del estado. Antes la `ms` era un parámetro suelto: cada llamador
+// acordaba (mal) cuánto dura. Aquí se decide una vez: un fallo necesita más tiempo para
+// leerse y reaccionar que un "guardado". El llamador puede siempre forzar `ms`.
+const MS_POR_SEVERIDAD = {
+    completa: 4000,        // éxito: se lee y se va
+    programada: 4000,      // aviso neutro (offline, sync...)
+    'sin-registrar': 6500 // error o recuperación: necesita tiempo para reaccionar
+};
+
+export function toast(texto, { estado = null, accion = null, ms } = {}) {
     const t = document.createElement('div');
     t.className = 'toast' + (estado ? ` st-${estado}` : '');
     t.dataset.id = ++toastSeq;
+
+    // `aria-live` y `role` van AQUÍ, no solo en el contenedor `.toasts`: los lectores de
+    // pantalla que arrancan después de que la página cargó no anuncian nodos insertados en
+    // un `aria-live` cuyo contenedor principal ya existía al principio. Marcar cada toast
+    // garantiza que el aviso se oiga sin importar cuándo se abra el lector.
+    //
+    // `polite` para todo, incluyendo errores: `assertive` interrumpe y en una app de uso
+    // clínico constante (donde se reciben alertas y se reacciona en el momento) interrumpir
+    // cada cancelación sería caos. El error se distingue por `role` y por el color del
+    // borde (`--st-miss`), no por acaparar el habla.
+    t.setAttribute('role', 'status');
+    t.setAttribute('aria-live', 'polite');
 
     if (estado) {
         const d = document.createElement('span');
@@ -308,8 +331,13 @@ export function toast(texto, { estado = null, accion = null, ms = 4000 } = {}) {
         t.appendChild(btn);
     }
 
+    // Si trae acción (botón "Deshacer"), no se retira solo: quitarlo antes de haber
+    // pulsado es esconder el remedio. El doble de tiempo deja reaccionar.
+    const base = ms ?? MS_POR_SEVERIDAD[estado ?? 'completa'] ?? 4000;
+    const total = accion ? base * 2 : base;
+
     el.toasts.appendChild(t);
-    setTimeout(() => t.remove(), ms);
+    setTimeout(() => t.remove(), total);
     return t;
 }
 

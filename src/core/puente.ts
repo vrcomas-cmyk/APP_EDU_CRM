@@ -213,6 +213,13 @@ export interface Indicadores {
 }
 
 export const consultarVisitas = _datos.consultarVisitas as (f?: Partial<Filtro>) => Visita[];
+/**
+ * ¿Bajaron las visitas del espejo remoto? Distingue "consultarVisitas() devolvió vacío
+ * porque no hay nada" del "todavía no intentamos descargar el equipo": el dashboard usa
+ * este flag para pintar "Cargando…" en vez de "Todavía nada" — no es lo mismo y un gerente
+ * que abre la vista a los 3s de arrancar merece saber que falta, no que se le mintió.
+ */
+export const hayEquipoCargado = _datos.hayEquipoCargado as () => boolean;
 export const aplicarFiltro = _datos.aplicarFiltro as (v: Visita[], f?: Partial<Filtro>) => Visita[];
 export const calcularIndicadores = _datos.calcularIndicadores as (v: Visita[]) => Indicadores;
 export const indicadoresPorEducador = _datos.indicadoresPorEducador as (
@@ -241,6 +248,14 @@ export const flujosDisponibles = _revisiones.flujosDisponibles as () => FlujoRev
 export const conteoPendientes = _revisiones.conteoPendientes as (
     visitas?: Visita[]
 ) => { porFlujo: Record<string, number>; total: number };
+
+/**
+ * ¿Se intentó cargar el espejo de revisiones? Distingue "cero pendientes reales" del cero
+ * que todavía no sabe — al arrancar, antes del primer `descargarRevisiones()`, el conteo es
+ * 0 porque no hay datos, no porque se haya revisado todo. La navegación lo usa para mostrar
+ * un badge pululante en vez de prometer "no hay nada que hacer".
+ */
+export const hayRevisionesCargadas = _revisiones.hayRevisionesCargadas as () => boolean;
 
 export const ETIQUETAS_RESULTADO = _revisiones.ETIQUETAS_RESULTADO as Record<string, string>;
 

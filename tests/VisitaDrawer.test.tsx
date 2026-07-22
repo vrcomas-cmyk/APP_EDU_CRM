@@ -88,6 +88,16 @@ afterEach(() => {
     document.querySelectorAll('.hilo-modal').forEach(m => m.remove());
 });
 
+/**
+ * Abrir la solapa "Sectores" en una visita guardada. Antes la lista era parte del flujo
+ * principal del drawer; ahora vive en su propia pestaña (#7). Los tests que tocan sectores
+ * necesitan abrirla antes de buscarlos.
+ */
+function abrirSectores() {
+    const tab = screen.getByRole('tab', { name: 'Sectores' });
+    fireEvent.click(tab);
+}
+
 describe('borrador — nada existe hasta guardar', () => {
     test('el botón Guardar nace deshabilitado', () => {
         montar(borrador());
@@ -350,6 +360,7 @@ describe('visita guardada — inmutable, con acciones', () => {
 
     test('entrar a un sector muestra sus datos sellados', () => {
         montar(guardada());
+        abrirSectores();
 
         fireEvent.click(document.querySelector('.sector-card')!);
 
@@ -360,6 +371,7 @@ describe('visita guardada — inmutable, con acciones', () => {
 
     test('sin check-in NO se pueden registrar actividades, y se dice por qué', () => {
         montar(guardada());
+        abrirSectores();
         fireEvent.click(document.querySelector('.sector-card')!);
 
         assert.equal(screen.queryByRole('button', { name: /Registrar actividad/ }), null);
@@ -373,6 +385,7 @@ describe('visita guardada — inmutable, con acciones', () => {
             estado: 'en-proceso',
             check_in: { momento: '2026-07-15T09:05:00.000Z', usuario: 'Ana López' }
         }));
+        abrirSectores();
         fireEvent.click(document.querySelector('.sector-card')!);
 
         assert.ok(screen.getByRole('button', { name: /Registrar actividad/ }));
@@ -383,6 +396,7 @@ describe('visita guardada — inmutable, con acciones', () => {
             estado: 'cancelada',
             check_in: { momento: '2026-07-15T09:05:00.000Z' }
         }));
+        abrirSectores();
         fireEvent.click(document.querySelector('.sector-card')!);
 
         assert.equal(screen.queryByRole('button', { name: /Registrar actividad/ }), null);
@@ -392,11 +406,16 @@ describe('visita guardada — inmutable, con acciones', () => {
     test('desde el sector se vuelve a la visita sin cerrarla', () => {
         let cerrado = false;
         montar(guardada(), { onCerrar: () => { cerrado = true; } });
+        abrirSectores();
 
         fireEvent.click(document.querySelector('.sector-card')!);
         // Hay dos salidas al mismo sitio: la flecha de la cabecera y el botón del pie. Se
         // usa la del pie; ambas existían igual en el drawer anterior.
         fireEvent.click(document.querySelector('.drawer-foot .btn')!);
+
+        // Tras volver del sector, la pestaña "Captura" sigue siendo la activa por defecto;
+        // el test la abre para que aparezca el panel-info del nivel-visita.
+        fireEvent.click(screen.getByRole('tab', { name: 'Captura' }));
 
         assert.ok(document.querySelector('.panel-info'));
         assert.equal(cerrado, false);
@@ -405,6 +424,7 @@ describe('visita guardada — inmutable, con acciones', () => {
     test('en una visita guardada, tocar el sector NO abre la ventana de edición', () => {
         const abiertas: unknown[] = [];
         montar(guardada(), { abrirVentanaSector: (id) => abiertas.push(id) });
+        abrirSectores();
 
         fireEvent.click(document.querySelector('.sector-card')!);
 
@@ -458,6 +478,7 @@ describe('contadores del sector', () => {
                 ]
             }]
         }));
+        abrirSectores();
 
         const meta = document.querySelector('.sector-card-meta')!.textContent!;
         assert.match(meta, /3 actividades/);
@@ -479,6 +500,7 @@ describe('contadores del sector', () => {
                 actividades: [{ id: 'a-1', tipo: 'Capacitación' }]
             }]
         }));
+        abrirSectores();
 
         const meta = document.querySelector('.sector-card-meta')!.textContent!;
         assert.match(meta, /1 sin guardar/, 'el borrador sí se señala, con su propia pastilla');
@@ -530,6 +552,7 @@ describe('comentarios (Fase 4)', () => {
     test('el sector tiene su propio hilo, distinto del de la visita', () => {
         conPermisoDeComentar();
         montar(guardada());
+        abrirSectores();
 
         fireEvent.click(document.querySelector('.sector-card')!);
 

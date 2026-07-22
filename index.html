@@ -101,7 +101,9 @@
         Nueva visita <kbd>N</kbd>
     </button>
 
-    <div class="toasts" id="toasts" aria-live="polite"></div>
+    <!-- Sin `aria-live` aquí: cada toast lleva el suyo. Marcar el contenedor estático
+         no anunciaba los toasts montados después por lectores que arrancaron al cargar. -->
+    <div class="toasts" id="toasts"></div>
 
     <script type="module" src="js/app.js"></script>
 </body>

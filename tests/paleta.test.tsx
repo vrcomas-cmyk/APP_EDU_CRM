@@ -171,6 +171,31 @@ describe('la pantalla', () => {
     });
 });
 
+describe('el panel de atajos', () => {
+    const ATAJO = { tecla: 'N', descripcion: 'Nueva visita' };
+
+    test('aparece solo cuando la consulta está vacía', async () => {
+        pintar({ atajos: [ATAJO] });
+        const panel = document.querySelector('.paleta-atajos');
+        assert.ok(panel, 'sin consulta, el panel se vé');
+        assert.ok(panel!.textContent!.includes('Nueva visita'));
+
+        await act(async () => { fireEvent.change(campo(), { target: { value: 'otra' } }); });
+        assert.equal(document.querySelector('.paleta-atajos'), null, 'al escribir, desaparece');
+        assert.ok(screen.getByText('Sin resultados.'));
+    });
+
+    test('NO se cuenta como opción: las flechas solo recorren acciones', async () => {
+        pintar({ atajos: [ATAJO] });
+        assert.equal(opciones().length, 3, 'el panel no añade .paleta-opt');
+    });
+
+    test('si no se pasan atajos, no se dibuja el panel', () => {
+        pintar();
+        assert.equal(document.querySelector('.paleta-atajos'), null);
+    });
+});
+
 describe('se usa entera con el teclado', () => {
     test('las flechas mueven la selección', async () => {
         pintar();

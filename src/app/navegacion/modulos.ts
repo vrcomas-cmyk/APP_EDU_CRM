@@ -13,7 +13,7 @@
  * una promesa rota, y además revela que el módulo existe.
  */
 
-import { puede, esAdministrador, flujosDisponibles, conteoPendientes } from '@core/puente';
+import { puede, esAdministrador, flujosDisponibles, conteoPendientes, hayRevisionesCargadas } from '@core/puente';
 
 export type ClaveModulo = 'calendario' | 'mi-dia' | 'estrategias' | 'dashboard' | 'revision' | 'administracion';
 
@@ -22,11 +22,16 @@ export interface Modulo {
     nombre: string;
     /** Rótulo corto para la barra inferior, donde no caben dos palabras. */
     corto: string;
-    icono: string;
+    icono: ClaveModulo;
     /** ¿Este usuario puede entrar? Se evalúa en cada pintado: el perfil llega tarde. */
     disponible: () => boolean;
-    /** Número que se muestra sobre el icono, si lo hay. Cero se oculta. */
-    insignia?: () => number;
+    /**
+     * Número que se muestra sobre el icono, si lo hay. Cero se oculta. `undefined` es
+     * DISTINTO de cero: significa "todavía no sé" — el espejo de revisiones no bajó y no
+     * se puede prometer ni cero pendientes. La navegación lo convierte en un badge
+     * pulsante (skeleton), no en un cero que engaña.
+     */
+    insignia?: () => number | undefined;
     /** Barra de contexto propia en la appbar (fechas, vistas del calendario). */
     contexto?: boolean;
 }
@@ -36,7 +41,7 @@ export const MODULOS: Modulo[] = [
         clave: 'calendario',
         nombre: 'Calendario',
         corto: 'Agenda',
-        icono: '🗓',
+        icono: 'calendario',
         // Sin condición: es la pantalla de trabajo. Quien entra a la app viene a esto.
         disponible: () => true,
         contexto: true
@@ -45,7 +50,7 @@ export const MODULOS: Modulo[] = [
         clave: 'mi-dia',
         nombre: 'Mi día',
         corto: 'Hoy',
-        icono: '☀',
+        icono: 'mi-dia',
         // Mismo permiso que Indicadores: es la misma pregunta ("¿cómo voy?"), resuelta más
         // rápido y acotada a hoy.
         disponible: () => puede('dashboards', 'personal')
@@ -54,7 +59,7 @@ export const MODULOS: Modulo[] = [
         clave: 'estrategias',
         nombre: 'Estrategias',
         corto: 'Estrategia',
-        icono: '🎯',
+        icono: 'estrategias',
         // Cliente × Sector × Grupo de Artículo: cualquiera que capture visitas la usa para
         // planearlas, así que el mismo permiso que abre el calendario abre esto.
         disponible: () => puede('visitas', 'crear')
@@ -63,25 +68,29 @@ export const MODULOS: Modulo[] = [
         clave: 'dashboard',
         nombre: 'Indicadores',
         corto: 'Datos',
-        icono: '📊',
+        icono: 'dashboard',
         disponible: () => puede('dashboards', 'personal')
     },
     {
         clave: 'revision',
         nombre: 'Revisión',
         corto: 'Revisar',
-        icono: '✓',
+        icono: 'revision',
         // Los dos permisos, y no solo los flujos: la cola sale de `consultarVisitas()`, que
         // devuelve vacío sin `visitas.consultar`. Con flujos pero sin consulta, la bandeja
         // está garantizadamente vacía y el botón solo promete trabajo que no se puede ver.
         disponible: () => flujosDisponibles().length > 0 && puede('visitas', 'consultar'),
         insignia: () => {
+            // Si el espejo de revisiones no bajó todavía, el 0 que devuelva
+            // `conteoPendientes` es "no sé", no "no hay pendientes". Devolver `undefined`
+            // aqui deja que la navegación pinte un badge pulsante en vez de prometer nomás.
+            if (!hayRevisionesCargadas()) return undefined;
             try {
                 return conteoPendientes().total;
             } catch {
                 // Los pendientes dependen de datos que pueden no haber cargado. Un badge no
                 // vale tumbar la navegación entera.
-                return 0;
+                return undefined;
             }
         }
     },
@@ -89,7 +98,7 @@ export const MODULOS: Modulo[] = [
         clave: 'administracion',
         nombre: 'Administración',
         corto: 'Admin',
-        icono: '⚙',
+        icono: 'administracion',
         disponible: () => esAdministrador()
     }
 ];

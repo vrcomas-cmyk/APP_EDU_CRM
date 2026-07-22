@@ -20,8 +20,22 @@ export interface AccionPaleta {
     fn: () => void;
 }
 
+/**
+ * Un atajo de teclado que se muestra —SOLO para descubrirlo— en la paleta vacía.
+ * No se ejecuta: vive aquí porque un atajo que nadie conoce es igual que no existir.
+ * La fuente real del comportamiento está en `js/app.js`, y la denominación se repite aquí
+ * para que el panel sea honesto: incluir un atajo aquí y no implementarlo en `app.js`
+ * (o al revés) se nota comparando con los que ya funcionan.
+ */
+export interface AtajoPaleta {
+    tecla: string;
+    descripcion: string;
+}
+
 interface Props {
     acciones: AccionPaleta[];
+    /** Lista informativa de atajos de teclado; se pinta solo cuando la consulta está vacía. */
+    atajos?: AtajoPaleta[];
     visitas: Visita[];
     onIrAVisita: (visita: Visita) => void;
     onCerrar: () => void;
@@ -34,10 +48,11 @@ interface Opcion {
     ejecutar: () => void;
 }
 
-export function Paleta({ acciones, visitas, onIrAVisita, onCerrar }: Props) {
+export function Paleta({ acciones, atajos = [], visitas, onIrAVisita, onCerrar }: Props) {
     const [consulta, setConsulta] = useState('');
     const [activo, setActivo] = useState(0);
     const listaRef = useRef<HTMLDivElement>(null);
+    const sinConsulta = !consulta.trim();
 
     const opciones = useMemo<Opcion[]>(() => {
         const q = consulta.trim().toLowerCase();
@@ -150,8 +165,28 @@ export function Paleta({ acciones, visitas, onIrAVisita, onCerrar }: Props) {
                         </button>
                     ))}
 
-                    {opciones.length === 0 && (
+                    {/* "Sin resultados" es distinto de "vacía a propósito": solo aparece
+                        quien escribió algo y no halló nada. Confundirlos fue un error UX
+                        común (vacío = cargando = no hay) que ya corregimos en el Dashboard. */}
+                    {opciones.length === 0 && !sinConsulta && (
                         <p className="ayuda paleta-vacio">Sin resultados.</p>
+                    )}
+
+                    {/* Panel de atajos: solo cuando la paleta acaba de abrirse. Si ya hay
+                        resultados o una consulta, lo que importa es el filtro, no el cartel —
+                        tapar la lista con un panel sería leer dos cosas a la vez. */}
+                    {sinConsulta && atajos.length > 0 && (
+                        <div className="paleta-atajos" aria-label="Atajos de teclado">
+                            <p className="eyebrow paleta-atajos-titulo">Atajos</p>
+                            <ul className="paleta-atajos-lista">
+                                {atajos.map(a => (
+                                    <li key={a.tecla}>
+                                        <span className="paleta-atajo-desc">{a.descripcion}</span>
+                                        <kbd className="mono">{a.tecla}</kbd>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
                     )}
                 </div>
             </div>

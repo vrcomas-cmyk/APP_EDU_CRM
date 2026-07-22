@@ -11,6 +11,7 @@
  */
 
 import { modulosDisponibles, type ClaveModulo } from './modulos';
+import { Icono, SpriteIconos } from '@shared/components/Icono';
 
 interface Props {
     activo: ClaveModulo;
@@ -24,9 +25,12 @@ export function Navegacion({ activo, onElegir }: Props) {
     if (modulos.length <= 1) return null;
 
     return (
-        <nav className="nav-modulos" aria-label="Módulos">
+        <>
+            <SpriteIconos />
+            <nav className="nav-modulos" aria-label="Módulos">
             {modulos.map(m => {
-                const n = m.insignia?.() ?? 0;
+                const tieneInsignia = typeof m.insignia === 'function';
+                const n = tieneInsignia ? m.insignia!() : null;
                 const esActivo = m.clave === activo;
 
                 return (
@@ -37,7 +41,9 @@ export function Navegacion({ activo, onElegir }: Props) {
                         aria-current={esActivo ? 'page' : undefined}
                         onClick={() => onElegir(m.clave)}
                     >
-                        <span className="nav-ico" aria-hidden="true">{m.icono}</span>
+                        <span className="nav-ico" aria-hidden="true">
+                            <Icono clave={m.icono} tam={18} />
+                        </span>
 
                         {/* Dos rótulos: el largo en el riel, el corto en la barra inferior.
                             CSS elige cuál se ve; el texto SIEMPRE está, porque un icono solo
@@ -45,7 +51,20 @@ export function Navegacion({ activo, onElegir }: Props) {
                         <span className="nav-txt">{m.nombre}</span>
                         <span className="nav-txt-corto">{m.corto}</span>
 
-                        {n > 0 && (
+                        {/* Cuatro estados, no tres — la diferencia importa:
+                            - módulo SIN insignia (no tiene `insignia()`)  → nada
+                            - insignia() devuelve `undefined` ("cargando")  → badge pulsante
+                            - insignia() devuelve 0                         → nada, pero por
+                                                                              filtrado real, no
+                                                                              esperando datos
+                            - insignia() devuelve n > 0                    → número con aria-label
+                          Confundir "sin insignia" con "cargando" pinta pulsante en módulos que
+                          no tienen conteo — Calendario siempre lo tendría, y eso engaña. */}
+                        {tieneInsignia && n === undefined && (
+                            <span className="nav-badge is-cargando" title="Cargando…"
+                                  aria-hidden="true" />
+                        )}
+                        {tieneInsignia && typeof n === 'number' && n > 0 && (
                             <span className="nav-badge" aria-label={`${n} pendientes`}>
                                 {n > 99 ? '99+' : n}
                             </span>
@@ -53,6 +72,7 @@ export function Navegacion({ activo, onElegir }: Props) {
                     </button>
                 );
             })}
-        </nav>
+            </nav>
+        </>
     );
 }

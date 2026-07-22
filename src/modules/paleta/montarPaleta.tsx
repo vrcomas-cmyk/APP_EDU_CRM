@@ -14,7 +14,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { StrictMode } from 'react';
 
 import { consultarVisitas } from '@core/puente';
-import { Paleta, type AccionPaleta } from './components/Paleta';
+import { Paleta, type AccionPaleta, type AtajoPaleta } from './components/Paleta';
 
 export interface OpcionesPaleta {
     onNuevaVisita?: () => void;
@@ -27,6 +27,7 @@ export interface OpcionesPaleta {
 let raiz: Root | null = null;
 let abierta = false;
 let acciones: AccionPaleta[] = [];
+let atajos: AtajoPaleta[] = [];
 let opciones: OpcionesPaleta = {};
 
 export function initPaleta(op: OpcionesPaleta = {}): void {
@@ -45,6 +46,22 @@ export function initPaleta(op: OpcionesPaleta = {}): void {
         accion('Vista Día', 'D', () => opciones.onSetModo?.('dia')),
         accion('Vista Semana', 'S', () => opciones.onSetModo?.('semana')),
         accion('Vista Mes', 'M', () => opciones.onSetModo?.('mes'))
+    ];
+
+    // Los atajos que se muestran en el panel, según `js/app.js`. Es deliberadamente un
+    // duplicado pequeño y plano (no se inyecta desde `app.js`): tenerlos aquí hace que el
+    // panel se valide a sí mismo —si `app.js` añade uno y no lo refleja aquí, un
+    // desarrollador lo ve al primer repaso del panel. La duplicación modal de 7 pares es
+    // menos frágil que un puente JS→TS para lo mismo.
+    atajos = [
+        { tecla: 'N', descripcion: 'Nueva visita' },
+        { tecla: 'T', descripcion: 'Ir a hoy' },
+        { tecla: 'D', descripcion: 'Vista Día' },
+        { tecla: 'S', descripcion: 'Vista Semana' },
+        { tecla: 'M', descripcion: 'Vista Mes' },
+        { tecla: 'I', descripcion: 'Indicadores' },
+        { tecla: 'R', descripcion: 'Revisión' },
+        { tecla: '⌘K', descripcion: 'Abrir esta paleta' }
     ];
 
     const contenedor = document.createElement('div');
@@ -86,6 +103,7 @@ function pintar(): void {
         <StrictMode>
             <Paleta
                 acciones={acciones}
+                atajos={atajos}
                 // Se leen al abrir, no al inicializar: entre una apertura y otra pudo agendarse
                 // algo, y una paleta que no encuentra lo que acabas de crear se deja de usar.
                 // `consultarVisitas()` y no solo local: la misma visita del equipo que ya se ve

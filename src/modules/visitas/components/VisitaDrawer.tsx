@@ -82,6 +82,15 @@ export function VisitaDrawer({
     const [reagendando, setReagendando] = useState(false);
     const [guardadoReciente, setGuardadoReciente] = useState(false);
     const [pidiendoCancelacion, setPidiendoCancelacion] = useState(false);
+    /**
+     * Pestaña del drawer para una visita ya GUARDADA (en borrador sólo hay Captura +
+     * Sectores, meter pestañas sería ruido de una sola opción).
+     *
+     * Vuelve a "captura" al cambiar de visita: una pestaña elegida en una visita aplicada a
+     * otra confunde — "Cerré la visita de Ana en Historial, abrí la de Juan y sigo en
+     * Historial aunque最早 Juan ni tenga reagendas".
+     */
+    const [pestana, setPestana] = useState<'captura' | 'sectores' | 'historial'>('captura');
 
     const panelRef = useRef<HTMLElement>(null);
     const relojGuardado = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -91,6 +100,7 @@ export function VisitaDrawer({
     useEffect(() => {
         setSectorId(null);
         setReagendando(false);
+        setPestana('captura');
     }, [visitaId]);
 
     useEffect(() => () => clearTimeout(relojGuardado.current), []);
@@ -312,54 +322,92 @@ export function VisitaDrawer({
                                         <p className="aviso">{motivoDeBloqueo(visita)}</p>
                                     )}
 
-                                    {cancelada
-                                        ? <AvisoCancelada visita={visita} avisar={avisar}
-                                                          alTerminar={() => { refrescar(); alCambiar(); }} />
-                                        : <BloqueCheck visita={visita} avisar={avisar} soloLectura={soloLectura}
-                                                       alTerminar={() => { refrescar(); alCambiar(); }} />}
-
-                                    <PanelInformacion visita={visita} editar={editar} />
-
-                                    {/* Comentarios de la visita completa: lo que el cliente dijo
-                                        en general, no atado a un sector en particular. Vive
-                                        aquí y no en `FormularioVisita` porque una visita en
-                                        borrador todavía no tiene identidad propia que comentar. */}
-                                    <div className="campo">
-                                        <span className="campo-lbl">Comentarios de la visita</span>
-                                        <NodoVanilla
-                                            clave={visita.id}
-                                            construir={() => hiloComentarios({
-                                                ambito: AMBITOS.VISITA,
-                                                idAmbito: visita.id,
-                                                visita,
-                                                alToast: avisar
-                                            })}
-                                        />
+                                    {/* Pestañas en visita guardada: el historial (reagendas) es lo
+                                        último que se consulta y estaba enterrado abajo del todo.
+                                        Moverlo a su solapa lleva a un vistazo lo que hoy exige
+                                        scrollear al fondo. El `.seg` reutiliza el mismo gesto del
+                                        calendario (Día/Semana/Mes): no se introduce un control nuevo
+                                        para una sola pantalla. "Captura" aloja lo de hoy y los
+                                        comentarios — se ve de corrido en uso de pie; separarlos en
+                                        solapa propia obligaría a cambiar para agregar uno y verlo
+                                        recién escrito. */}
+                                    <div className="seg drawer-seg" role="tablist" aria-label="Secciones de la visita">
+                                        <button type="button" role="tab"
+                                                aria-selected={pestana === 'captura'}
+                                                onClick={() => setPestana('captura')}>
+                                            Captura
+                                        </button>
+                                        <button type="button" role="tab"
+                                                aria-selected={pestana === 'sectores'}
+                                                onClick={() => setPestana('sectores')}>
+                                            Sectores
+                                        </button>
+                                        <button type="button" role="tab"
+                                                aria-selected={pestana === 'historial'}
+                                                onClick={() => setPestana('historial')}>
+                                            Historial
+                                        </button>
                                     </div>
 
-                                    {reagendando && (
-                                        <BloqueReagendar
+                                    {pestana === 'captura' && (
+                                        <>
+                                            {cancelada
+                                                ? <AvisoCancelada visita={visita} avisar={avisar}
+                                                                  alTerminar={() => { refrescar(); alCambiar(); }} />
+                                                : <BloqueCheck visita={visita} avisar={avisar} soloLectura={soloLectura}
+                                                               alTerminar={() => { refrescar(); alCambiar(); }} />}
+
+                                            <PanelInformacion visita={visita} editar={editar} />
+
+                                            <div className="campo">
+                                                <span className="campo-lbl">Comentarios de la visita</span>
+                                                <NodoVanilla
+                                                    clave={visita.id}
+                                                    construir={() => hiloComentarios({
+                                                        ambito: AMBITOS.VISITA,
+                                                        idAmbito: visita.id,
+                                                        visita,
+                                                        alToast: avisar
+                                                    })}
+                                                />
+                                            </div>
+                                        </>
+                                    )}
+
+                                    {pestana === 'sectores' && (
+                                        <ListaSectores
                                             visita={visita}
-                                            avisar={avisar}
-                                            alReagendar={() => { setReagendando(false); refrescar(); alCambiar(); }}
+                                            soloLectura={soloLectura}
+                                            onAbrirSector={(id) => setSectorId(id)}
+                                            onAgregarSector={() => abrirSector(null)}
                                         />
                                     )}
-                                    <HistorialReagendas visita={visita} />
+
+                                    {pestana === 'historial' && (
+                                        <>
+                                            {reagendando && (
+                                                <BloqueReagendar
+                                                    visita={visita}
+                                                    avisar={avisar}
+                                                    alReagendar={() => { setReagendando(false); refrescar(); alCambiar(); }}
+                                                />
+                                            )}
+                                            <HistorialReagendas visita={visita} />
+                                        </>
+                                    )}
                                 </>
                             )}
 
-                            <ListaSectores
-                                visita={visita}
-                                soloLectura={soloLectura}
-                                onAbrirSector={(id) => {
-                                    // Mientras la visita es borrador el sector todavía se corrige,
-                                    // y eso pasa en su ventana. Ya guardada, entrar al sector es
-                                    // entrar a sus actividades: no hay nada que editar.
-                                    if (visita.borrador) abrirSector(id);
-                                    else setSectorId(id);
-                                }}
-                                onAgregarSector={() => abrirSector(null)}
-                            />
+                            {/* En el borrador los sectores siguen en raíz: su "Venana"
+                                todavía los edita, no los exhibe. */}
+                            {visita.borrador && (
+                                <ListaSectores
+                                    visita={visita}
+                                    soloLectura={soloLectura}
+                                    onAbrirSector={(id) => abrirSector(id)}
+                                    onAgregarSector={() => abrirSector(null)}
+                                />
+                            )}
                         </div>
                     </>
                 )}
@@ -453,8 +501,12 @@ function ModalCancelacion({ visita, onCancelar, onConfirmar }: {
 }
 
 function CabeceraVisita({ visita, onCerrar }: { visita: Visita; onCerrar: () => void }) {
+    const agarre = useSwipeCerrar(onCerrar);
     return (
         <div className="drawer-head">
+            {/* Barra de agarre visible solo en móvil: comunica el affordance "esto se
+                desliza hacia abajo" sin carteles. En escritorio no pinta nada. */}
+            <div className="drawer-agarre" ref={agarre} aria-hidden="true" />
             <div className="drawer-head-txt">
                 <h3>{visita.borrador ? 'Nueva visita' : (visita.hospital || visita.cliente || 'Visita')}</h3>
 
@@ -474,4 +526,73 @@ function CabeceraVisita({ visita, onCerrar }: { visita: Visita; onCerrar: () => 
             <button type="button" className="icon-btn" aria-label="Cerrar" onClick={onCerrar}>✕</button>
         </div>
     );
+}
+
+/**
+ * Hook de swipe-to-close SOLO en móvil. En escritorio el `.drawer` es lateral derecho y
+ * arrastrarlo hacia abajo no significa nada; aquí, en cambio, es un bottom-sheet y el usuario
+ * espera cerrarlo bajándolo — el mismo gesto que cualquier bottom-sheet nativo.
+ *
+ * La zona activa es un "agarre" `.drawer-agarre`: una barrita visible arriba del sheet en
+ * móvil. Arrastrar DESDE el cuerpo pelearía con su propio scroll; concentrar el gesto en el
+ * agarre evita el conflicto y comunica la affordance — se ve en iOS y Android.
+ *
+ * `prefers-reduced-motion` desactiva la animación de seguimiento: el cierre sigue
+ * funcionando (depende del desplazamiento, no de la transición), pero visualmente la hoja
+ * aparece o desaparece sin seguirla.
+ */
+function useSwipeCerrar(onCerrar: () => void, umbral = 80) {
+    const ref = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const agarre = ref.current;
+        const sheet = agarre?.closest<HTMLElement>('.drawer');
+        if (!agarre || !sheet) return;
+        // Sólo en móvil: en escritorio el drawer es lateral y el gesto no tiene sentido.
+        const mq = window.matchMedia?.('(max-width: 720px)');
+        if (!mq?.matches) return;
+
+        const reducido = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+        let startY = 0;
+        let activo = false;
+
+        function onDown(e: PointerEvent) {
+            if (e.pointerType === 'mouse') return;
+            startY = e.clientY;
+            activo = true;
+        }
+
+        function onMove(e: PointerEvent) {
+            if (!activo) return;
+            const dy = e.clientY - startY;
+            if (dy <= 0) { sheet!.style.transform = ''; return; }
+            // El 0.6 suaviza: a 100px arrastrados, la hoja sigue 60. Sensación elástica
+            // sin onTap-too-loose: medio close al rato de empezar.
+            if (!reducido) sheet!.style.transform = `translateY(${Math.min(dy * 0.6, 200)}px)`;
+        }
+
+        function onUp(e: PointerEvent) {
+            if (!activo) { activo = false; return; }
+            activo = false;
+            const dy = e.clientY - startY;
+            sheet!.style.transform = '';
+            // Umbral o flick: una sacudida rápida también cuenta, aunque no llegue a 80px.
+            if (dy > umbral || (dy > 30 && Math.abs(e.clientY - startY) > 60)) {
+                onCerrar();
+            }
+        }
+
+        agarre.addEventListener('pointerdown', onDown);
+        window.addEventListener('pointermove', onMove);
+        window.addEventListener('pointerup', onUp);
+        window.addEventListener('pointercancel', onUp);
+        return () => {
+            agarre.removeEventListener('pointerdown', onDown);
+            window.removeEventListener('pointermove', onMove);
+            window.removeEventListener('pointerup', onUp);
+            window.removeEventListener('pointercancel', onUp);
+        };
+    }, [onCerrar, umbral]);
+
+    return ref;
 }

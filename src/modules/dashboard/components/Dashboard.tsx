@@ -5,8 +5,8 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import {
-    consultarVisitas, calcularIndicadores, indicadoresPorEducador, filtroVacio, top,
-    etiquetaEstado, ESTADOS_VISITA, revisionVigente,
+    consultarVisitas, hayEquipoCargado, calcularIndicadores, indicadoresPorEducador,
+    filtroVacio, top, etiquetaEstado, ESTADOS_VISITA, revisionVigente,
     perfilActual, tieneEquipo, resultadoDe, type Filtro, type Indicadores
 } from '@core/puente';
 
@@ -49,7 +49,20 @@ export function Dashboard() {
                 onLimpiar={() => setFiltro(filtroVacio())}
             />
 
-            {visitas.length === 0 ? <Vacio /> : <Cuerpo ind={ind} visitas={visitas} />}
+            {/* Tres estados distintos, en vez de "vacío vs hay":
+                - Cargando: el espejo del equipo todavía no bajó (governanca; el local ya
+                            está, pero para un gerente el equipo es lo que importa). Pintar
+                            "Todavia nada" aquí prometería "no hay" cuando en realidad es
+                            "no sé todavía" — el mismo error de UI que ya corregimos en el
+                            badge de la Navegación.
+                - Vacío real: el espejo SÍ bajó y no hay visitas para este filtro. El CTA
+                            "cuando guardes visitas aparecerán aquí" es honesto: sí puede
+                            haber tomorrow.
+                - Con datos: el cuerpo completo. */}
+            {visitas.length === 0
+                ? (tieneEquipo() && !hayEquipoCargado() ? <Cargando /> : <Vacio />)
+                : <Cuerpo ind={ind} visitas={visitas} />
+            }
         </div>
     );
 }
@@ -60,6 +73,25 @@ function Vacio() {
             <p className="vacio-titulo">Nada que mostrar todavía</p>
             <p className="ayuda">
                 Cuando guardes visitas —o cambies los filtros— los indicadores aparecen aquí.
+            </p>
+        </div>
+    );
+}
+
+/**
+ * El estado CARGANDO es distinto del estado VACÍO: aquí el espejo remoto todavía no terminó
+ * de bajar, y "Nada que mostrar todavía" prometería que no hay cuando en realidad no se sabe
+ * todavía. El texto lo dice en voz: levanta la ambigüedad en vez de esconderla.
+ *
+ * Sin skeleton animado: el uso de pie en hospital no agradece parpadeos. Un mensaje plano
+ * conduce la misma información sin añadir ruido visual.
+ */
+function Cargando() {
+    return (
+        <div className="vacio-grande">
+            <p className="vacio-titulo">Cargando el equipo…</p>
+            <p className="ayuda">
+                Estamos trayendo las visitas de tu equipo. En un momento aparecen los indicadores.
             </p>
         </div>
     );

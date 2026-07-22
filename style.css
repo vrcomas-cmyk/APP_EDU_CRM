@@ -51,6 +51,17 @@
   --r-sm: 6px;
   --r-md: 9px;
   --r-lg: 14px;
+
+  /* Halo del foco: SIEMPRE tinta, nunca color de estado. Antes derivaba de `--st` —que en
+     el tema DEGASA tomaría el verde-marca y se confundiría con `--st-done`. Un foco tiene
+     que verse igual sobre un tile "hecho" que sobre uno "faltante": no puede él mismo
+     tomar prestado el color de lo que señala. */
+  --focus-halo: color-mix(in srgb, var(--ink) 18%, transparent);
+
+  /* Hover de filas/tablas: tinta muy diluida en vez de `--surface-2` (más saturado y se
+     confunde con el `.is-activo` de los nav-items). La idea es "soy lo que estás mirando",
+     no "estoy seleccionado" — el hover no es selección. */
+  --row-hover: color-mix(in srgb, var(--ink) 5%, transparent);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -136,12 +147,14 @@ h1, h2, h3, h4 { margin: 0; letter-spacing: -.02em; font-weight: 700; }
 p { margin: 0; }
 button, input, textarea, select { font-family: inherit; font-size: inherit; color: inherit; }
 
-/* Anillo de foco de dos capas —tinta fina + halo del color de estado disponible en el
-   elemento vía `--st`— en vez de un solo trazo grueso: se ve exactamente igual de nítido
-   sobre cualquiera de los tres temas sin necesitar un color de foco propio por tema. */
+/* Anillo de foco de dos capas —tinta fina + halo— en vez de un solo trazo grueso: se ve
+   exactamente igual de nítido sobre cualquiera de los tres temas. El halo usa
+   `--focus-halo` (tinta pura) y NO `--st`: en el tema DEGASA, `--st-done` es el verde-marca,
+   y un foco que lo tomara prestado se confundiría con el estado "hecho" del propio
+   elemento enfocado. La tinta siempre contrasta. */
 :focus-visible {
   outline: 2px solid var(--ink); outline-offset: 2px; border-radius: 4px;
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--st, var(--ink)) 18%, transparent);
+  box-shadow: 0 0 0 4px var(--focus-halo);
 }
 
 .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
@@ -225,6 +238,17 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 .seg button:last-child { border-right: 0; }
 .seg button:hover { color: var(--ink); }
 .seg button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+
+/* Las solapas del drawer visten el mismo `.seg` pero con `role="tab"`, que pide
+   `aria-selected` en vez de `aria-pressed`. La misma regla de fondo invierte tinta/papel
+   como en el calendario — no introducimos lenguaje visual aparte para un solo sitio. */
+.seg[role="tablist"] button[aria-selected="true"] {
+  background: var(--ink); color: var(--paper);
+}
+/* Aproximación a "full-bleed" dentro del drawer: las solapas se estiran para no competir
+   con el ancho del formulario, y la depresión de la activa refuerza "esta es la solapa". */
+.drawer-seg { align-self: stretch; margin-bottom: 4px; }
+.drawer-seg button { flex: 1; padding-top: 7px; padding-bottom: 7px; }
 
 /* ---------- selector de tema ---------- */
 .tema-switch button { padding: 4px 7px; display: flex; align-items: center; }
@@ -749,6 +773,12 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 /* Un dato que falta se dice, no se deja en blanco: el hueco no distingue "vacío" de "roto". */
 .es-vacio { color: var(--muted); font-style: italic; }
 
+/* Un dato que todavía no llegó del espejo es DISTINTO de uno que se sabe vacío: el primero
+   podría tener valor mañana y negarle énfasis invita a confundirlos. La cursiva del
+   `.es-vacio` se conserva, pero el color baja a `--rule-soft` para que se vea "esperando",
+   no "definitivamente no". */
+.dato-val.es-cargando { color: var(--rule-soft); font-style: italic; }
+
 .agregar-sector { margin-top: 8px; }
 
 .icon-btn.volver { margin-left: 0; font-size: 16px; }
@@ -965,6 +995,17 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
     animation: sheet-in .28s cubic-bezier(.2, .9, .3, 1.05);
   }
   @keyframes sheet-in { from { transform: translateY(100%); } }
+
+  /* "Agarre" del bottom-sheet: la barrita que iOS/Android usan para indicar "se desliza".
+     Tamaño y posición tomados de Material UI: 36×4, centrada, pegada al borde superior. El
+     `touch-action: none` evita que el navegador interprete el scroll vertical sobre ella —
+     el gesto es del hook, no de la página. */
+  .drawer-agarre {
+    position: absolute; top: 6px; left: 50%; transform: translateX(-50%);
+    width: 36px; height: 4px; border-radius: 2px;
+    background: var(--rule);
+    touch-action: none;
+  }
 
   /*
     Capturar una actividad en el teléfono ocupa la pantalla entera. Dejarla flotando en una
@@ -1215,6 +1256,28 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 .paleta-opt .t { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .paleta-opt .m { flex: none; font-size: 10.5px; color: var(--muted); }
 .paleta-vacio { padding: 14px 10px; }
+
+/* ---------- panel de atajos (cuando la paleta está recién abierta) ----------
+   No es una opción ejecutable — vive fuera del `role="listbox"` por eso. El rótulo
+   usa `.eyebrow`, la misma monada mayúscula con que se rotulan las secciones de
+   `.datos` y los `.tile`, para no introducir un nuevo gesto tipográfico. */
+.paleta-atajos { padding: 4px 10px 12px; border-top: 1px solid var(--rule); margin-top: 4px; }
+.paleta-atajos-titulo { padding: 6px 2px 8px; }
+.paleta-atajos-lista {
+    list-style: none; margin: 0; padding: 0;
+    display: grid; grid-template-columns: 1fr auto; gap: 4px 10px;
+    font-size: 12px; color: var(--ink-2);
+}
+.paleta-atajos-lista li { display: contents; }
+.paleta-atajo-desc { color: var(--muted); }
+.paleta-atajos-lista kbd {
+    justify-self: end;
+    min-width: 18px; padding: 1px 6px;
+    border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 4px;
+    background: var(--surface); color: var(--ink);
+    font-size: 10.5px; font-weight: 600; text-align: center;
+    line-height: 1.4;
+}
 
 /* ---------- toasts ---------- */
 .toasts {
@@ -1610,7 +1673,7 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
   position: sticky; top: 0; background: var(--surface);
 }
 .tabla td.num, .tabla th.num { text-align: right; font-variant-numeric: tabular-nums; }
-.tabla tbody tr:hover { background: var(--surface-2); }
+.tabla tbody tr:hover { background: var(--row-hover); }
 .tabla td:first-child {
   max-width: 220px; overflow: hidden; text-overflow: ellipsis;
 }
@@ -1681,7 +1744,13 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
     background: var(--ink);
 }
 
-.nav-ico { font-size: 18px; line-height: 1; }
+.nav-ico {
+    font-size: 18px; line-height: 1;
+    display: inline-flex; align-items: center; justify-content: center;
+}
+/* El SVG lineal hereda `currentColor` del `.nav-item` — que cambia a `--muted` o a
+   `--ink` según esté activo o no — igual que cualquier texto. Un emoji no podía. */
+.nav-ico .ico { display: block; }
 .nav-txt-corto { display: none; }
 
 .nav-badge {
@@ -1697,6 +1766,23 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
     font-weight: 700;
     line-height: 16px;
     text-align: center;
+}
+
+/* "Todavía no sé": el badge cobra forma sin cifra. Es la única ambigüedad que resolves
+   visualmente: el conteo NO bajó del espejo de revisiones, iy mostrar 0 promete que se
+   revisó todo cuando no es verdad. El pulso es lento para no distraer en uso de pie. */
+.nav-badge.is-cargando {
+    width: 16px; height: 16px; min-width: 0; padding: 0;
+    font-size: 0;
+    background: var(--rule);
+    animation: nave-badge-pulsa 1.4s var(--ease) infinite;
+}
+@keyframes nave-badge-pulsa {
+    0%, 100% { opacity: .55; }
+    50%      { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .nav-badge.is-cargando { animation: none; opacity: .7; }
 }
 
 .vista-host {
