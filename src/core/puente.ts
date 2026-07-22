@@ -23,7 +23,7 @@ import type {
     Visita, Sector, Actividad, Marca, Sesion, SaludVisita, EstadoSector, ModoCampo,
     IndicadoresEducador, Revision, ResultadoRevision, FlujoRevision, Perfil,
     PendienteRevision, Comentario, CampoConfigurable, Catalogo, BorradorCatalogo,
-    ResultadoFlujo, RolAdmin, CapacidadAdmin, UsuarioAdmin, FlujoAdmin
+    ResultadoFlujo, RolAdmin, CapacidadAdmin, UsuarioAdmin, FlujoAdmin, Estrategia
 } from './tipos';
 
 // ---------- estado (salud, ciclo de vida, tiempo) ----------
@@ -58,8 +58,17 @@ export const camposExtra = _catalogos.camposExtra as (tipo?: string) => string[]
 export const tiposActividad = _catalogos.tiposActividad as () => Array<{ nombre: string }>;
 export const areas = _catalogos.areas as () => string[];
 export const tiposEvidencia = _catalogos.tiposEvidencia as () => string[];
+export const unidades = _catalogos.unidades as () => string[];
 export const sectores = _catalogos.sectores as () => string[];
 export const origenes = _catalogos.origenes as () => string[];
+/** "Descr. Grupo de Art." de "Materiales", deduplicado — misma fuente y mecanismo que `sectores`. */
+export const gruposArticulo = _catalogos.gruposArticulo as () => string[];
+export const ETAPAS_ESTRATEGIA = _catalogos.ETAPAS_ESTRATEGIA as string[];
+
+/** Zona del cliente (Clientes → "Gpo. vendedores"). Vacío si el cliente no está en el catálogo. */
+export const zonaDeCliente = _catalogos.zonaDeCliente as (cliente: string) => string;
+/** Ejecutivo que reporta esa zona (Ejecutivos: Zona → Ejecutivo). */
+export const ejecutivoDeZona = _catalogos.ejecutivoDeZona as (zona: string) => string;
 
 export const ETIQUETAS_MODO = _catalogos.ETIQUETAS_MODO as Record<string, string>;
 /**
@@ -204,6 +213,7 @@ export interface Indicadores {
 }
 
 export const consultarVisitas = _datos.consultarVisitas as (f?: Partial<Filtro>) => Visita[];
+export const aplicarFiltro = _datos.aplicarFiltro as (v: Visita[], f?: Partial<Filtro>) => Visita[];
 export const calcularIndicadores = _datos.calcularIndicadores as (v: Visita[]) => Indicadores;
 export const indicadoresPorEducador = _datos.indicadoresPorEducador as (
     v: Visita[]
@@ -294,6 +304,50 @@ export const puede = _permisos.puede as (modulo: string, accion: string) => bool
 export const perfilActual = _permisos.perfilActual as () => Perfil | null;
 export const tieneEquipo = _permisos.tieneEquipo as () => boolean;
 export const esAdministrador = _permisos.esAdministrador as () => boolean;
+
+// ---------- estrategias ----------
+
+import {
+    leerEstrategias as _leerEstrategias, upsertEstrategia as _upsertEstrategia,
+    eliminarEstrategia as _eliminarEstrategia, nuevoId as _nuevoId
+} from '../../js/storage.js';
+export const leerEstrategias = _leerEstrategias as () => Estrategia[];
+export const upsertEstrategia = _upsertEstrategia as (e: Estrategia) => Estrategia;
+export const eliminarEstrategia = _eliminarEstrategia as (id: string) => void;
+export const nuevoId = _nuevoId as (prefijo: string) => string;
+
+export const sincronizarEstrategias = _sync.sincronizarEstrategias as () => Promise<{ enviadas: number }>;
+export const descargarEstrategiasEquipo = _sync.descargarEstrategiasEquipo as () => Promise<{
+    estrategias: Estrategia[];
+}>;
+
+// ---------- Google Calendar (de ida y vuelta) ----------
+
+import * as _calendar from '../../js/googleCalendar.js';
+import { CLIENT_ID as _CALENDAR_CLIENT_ID } from '../../js/auth.js';
+
+export const CALENDAR_CLIENT_ID = _CALENDAR_CLIENT_ID as string;
+export const tieneAccesoCalendar = _calendar.tieneAccesoCalendar as () => boolean;
+export const conectarCalendar = _calendar.conectarCalendar as (clientId: string) => Promise<boolean>;
+export const intentarReconexionCalendar = _calendar.intentarReconexionCalendar as (
+    clientId: string
+) => Promise<boolean>;
+
+export interface CompromisoCalendar {
+    id: string;
+    titulo: string;
+    inicio: string;
+    fin: string;
+    todoElDia: boolean;
+    url: string;
+}
+export const listarCompromisos = _calendar.listarCompromisos as (
+    desdeISO: string, hastaISO: string
+) => Promise<CompromisoCalendar[]>;
+export const sincronizarEventoVisita = _calendar.sincronizarEventoVisita as (
+    visita: Visita
+) => Promise<string | null>;
+export const borrarEventoVisita = _calendar.borrarEventoVisita as (idEvento?: string) => Promise<void>;
 
 // ---------- avisos ----------
 

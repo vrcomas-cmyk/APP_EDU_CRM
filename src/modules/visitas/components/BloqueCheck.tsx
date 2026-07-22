@@ -10,7 +10,7 @@ import { useState } from 'react';
 import {
     tieneCheckIn, tieneCheckOut, puedeIniciar, iniciarVisita, finalizarVisita,
     permanenciaTexto, duracionTexto, describirUbicacion, precisionDudosa,
-    reactivarVisita, type Resultado, type Avisar
+    reactivarVisita, minutosDeRetraso, type Resultado, type Avisar
 } from '@core/puente';
 import type { Visita, Marca } from '@core/tipos';
 
@@ -18,9 +18,12 @@ interface Props {
     visita: Visita;
     avisar: Avisar;
     alTerminar: () => void;
+    /** Visita de otra persona: el check-in/out es un hecho físico de quien la capturó, no de
+     *  quien la mira — mostrarlo como botón invitaría a marcar la llegada de alguien más. */
+    soloLectura?: boolean;
 }
 
-export function BloqueCheck({ visita, avisar, alTerminar }: Props) {
+export function BloqueCheck({ visita, avisar, alTerminar, soloLectura }: Props) {
     const [ocupado, setOcupado] = useState<string | null>(null);
 
     async function ejecutar(accion: (id: string) => Promise<Resultado>, textoOcupado: string) {
@@ -52,6 +55,10 @@ export function BloqueCheck({ visita, avisar, alTerminar }: Props) {
     }
 
     if (!tieneCheckIn(visita)) {
+        if (soloLectura) {
+            return <div className="check"><p className="ayuda">Todavía no se registra la llegada.</p></div>;
+        }
+
         const listo = puedeIniciar(visita);
         return (
             <div className="check">
@@ -77,6 +84,7 @@ export function BloqueCheck({ visita, avisar, alTerminar }: Props) {
     return (
         <div className="check">
             <MarcaCheck etiqueta="Llegada" marca={visita.check_in!} />
+            <Puntualidad visita={visita} />
 
             {tieneCheckOut(visita) ? (
                 <>
@@ -87,6 +95,8 @@ export function BloqueCheck({ visita, avisar, alTerminar }: Props) {
                         </p>
                     )}
                 </>
+            ) : soloLectura ? (
+                <p className="ayuda">Todavía no se registra la salida.</p>
             ) : (
                 <>
                     <button
@@ -121,6 +131,20 @@ function MarcaCheck({ etiqueta, marca }: { etiqueta: string; marca: Marca }) {
             </span>
         </div>
     );
+}
+
+/**
+ * Puntual / Impuntual: se CALCULA de llegada contra hora de inicio, con 15 min de gracia —
+ * los mismos que usa el flujo de revisión "Justificación de retrasos" para decidir si una
+ * visita entra a esa cola. No es un campo nuevo que capturar: es la misma regla, mostrada
+ * aquí para que el educador la vea sin esperar a que alguien la revise. La justificación en
+ * sí se escribe donde ya se revisa el retraso, no aquí.
+ */
+function Puntualidad({ visita }: { visita: Visita }) {
+    const min = minutosDeRetraso(visita);
+    if (min <= 0) return <span className="pill st-completa">Puntual</span>;
+
+    return <span className="pill st-sin-registrar">Impuntual · {min} min tarde</span>;
 }
 
 /** Una visita cancelada no se borra: queda en el calendario como registro de que no ocurrió. */

@@ -12,7 +12,10 @@
  * con un mensaje claro y la fila queda pendiente hasta el siguiente sync con un token fresco.
  */
 
-const CLIENT_ID = '698264876096-35bqu62bnsfb7v8tnph6m8p7pr7v56r9.apps.googleusercontent.com';
+// Se exporta: el módulo de Google Calendar pide un token de ACCESO (OAuth2, con permiso de
+// Calendar) con el mismo Client ID que ya usa este Sign-In de IDENTIDAD (id_token). Son dos
+// flujos distintos de la misma API de Google Identity Services, no dos apps registradas.
+export const CLIENT_ID = '698264876096-35bqu62bnsfb7v8tnph6m8p7pr7v56r9.apps.googleusercontent.com';
 const DOMINIO = 'degasa.com';
 const CLAVE_SESION = 'sesion';
 

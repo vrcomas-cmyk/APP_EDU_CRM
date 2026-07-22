@@ -15,7 +15,7 @@
 
 import { puede, esAdministrador, flujosDisponibles, conteoPendientes } from '@core/puente';
 
-export type ClaveModulo = 'calendario' | 'dashboard' | 'revision' | 'administracion';
+export type ClaveModulo = 'calendario' | 'mi-dia' | 'estrategias' | 'dashboard' | 'revision' | 'administracion';
 
 export interface Modulo {
     clave: ClaveModulo;
@@ -40,6 +40,24 @@ export const MODULOS: Modulo[] = [
         // Sin condición: es la pantalla de trabajo. Quien entra a la app viene a esto.
         disponible: () => true,
         contexto: true
+    },
+    {
+        clave: 'mi-dia',
+        nombre: 'Mi día',
+        corto: 'Hoy',
+        icono: '☀',
+        // Mismo permiso que Indicadores: es la misma pregunta ("¿cómo voy?"), resuelta más
+        // rápido y acotada a hoy.
+        disponible: () => puede('dashboards', 'personal')
+    },
+    {
+        clave: 'estrategias',
+        nombre: 'Estrategias',
+        corto: 'Estrategia',
+        icono: '🎯',
+        // Cliente × Sector × Grupo de Artículo: cualquiera que capture visitas la usa para
+        // planearlas, así que el mismo permiso que abre el calendario abre esto.
+        disponible: () => puede('visitas', 'crear')
     },
     {
         clave: 'dashboard',

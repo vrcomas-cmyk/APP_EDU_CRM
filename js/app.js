@@ -24,6 +24,7 @@ import {
 import { ponerVisitasEquipo, olvidarVisitasEquipo } from './datos.js';
 import { ponerFlujos, ponerRevisiones, olvidarRevisiones } from './revisiones.js';
 import { initAuth, sesionActual, pintarBotonEntrada, intentarRefresco, cerrarSesion } from './auth.js';
+import { initTema } from './tema.js';
 
 let el = {};
 let sincronizando = false;
@@ -61,6 +62,8 @@ document.addEventListener('DOMContentLoaded', () => {
         olvidarRevisiones();
         cerrarSesion();
     });
+
+    initTema(document.getElementById('tema-switch'));
 
     initPermisos();
     initAuth({ onSesion: alCambiarSesion });

@@ -12,6 +12,8 @@ interface PropsPie {
     enSector: boolean;
     reagendando: boolean;
     guardadoReciente: boolean;
+    /** Visita de otra persona: se puede consultar, no reagendar ni cancelar. */
+    soloLectura?: boolean;
     onVolver: () => void;
     onCerrar: () => void;
     onGuardar: () => void;
@@ -72,11 +74,13 @@ function PieBorrador({ visita, onCerrar, onGuardar }: PropsPie) {
 }
 
 function PieGuardada({
-    visita, reagendando, guardadoReciente, onCerrar, onDuplicar, onReagendar, onCancelar
+    visita, reagendando, guardadoReciente, soloLectura, onCerrar, onDuplicar, onReagendar, onCancelar
 }: PropsPie) {
     // Reagendar y cancelar dejan de tener sentido una vez que se marcó la salida: la visita
-    // ya ocurrió, y moverla reescribiría un hecho.
-    const movible = estadoDe(visita) !== ESTADOS.CANCELADA && !tieneCheckOut(visita);
+    // ya ocurrió, y moverla reescribiría un hecho. Tampoco tienen sentido sobre la visita de
+    // otra persona: reagendarla o cancelarla la pasaría a nombre de quien la mira, no de quien
+    // la capturó — el mismo motivo por el que `puedeEditarVisita` la bloquea al guardar.
+    const movible = estadoDe(visita) !== ESTADOS.CANCELADA && !tieneCheckOut(visita) && !soloLectura;
 
     return (
         <div className="drawer-foot">

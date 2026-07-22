@@ -11,6 +11,7 @@
  */
 
 import * as almacen from '../../../../js/storage.js';
+import { consultarVisitas } from '../../../../js/datos.js';
 
 import type { Visita } from '@core/tipos';
 import { puedeEditarVisita } from '../permissions/edicion';
@@ -19,8 +20,20 @@ export function leerVisitas(): Visita[] {
     return almacen.leerVisitas() as Visita[];
 }
 
+/**
+ * Busca primero en lo local (lo capturado en este teléfono); si no está ahí, en lo visible
+ * por `consultarVisitas` (equipo, por jerarquía, vía el espejo de Supabase).
+ *
+ * Sin este segundo intento, abrir una visita que el Calendario ya muestra —porque
+ * `consultarVisitas` la trae del equipo— no encontraba nada que dibujar: el drawer lee por
+ * id, `useVisita` devolvía `null` y el componente se quedaba en blanco. `puedeEditarVisita`
+ * ya compara por correo sin importar de dónde vino el dato, así que traerla de aquí no abre
+ * ninguna puerta de edición que no estuviera cerrada antes: solo la deja VER y abrir.
+ */
 export function obtenerVisita(id: string): Visita | null {
-    return (almacen.obtenerVisita(id) ?? null) as Visita | null;
+    const local = (almacen.obtenerVisita(id) ?? null) as Visita | null;
+    if (local) return local;
+    return (consultarVisitas() as Visita[]).find(v => v.id === id) ?? null;
 }
 
 export function agregarVisita(visita: Visita): Visita {
@@ -63,6 +76,11 @@ export function nuevoId(prefijo: string): string {
 /** Hospitales ya escritos, del más usado al menos. Alimenta las sugerencias. */
 export function historialHospitales(): string[] {
     return almacen.historialHospitales() as string[];
+}
+
+/** Lo mismo, para cualquier campo de texto libre de la visita (por ahora, solo "zona"). */
+export function historialDeCampo(campo: string): string[] {
+    return almacen.historialDeCampo(campo) as string[];
 }
 
 /** Clientes del catálogo descargado. Son ~11.5k: nunca se pintan todos. */

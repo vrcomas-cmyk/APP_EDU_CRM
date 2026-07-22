@@ -7,7 +7,8 @@
 
 import { useMemo } from 'react';
 import {
-    claveHoy, desdeClave, etiquetaDiaLarga, DIAS_ABREV, repartirEnColumnas
+    claveHoy, desdeClave, etiquetaDiaLarga, DIAS_ABREV, repartirEnColumnas,
+    type CompromisoCalendar
 } from '@core/puente';
 import { type Ventana, altoDeVentana } from '../services/ventana';
 import { TarjetaVisita } from './TarjetaVisita';
@@ -18,6 +19,8 @@ interface Props {
     clase: 'dia' | 'semana';
     ventana: Ventana;
     visitasDe: (clave: string) => Visita[];
+    /** Lo que ya está en Google Calendar (juntas, bloqueos) — de solo lectura, no se arrastra. */
+    compromisosDe?: (clave: string) => CompromisoCalendar[];
     onPointerDownColumna: (e: React.PointerEvent<HTMLDivElement>, dia: string) => void;
     onPointerDownCuerpo: (e: React.PointerEvent<HTMLElement>, visita: Visita, duracionH: number) => void;
     onPointerDownManija: (e: React.PointerEvent<HTMLElement>, visita: Visita, duracionH: number) => void;
@@ -25,7 +28,7 @@ interface Props {
 }
 
 export function RejillaHoras({
-    claves, clase, ventana, visitasDe,
+    claves, clase, ventana, visitasDe, compromisosDe,
     onPointerDownColumna, onPointerDownCuerpo, onPointerDownManija, onAbrir
 }: Props) {
     const hoy = claveHoy();
@@ -69,6 +72,7 @@ export function RejillaHoras({
                     horas={horas}
                     ventana={ventana}
                     visitas={visitasDe(clave)}
+                    compromisos={compromisosDe?.(clave) ?? []}
                     clase={clase}
                     onPointerDownColumna={onPointerDownColumna}
                     onPointerDownCuerpo={onPointerDownCuerpo}
@@ -86,6 +90,7 @@ interface PropsColumna {
     horas: number[];
     ventana: Ventana;
     visitas: Visita[];
+    compromisos: CompromisoCalendar[];
     clase: string;
     onPointerDownColumna: Props['onPointerDownColumna'];
     onPointerDownCuerpo: Props['onPointerDownCuerpo'];
@@ -94,7 +99,7 @@ interface PropsColumna {
 }
 
 function ColumnaDia({
-    clave, esHoy, horas, ventana, visitas, clase,
+    clave, esHoy, horas, ventana, visitas, compromisos, clase,
     onPointerDownColumna, onPointerDownCuerpo, onPointerDownManija, onAbrir
 }: PropsColumna) {
     // Las que se pisan se reparten en columnas para dibujarse lado a lado. El grupo es una
@@ -111,6 +116,12 @@ function ColumnaDia({
 
             {esHoy && <LineaAhora ventana={ventana} />}
 
+            {/* Antes que las visitas: quedan por debajo (z-index más bajo) y nunca les roban
+                el gesto de arrastrar cuando se pisan en la pantalla. */}
+            {compromisos.map(c => (
+                <BloqueCompromiso key={c.id} compromiso={c} ventana={ventana} />
+            ))}
+
             {repartidas.map(({ visita, columna, columnas }) => (
                 <TarjetaVisita
                     key={visita.id}
@@ -124,6 +135,61 @@ function ColumnaDia({
                     onAbrir={onAbrir}
                 />
             ))}
+        </div>
+    );
+}
+
+/**
+ * Lo que ya está en Google Calendar (junta, bloqueo). De solo lectura a propósito: no es una
+ * visita, no se arrastra ni se abre en un drawer — clic la lleva a Calendar, que es donde de
+ * verdad vive y se edita.
+ */
+function BloqueCompromiso({ compromiso, ventana }: { compromiso: CompromisoCalendar; ventana: Ventana }) {
+    // Todo el día no tiene una hora que posicionar en la rejilla; se deja fuera aquí y ya se
+    // ve en el resumen de "Mi día".
+    if (compromiso.todoElDia) return null;
+
+    const inicio = new Date(compromiso.inicio);
+    const fin = new Date(compromiso.fin);
+    if (Number.isNaN(inicio.getTime()) || Number.isNaN(fin.getTime())) return null;
+
+    const desplazamiento = inicio.getHours() + inicio.getMinutes() / 60 - ventana.desde;
+    // Duración real para POSICIONAR, pero nunca tan angosta como para que el bloque desaparezca:
+    // una junta de 15 min sigue necesitando alto suficiente para leer la hora y el título.
+    const duracionReal = (fin.getTime() - inicio.getTime()) / 3600000;
+    const duracion = Math.max(duracionReal, 0.25);
+    const compacta = duracionReal < 0.75;
+
+    const hora = `${String(inicio.getHours()).padStart(2, '0')}:${String(inicio.getMinutes()).padStart(2, '0')}`;
+    const contenido = compacta ? (
+        <span className="ev-client">{hora} · {compromiso.titulo}</span>
+    ) : (
+        <>
+            <span className="ev-time">{hora}</span>
+            <span className="ev-client">{compromiso.titulo}</span>
+        </>
+    );
+
+    const clases = 'ev compromiso-externo' + (compacta ? ' compacta' : '');
+    const estilo = {
+        '--s': desplazamiento.toFixed(3), '--dur': duracion.toFixed(3), '--col': 0, '--cols': 1
+    } as React.CSSProperties;
+    const titulo = `${compromiso.titulo} · en Google Calendar`;
+
+    return compromiso.url ? (
+        <a
+            className={clases}
+            style={estilo}
+            href={compromiso.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={titulo}
+        >
+            {contenido}
+        </a>
+    ) : (
+        <div className={clases} style={estilo} title={compromiso.titulo}>
+            {contenido}
         </div>
     );
 }

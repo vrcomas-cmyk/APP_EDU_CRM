@@ -9,6 +9,8 @@
 import { useState } from 'react';
 import { reagendarVisita, type Avisar } from '@core/puente';
 import { moverInicio } from '../services/horario';
+import { reflejarEnCalendar } from '../services/calendarSync';
+import * as repo from '../repository/visitasRepo';
 import type { Visita } from '@core/tipos';
 
 interface Props {
@@ -41,6 +43,9 @@ export function BloqueReagendar({ visita, avisar, alReagendar }: Props) {
         }
 
         avisar('Visita reagendada. Queda el registro del cambio.', { estado: 'completa' });
+        if (r.visita) {
+            void reflejarEnCalendar(r.visita, (mutador) => repo.actualizarVisita(visita.id, mutador), avisar);
+        }
         alReagendar();
     }
 

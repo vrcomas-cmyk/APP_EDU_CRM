@@ -22,22 +22,38 @@ export interface OpcionesSector {
     alCerrar?: () => void;
 }
 
+/**
+ * Devuelve `destruir`: un desmontaje forzado y silencioso, sin avisar a nadie.
+ *
+ * El drawer que la aloja lo necesita para cerrarse él mismo sin dejar esta ventana viva. Antes
+ * no existía manera de hacerlo desde fuera: cada raíz de React se crea por separado
+ * (`createRoot`), así que desmontar la del drawer NUNCA desmontaba esta — quedaba huérfana,
+ * con su `useEffect` de Escape todavía escuchando en `document` para siempre. El síntoma era
+ * intermitente porque solo pasaba si se salía sin cerrar antes esta ventana a mano.
+ */
 export function abrirSector({
     host, visitaId, sectorId = null,
     alCambiar = () => {}, alToast = () => {}, alCerrar = () => {}
-}: OpcionesSector): void {
+}: OpcionesSector): () => void {
     const contenedor = document.createElement('div');
     contenedor.className = 'sector-host';
     host.appendChild(contenedor);
 
     const raiz: Root = createRoot(contenedor);
+    let desmontada = false;
+
+    const destruir = () => {
+        if (desmontada) return;
+        desmontada = true;
+        raiz.unmount();
+        contenedor.remove();
+    };
 
     const cerrar = () => {
         // Desmontar dentro del render que lo provoca hace que React se queje; el cierre
         // siempre llega desde un manejador de la propia ventana.
         queueMicrotask(() => {
-            raiz.unmount();
-            contenedor.remove();
+            destruir();
             alCambiar();
             alCerrar();
         });
@@ -54,4 +70,6 @@ export function abrirSector({
             />
         </StrictMode>
     );
+
+    return destruir;
 }

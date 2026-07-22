@@ -92,6 +92,24 @@ export function unidades()        { return delCatalogo('unidades', UNIDADES_POR_
 export function tiposEvidencia()  { return delCatalogo('tipos_evidencia', TIPOS_EVIDENCIA_POR_DEFECTO); }
 
 /**
+ * Zona del cliente ("Gpo. vendedores" en la hoja de Clientes) y Ejecutivo que le reporta a
+ * esa zona ("Ejecutivos", columna Zona → columna Ejecutivo). Ninguna de las dos se escribe a
+ * mano: la Zona sale de elegir el cliente, y el Ejecutivo sale de la Zona ya resuelta — dos
+ * saltos automáticos, no dos catálogos que curar.
+ */
+export function zonaDeCliente(cliente) {
+    const mapa = leerCatalogo()?.clientes_zona;
+    if (!mapa || typeof mapa !== 'object') return '';
+    return String(mapa[cliente] || '').trim();
+}
+
+export function ejecutivoDeZona(zona) {
+    const mapa = leerCatalogo()?.ejecutivos;
+    if (!mapa || typeof mapa !== 'object' || !zona) return '';
+    return String(mapa[zona] || '').trim();
+}
+
+/**
  * Sectores que el educador puede elegir.
  *
  * Se administran CURANDO la lista que sale de la hoja de Materiales, no escribiéndola libre:
@@ -244,3 +262,30 @@ export function buscarMateriales(sector, consulta, limite = 40) {
 export function hayMateriales(sector) {
     return materialesDe(sector).length > 0;
 }
+
+// ---------- estrategias ----------
+
+/**
+ * Valores por defecto de "Descr. Grupo de Art.", SOLO para cuando el catálogo aún no
+ * descargó nada (primer arranque, sin red). En cuanto `Codigo.gs` lea la columna real de la
+ * pestaña "Materiales" —deduplicada, igual que los sectores— esa lista manda.
+ */
+export const GRUPOS_ARTICULO_POR_DEFECTO = [
+    'Cardinal', 'Desechables', 'Guantes', 'Urología', 'Suturas', 'Hipodérmicos',
+    'Terapia de Infusión', 'Adhesivos', 'Cuidado de Heridas', 'Terapia Respiratoria',
+    'Ortopedia', 'Pañal', 'Productos Para Quirófano', 'Algodón y Aplicadores',
+    'Antisépticos y Alcohol', 'Gasas', 'Medias', 'Productos Básicos', 'Vendas'
+];
+
+/**
+ * "Descr. Grupo de Art." del tablero de Estrategias (CRM de Gerencia de Marca): la familia
+ * comercial del producto, no el sector clínico. Un mismo sector (p. ej. Quirófano) puede
+ * trabajar varios grupos, y un grupo se sigue igual sin importar en qué sector se ofrezca —
+ * por eso son dos catálogos distintos y no uno solo. Sale de "Materiales" deduplicada, con el
+ * mismo mecanismo que ya resuelve `sectores()`.
+ */
+export function gruposArticulo() {
+    return delCatalogo('grupos_articulo', GRUPOS_ARTICULO_POR_DEFECTO);
+}
+
+export const ETAPAS_ESTRATEGIA = ['Prospección', 'En desarrollo', 'Consolidado', 'En riesgo'];

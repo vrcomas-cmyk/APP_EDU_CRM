@@ -157,14 +157,23 @@ export function Combo({
     );
 }
 
-/** Filtro por subcadena, recortado. El mismo que usaban cliente y hospital. */
-export function filtrar(lista: string[], consulta: string, limite = MAX_SUGERENCIAS): string[] {
+/**
+ * Filtro por subcadena, recortado. El mismo que usaban cliente y hospital.
+ *
+ * `listaLower` es opcional: quien filtra sobre un catálogo grande (~11,500 clientes) y lo
+ * memoiza una sola vez puede pasar la versión ya en minúsculas, para no rehacer
+ * `.toLowerCase()` de las 11,500 entradas en CADA tecla que se escribe — antes ese costo se
+ * repetía en cada letra del campo Cliente, que es justo el que más se usa al capturar.
+ */
+export function filtrar(lista: string[], consulta: string, limite = MAX_SUGERENCIAS, listaLower?: string[]): string[] {
     if (!consulta) return lista.slice(0, limite);
 
     const n = consulta.toLowerCase();
     const salida: string[] = [];
-    for (const item of lista) {
-        if (item.toLowerCase().includes(n)) {
+    for (let i = 0; i < lista.length; i++) {
+        const item = lista[i]!;
+        const bajo = listaLower ? listaLower[i]! : item.toLowerCase();
+        if (bajo.includes(n)) {
             salida.push(item);
             if (salida.length === limite) break;
         }

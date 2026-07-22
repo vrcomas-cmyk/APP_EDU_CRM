@@ -80,6 +80,21 @@ export function useFlujos({ activo, avisar, confirmar, onGuardado }: Opciones): 
         setGuardando(true);
         setError(null);
         try {
+            // Choque con otro administrador: mismo riesgo que en `useRBAC` — `guardarFlujosAdmin`
+            // manda el estado completo, no un diff. Se compara contra un vistazo fresco antes de
+            // escribir; los cambios locales no se tocan, solo se avisa.
+            const fresco = await leerFlujosAdmin();
+            const enServidor = JSON.stringify({ flujos: fresco.flujos });
+            if (enServidor !== inicial) {
+                setInicial(enServidor);
+                avisar?.(
+                    'Alguien más guardó cambios en Flujos desde que abriste esta pantalla. ' +
+                    'Tus cambios siguen aquí sin guardar — revísalos contra lo más reciente antes de guardar de nuevo.',
+                    { estado: 'sin-registrar', ms: 9000 }
+                );
+                return;
+            }
+
             const { flujos, eliminar } = flujosParaGuardar(original.flujos, borrador.flujos);
             const resp = await guardarFlujosAdmin({ flujos, eliminar }) as
                 { status?: string; message?: string };

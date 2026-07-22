@@ -91,7 +91,8 @@ function TiraSemana({ cursor, visitasDe, onElegirDia }: Omit<Props, 'onAbrir'>) 
     );
 }
 
-function FilaAgenda({ visita, onAbrir }: { visita: Visita; onAbrir: (id: string) => void }) {
+/** Se reutiliza en `Mi día`: misma fila, misma lectura de un vistazo. */
+export function FilaAgenda({ visita, onAbrir }: { visita: Visita; onAbrir: (id: string) => void }) {
     const salud = saludDe(visita);
     const estado = estadoDe(visita);
 

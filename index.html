@@ -8,6 +8,23 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#F5F8F7" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#0D1112" media="(prefers-color-scheme: dark)">
+    <!-- Sin `media`: cuando hay un tema elegido a mano, este gana sobre los dos de arriba. -->
+    <meta name="theme-color" id="meta-tema-elegido">
+    <script>
+        // Bloqueante y a propósito: fija el tema ANTES del primer paint. Si esto corriera en
+        // js/app.js (un módulo, que siempre difiere), habría un parpadeo del tema por defecto
+        // al tema guardado en cada carga.
+        (function () {
+            try {
+                var t = localStorage.getItem('pdt_tema');
+                var colores = { light: '#F5F8F7', dark: '#0D1112', degasa: '#F7F9F1' };
+                if (t === 'light' || t === 'dark' || t === 'degasa') {
+                    document.documentElement.dataset.theme = t;
+                    document.getElementById('meta-tema-elegido').setAttribute('content', colores[t]);
+                }
+            } catch (e) {}
+        })();
+    </script>
 </head>
 <body>
     <div class="gate" id="gate">
@@ -48,6 +65,18 @@
             </div>
 
             <span class="appbar-spacer"></span>
+
+            <div class="seg tema-switch" id="tema-switch" role="group" aria-label="Tema">
+                <button type="button" data-tema="light" aria-pressed="false" aria-label="Claro" title="Claro">
+                    <span class="tema-swatch tema-swatch-claro"></span>
+                </button>
+                <button type="button" data-tema="dark" aria-pressed="false" aria-label="Oscuro" title="Oscuro">
+                    <span class="tema-swatch tema-swatch-oscuro"></span>
+                </button>
+                <button type="button" data-tema="degasa" aria-pressed="false" aria-label="DEGASA" title="DEGASA">
+                    <span class="tema-swatch tema-swatch-degasa"></span>
+                </button>
+            </div>
 
             <button type="button" id="btn-deuda" class="deuda" hidden>
                 <span class="dot st-faltan-evidencias" style="--st: var(--st-part)"></span>

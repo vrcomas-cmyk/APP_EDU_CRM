@@ -8,7 +8,10 @@
 
 import { useCallback, useMemo } from 'react';
 import { Combo, filtrar } from '@shared/components/Combo';
-import { etiquetaDiaLarga, buscarSolapes, estadoDe, ESTADOS, type Avisar } from '@core/puente';
+import {
+    etiquetaDiaLarga, buscarSolapes, estadoDe, ESTADOS, consultarVisitas,
+    zonaDeCliente, ejecutivoDeZona, type Avisar
+} from '@core/puente';
 import { moverInicio, cambiarFin } from '../services/horario';
 import * as repo from '../repository/visitasRepo';
 import { HistoricoCliente } from './HistoricoCliente';
@@ -39,7 +42,59 @@ export function FormularioVisita({ visita, editar, avisar }: Props) {
             </label>
 
             <CampoHoras visita={visita} editar={editar} avisar={avisar} />
+
+            <div className="grid-2">
+                <CampoZona visita={visita} editar={editar} />
+                <DatoEjecutivo visita={visita} />
+            </div>
+
+            <label className="campo">
+                <span className="campo-lbl">Notas</span>
+                <textarea
+                    className="inp notas-area" rows={2}
+                    placeholder="Nota de planeación (no es un comentario)"
+                    value={visita.notas || ''}
+                    onChange={(e) => editar(v => { v.notas = e.target.value; })}
+                />
+            </label>
         </>
+    );
+}
+
+/**
+ * Zona automática: se resuelve sola al elegir el Cliente (ver `CampoCliente`), desde
+ * "Gpo. vendedores" de la hoja Clientes. Sigue siendo un Combo editable —no un dato fijo—
+ * porque un cliente que el catálogo todavía no trae deja la Zona vacía, y alguien tiene que
+ * poder escribirla a mano para que la visita no se quede sin Ejecutivo tampoco.
+ */
+function CampoZona({ visita, editar }: { visita: Visita; editar: Props['editar'] }) {
+    const previas = useMemo(() => repo.historialDeCampo('zona'), []);
+    const opciones = useCallback((q: string) => filtrar(previas, q), [previas]);
+
+    /** Corregir la Zona a mano recalcula el Ejecutivo: son un salto, no dos datos sueltos. */
+    function fijarZona(zona: string) {
+        editar(v => { v.zona = zona; v.ejecutivo = ejecutivoDeZona(zona); });
+    }
+
+    return (
+        <Combo
+            etiqueta="Zona"
+            valor={visita.zona || ''}
+            placeholder="Se llena sola al elegir el cliente"
+            opciones={opciones}
+            onElegir={fijarZona}
+            onEscribir={fijarZona}
+        />
+    );
+}
+
+/** Ejecutivo: 100% automático (Zona → Ejecutivo). No se escribe, solo se muestra. */
+function DatoEjecutivo({ visita }: { visita: Visita }) {
+    return (
+        <div className="campo">
+            <span className="campo-lbl">Ejecutivo</span>
+            <p className="dato-val">{visita.ejecutivo || '—'}</p>
+        </div>
     );
 }
 
@@ -67,7 +122,13 @@ function CampoEducador({ visita }: { visita: Visita }) {
 function CampoCliente({ visita, editar }: { visita: Visita; editar: Props['editar'] }) {
     // Se lee una vez: son ~11,500 y releerlos en cada tecla recorre el arreglo entero.
     const clientes = useMemo(() => repo.clientesDelCatalogo(), []);
-    const opciones = useCallback((q: string) => filtrar(clientes, q), [clientes]);
+    // Minúsculas precalculadas una sola vez: si no, cada tecla vuelve a hacer `.toLowerCase()`
+    // de las 11,500 entradas dentro de `filtrar`, y ese es el campo que más se escribe.
+    const clientesLower = useMemo(() => clientes.map(c => c.toLowerCase()), [clientes]);
+    const opciones = useCallback(
+        (q: string) => filtrar(clientes, q, undefined, clientesLower),
+        [clientes, clientesLower]
+    );
 
     return (
         <Combo
@@ -76,7 +137,14 @@ function CampoCliente({ visita, editar }: { visita: Visita; editar: Props['edita
             placeholder="Busca N° o razón social…"
             opciones={opciones}
             total={clientes.length}
-            onElegir={(c) => editar(v => { v.cliente = c; })}
+            onElegir={(c) => editar(v => {
+                v.cliente = c;
+                // Zona y Ejecutivo se resuelven solos al ELEGIR un cliente real del catálogo:
+                // escribir texto libre (abajo) no dispara la búsqueda, porque todavía no es
+                // un cliente que exista en la hoja de Clientes.
+                v.zona = zonaDeCliente(c);
+                v.ejecutivo = ejecutivoDeZona(v.zona);
+            })}
             onEscribir={(texto) => editar(v => { v.cliente = texto; })}
         />
     );
@@ -155,16 +223,27 @@ function CampoHoras({ visita, editar, avisar }: Props) {
 
 /** Avisa, no bloquea: a veces las visitas se solapan de verdad. */
 function AvisoSolape({ visita }: { visita: Visita }) {
+    const { dia, hora_inicio: horaInicio, hora_fin: horaFin, id } = visita;
+
     const choques = useMemo(() => {
-        if (!visita.dia || !visita.hora_inicio || !visita.hora_fin) return [];
-        const vivas = repo.leerVisitas().filter(v => estadoDe(v) !== ESTADOS.CANCELADA);
-        return buscarSolapes(vivas, visita, visita.id);
-    }, [visita]);
+        if (!dia || !horaInicio || !horaFin) return [];
+        // `consultarVisitas()` (local + espejo de equipo), no solo local: si no, un choque
+        // contra una visita capturada en otro dispositivo —o la de alguien más, para quien
+        // agenda por su equipo— nunca se avisaba.
+        const vivas = consultarVisitas().filter(v => estadoDe(v) !== ESTADOS.CANCELADA);
+        return buscarSolapes(vivas, visita, id);
+        // Deps por campo, no por el objeto `visita` completo: ese objeto es una referencia
+        // nueva cada vez que `editar()` relee el almacén, así que escribir en CUALQUIER otro
+        // campo (Hospital, Notas…) recalculaba este choque sobre todas las visitas locales sin
+        // que el horario hubiera cambiado — el costo real de este aviso es por tecla, no por
+        // cambio de horario.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [dia, horaInicio, horaFin, id]);
 
     if (choques.length === 0) return null;
 
     const quien = choques
-        .map(v => `${v.hora_inicio} ${v.cliente || 'Sin cliente'}`)
+        .map(v => `${v.hora_inicio}–${v.hora_fin} ${v.cliente || 'Sin cliente'}`)
         .join(', ');
 
     return (
@@ -177,11 +256,13 @@ function AvisoSolape({ visita }: { visita: Visita }) {
 }
 
 /** Lo que identifica a la visita, en frío. Reemplaza al formulario una vez guardada. */
-export function PanelInformacion({ visita }: { visita: Visita }) {
+export function PanelInformacion({ visita, editar }: { visita: Visita; editar?: Props['editar'] }) {
     const filas: Array<[string, string]> = [
         ['Educador', visita.educador || '—'],
         ['Cliente', visita.cliente || '—'],
         ['Hospital', visita.hospital || '—'],
+        ['Zona', visita.zona || '—'],
+        ['Ejecutivo', visita.ejecutivo || '—'],
         ['Fecha', etiquetaDiaLarga(visita.dia)],
         ['Horario', `${visita.hora_inicio}–${visita.hora_fin}`],
         ['Sectores', String((visita.sectores || []).length)]
@@ -206,6 +287,21 @@ export function PanelInformacion({ visita }: { visita: Visita }) {
             <p className="ayuda">
                 Estos datos identifican la visita y no se editan. Usa Reagendar o Cancelar.
             </p>
+
+            {/* Notas SÍ se puede seguir corrigiendo: es una nota de planeación, no lo que la
+                visita afirma haber hecho —a diferencia del resto de este panel, y a
+                diferencia de los Comentarios, que son un hilo inmutable. */}
+            {editar && (
+                <label className="campo">
+                    <span className="campo-lbl">Notas</span>
+                    <textarea
+                        className="inp notas-area" rows={2}
+                        placeholder="Nota de planeación (no es un comentario)"
+                        value={visita.notas || ''}
+                        onChange={(e) => editar(v => { v.notas = e.target.value; })}
+                    />
+                </label>
+            )}
         </div>
     );
 }

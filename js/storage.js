@@ -12,6 +12,7 @@ const CLAVE_CATALOGO = 'datosPWA';
 const CLAVE_BACKUP = 'visitas_backup_v1';
 const CLAVE_VERSION_MODELO = 'modelo_version';
 const VERSION_MODELO = 6;
+const CLAVE_ESTRATEGIAS = 'pdt_estrategias';
 
 /**
  * Modelo v6.
@@ -120,6 +121,57 @@ export function eliminarVisita(id) {
     guardarVisitas(leerVisitas().filter(v => v.id !== id));
 }
 
+// ---------- estrategias ----------
+//
+// Cliente × Sector × Grupo de Artículo: qué plan se va a trabajar ahí. Cualquier educador o
+// gerente la escribe o la corrige —no hay dueño único, como sí lo hay en una visita—, así que
+// no lleva "sello" ni se congela: es una referencia viva que se actualiza en el sitio.
+
+export function leerEstrategias() {
+    try {
+        const crudo = localStorage.getItem(CLAVE_ESTRATEGIAS);
+        return crudo ? JSON.parse(crudo) : [];
+    } catch (err) {
+        console.error('No se pudieron leer las estrategias:', err);
+        return [];
+    }
+}
+
+export function guardarEstrategias(estrategias) {
+    localStorage.setItem(CLAVE_ESTRATEGIAS, JSON.stringify(estrategias));
+}
+
+export function upsertEstrategia(estrategia) {
+    const lista = leerEstrategias();
+    const i = lista.findIndex(e => e.id === estrategia.id);
+    if (i === -1) lista.push(estrategia); else lista[i] = estrategia;
+    guardarEstrategias(lista);
+    return estrategia;
+}
+
+export function eliminarEstrategia(id) {
+    guardarEstrategias(leerEstrategias().filter(e => e.id !== id));
+}
+
+/**
+ * Mezcla lo que trajo el servidor con lo que hay en el teléfono.
+ *
+ * El servidor manda: es la referencia compartida por todo el equipo. La única excepción es lo
+ * que este mismo dispositivo editó y todavía no ha subido —`sincronizado === false`—, porque
+ * eso el servidor ni siquiera lo vio todavía; pisarlo con la versión vieja lo borraría.
+ */
+export function fusionarEstrategiasEquipo(remotas) {
+    const locales = leerEstrategias();
+    const pendientes = locales.filter(e => e.sincronizado === false);
+    const idsPendientes = new Set(pendientes.map(e => e.id));
+
+    const delServidor = remotas
+        .filter(r => !idsPendientes.has(r.id))
+        .map(r => ({ ...r, sincronizado: true }));
+
+    guardarEstrategias([...delServidor, ...pendientes]);
+}
+
 // ---------- catálogo ----------
 
 export function leerCatalogo() {
@@ -165,14 +217,23 @@ export function evidenciasLocales(visitas = leerVisitas()) {
  * escritura converja sola sin obligar a configurar un catálogo.
  */
 export function historialHospitales(visitas = leerVisitas()) {
+    return historialDeCampo('hospital', visitas);
+}
+
+/**
+ * Valores ya escritos en un campo de texto libre de la visita, del más usado al menos.
+ * Generaliza `historialHospitales`: mismo problema para "zona" y "gerente_marca" —texto
+ * libre que conviene sugerir para que converja solo, sin ser un catálogo cerrado.
+ */
+export function historialDeCampo(campo, visitas = leerVisitas()) {
     const cuenta = new Map();
     visitas.forEach(v => {
-        const h = (v.hospital || '').trim();
-        if (h) cuenta.set(h, (cuenta.get(h) || 0) + 1);
+        const valor = String(v[campo] || '').trim();
+        if (valor) cuenta.set(valor, (cuenta.get(valor) || 0) + 1);
     });
     return Array.from(cuenta.entries())
         .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-        .map(([nombre]) => nombre);
+        .map(([valor]) => valor);
 }
 
 // ---------- IndexedDB (archivos de evidencia) ----------

@@ -15,6 +15,8 @@ import { Navegacion } from './navegacion/Navegacion';
 import { resolverModulo, type ClaveModulo } from './navegacion/modulos';
 import { Calendario, type ControlesExternos, type MandosNavegacion } from '@modules/agenda/components/Calendario';
 import { Dashboard } from '@modules/dashboard/components/Dashboard';
+import { Estrategias } from '@modules/estrategias/components/Estrategias';
+import { MiDia } from '@modules/midia/components/MiDia';
 import { Revision } from '@modules/revision/components/Revision';
 import { Administracion } from '@modules/administracion/components/Administracion';
 import type { Avisar } from '@core/puente';
@@ -98,6 +100,12 @@ function Shell() {
                 ) : (
                     <ContextoOculto controles={controles} />
                 )}
+
+                {activo === 'mi-dia' && (
+                    <MiDia onAbrirVisita={(id) => opciones.onAbrirVisita?.(id)} />
+                )}
+
+                {activo === 'estrategias' && <Estrategias avisar={opciones.onToast} />}
 
                 {activo === 'dashboard' && <Dashboard />}
 

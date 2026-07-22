@@ -16,9 +16,11 @@ interface PropsLista {
     visita: Visita;
     onAbrirSector: (sectorId: string) => void;
     onAgregarSector: () => void;
+    /** Visita de otra persona: se ve, no se le agrega nada. Ver `puedeEditarVisita`. */
+    soloLectura?: boolean;
 }
 
-export function ListaSectores({ visita, onAbrirSector, onAgregarSector }: PropsLista) {
+export function ListaSectores({ visita, onAbrirSector, onAgregarSector, soloLectura }: PropsLista) {
     const sectores = visita.sectores || [];
     const cancelada = estadoDe(visita) === ESTADOS.CANCELADA;
 
@@ -46,7 +48,7 @@ export function ListaSectores({ visita, onAbrirSector, onAgregarSector }: PropsL
             </div>
 
             {/* Un solo botón en vez de la pared de chips del catálogo: elegir vive en su ventana. */}
-            {!cancelada && (
+            {!cancelada && !soloLectura && (
                 <button type="button" className="btn-dashed" onClick={onAgregarSector}>
                     + Agregar sector
                 </button>

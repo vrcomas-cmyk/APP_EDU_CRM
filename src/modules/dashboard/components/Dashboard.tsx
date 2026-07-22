@@ -76,6 +76,17 @@ function Cuerpo({ ind, visitas }: { ind: Indicadores; visitas: Visita[] }) {
 
     const porEducador = tieneEquipo() ? top(ind.por_educador, 10) : [];
 
+    // Sin memoizar, las tres se recalculaban en CADA render de `Cuerpo` —incluido cada tecla en
+    // un filtro que ni siquiera las toca—. `contarNoAceptadas` es la más cara: por cada
+    // actividad relee y concatena TODO el historial de revisión desde `localStorage`
+    // (`todasLasRevisiones`), así que repetirla de más era un `JSON.parse` del historial
+    // completo, veces cada actividad visible, en el hilo principal.
+    const medidasEvidencia = useMemo(() => medidasDeEvidencia(ind, visitas), [ind, visitas]);
+    const porEducadorTabla = useMemo(
+        () => (tieneEquipo() ? indicadoresPorEducador(visitas) : []),
+        [visitas]
+    );
+
     return (
         <div className="panel-body">
             <Tiles ind={ind} />
@@ -87,7 +98,7 @@ function Cuerpo({ ind, visitas }: { ind: Indicadores; visitas: Visita[] }) {
             <Seccion titulo="Evidencias">
                 <Medidas
                     modo="porcentaje"
-                    medidas={medidasDeEvidencia(ind, visitas)}
+                    medidas={medidasEvidencia}
                     vacio={<p className="ayuda">Ninguna actividad de este resultado exige evidencia.</p>}
                 />
             </Seccion>
@@ -96,7 +107,7 @@ function Cuerpo({ ind, visitas }: { ind: Indicadores; visitas: Visita[] }) {
                 al que se está quedando atrás, así que va desglosado por persona. */}
             {tieneEquipo() && (
                 <Seccion titulo="Cumplimiento por educador">
-                    <TablaEducadores filas={indicadoresPorEducador(visitas)} />
+                    <TablaEducadores filas={porEducadorTabla} />
                 </Seccion>
             )}
 

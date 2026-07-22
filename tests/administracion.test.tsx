@@ -263,7 +263,9 @@ describe('la pantalla', () => {
     });
 
     test('un catálogo roto NO se sube, y se dice por qué', async () => {
-        guardarCatalogo(catalogoSano({ origenes: [] }));
+        // Sin ningún tipo de actividad sí es un catálogo roto de verdad: no hay default que
+        // lo tape, porque un tipo inventado no significaría nada.
+        guardarCatalogo(catalogoSano({ tipos_actividad: [] }));
 
         const avisos: string[] = [];
         pintar({ avisar: (t: string) => avisos.push(t) });
@@ -271,7 +273,22 @@ describe('la pantalla', () => {
         await act(async () => { fireEvent.click(screen.getByText('Guardar cambios')); });
 
         assert.equal(subidas.length, 0, 'esto lo usan TODOS los educadores');
-        assert.ok(avisos[0]?.includes('Orígenes'));
+        assert.ok(avisos[0]?.includes('tipo de actividad'));
+    });
+
+    test('listas simples vacías (Orígenes, Áreas…) caen en sus defaults y SÍ se suben', async () => {
+        // Antes del fix, `origenes: []` en el catálogo (una pestaña que Administración aún no
+        // ha creado) dejaba el panel bloqueado para siempre: sin guardar una vez no se crea la
+        // pestaña, y sin la pestaña la lista se ve vacía. `borradorDesdeCatalogo` ahora usa los
+        // mismos defaults que ya usa el formulario de captura.
+        guardarCatalogo(catalogoSano({ origenes: [] }));
+        pintar();
+
+        await act(async () => { fireEvent.click(screen.getByText('Guardar cambios')); });
+
+        assert.equal(subidas.length, 1);
+        const enviado = subidas[0] as BorradorCatalogo;
+        assert.ok(enviado.origenes.length > 0);
     });
 
     test('decir que no en la confirmación no sube nada', async () => {

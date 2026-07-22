@@ -29,7 +29,7 @@ export interface EstadoAdmin {
 }
 
 export function useAdmin({ avisar, confirmar, onGuardado }: Opciones = {}): EstadoAdmin {
-    const [inicial] = useState(() => JSON.stringify(borradorDesdeCatalogo()));
+    const [inicial, setInicial] = useState(() => JSON.stringify(borradorDesdeCatalogo()));
     const [borrador, setBorrador] = useState<BorradorCatalogo>(() => JSON.parse(inicial));
     const [guardando, setGuardando] = useState(false);
 
@@ -55,6 +55,25 @@ export function useAdmin({ avisar, confirmar, onGuardado }: Opciones = {}): Esta
 
         setGuardando(true);
         try {
+            // Choque con otro administrador: `guardarCatalogosAdmin` manda el arreglo COMPLETO,
+            // no un diff, así que si alguien más guardó cambios aquí mientras esta pantalla
+            // estaba abierta, escribir ahora los borraría en silencio — el que guarda al final
+            // gana, sin que nadie se entere de que hubo un choque. Se baja el catálogo fresco y
+            // se compara contra lo que había al abrir; si cambió, se avisa en vez de sobrescribir.
+            const actual = JSON.stringify(await descargarCatalogo().then(() => borradorDesdeCatalogo()));
+            if (actual !== inicial) {
+                // No se descartan tus cambios: se quedan tal cual los dejaste, para que puedas
+                // revisarlos contra lo nuevo tú mismo. Solo se actualiza la base de comparación,
+                // para que el siguiente intento de guardar ya no choque con esto mismo.
+                avisar?.(
+                    'Alguien más guardó cambios en Catálogos desde que abriste esta pantalla. ' +
+                    'Tus cambios siguen aquí sin guardar — revísalos contra lo más reciente antes de guardar de nuevo.',
+                    { estado: 'sin-registrar', ms: 9000 }
+                );
+                setInicial(actual);
+                return;
+            }
+
             await guardarCatalogosAdmin(borrador);
             // Se vuelve a bajar para que la pantalla refleje lo que el servidor aceptó, que no
             // tiene por qué ser exactamente lo que se envió.
@@ -67,7 +86,7 @@ export function useAdmin({ avisar, confirmar, onGuardado }: Opciones = {}): Esta
         } finally {
             setGuardando(false);
         }
-    }, [borrador, avisar, confirmar, onGuardado]);
+    }, [borrador, inicial, avisar, confirmar, onGuardado]);
 
     const descartar = useCallback(() => { setBorrador(JSON.parse(inicial)); }, [inicial]);
 

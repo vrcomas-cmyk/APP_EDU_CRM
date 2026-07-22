@@ -134,6 +134,14 @@ export interface Visita {
     educador_correo?: string;
     cliente?: string;
     hospital?: string;
+    /** "Gpo. vendedores" del cliente (hoja Clientes). Se resuelve solo al elegir el cliente;
+     *  el campo queda editable por si el catálogo no trae ese cliente todavía. */
+    zona?: string;
+    /** Automático: Zona → Ejecutivo (hoja Ejecutivos). No es el "solicitado_por" del sector
+     *  —ese es por sector y puede variar—; este es a quién le reporta esa zona. */
+    ejecutivo?: string;
+    /** Libre, distinta de los comentarios: una nota de planeación, no una conversación. */
+    notas?: string;
     dia?: string;                     // 'YYYY-MM-DD'
     hora_inicio?: string;             // 'HH:MM'
     hora_fin?: string;
@@ -145,6 +153,29 @@ export interface Visita {
     /** Visita en captura. Desaparece al guardar; su ausencia es lo que la vuelve real. */
     borrador?: boolean;
     sectores?: Sector[];
+    sincronizado?: boolean;
+    /** Id del evento espejo en Google Calendar (el del propio educador), si se conectó. */
+    calendar_event_id?: string;
+}
+
+/**
+ * Cliente × Sector × Grupo de Artículo: qué plan se va a trabajar ahí. A diferencia de una
+ * visita, no tiene dueño ni sello — cualquier educador o gerente la escribe o la corrige, y el
+ * último en guardar manda. Alimenta la planeación: al agendar un sector, esto dice qué se
+ * pretende conseguir con ese cliente en ese grupo de artículo.
+ */
+export interface Estrategia {
+    id: string;
+    cliente: string;
+    sector?: string;
+    grupo_articulo?: string;
+    etapa?: string;
+    proyecto?: string;
+    productos?: string;
+    observaciones?: string;
+    actualizado?: string;          // ISO 8601
+    actualizado_por?: string;
+    actualizado_correo?: string;
     sincronizado?: boolean;
 }
 

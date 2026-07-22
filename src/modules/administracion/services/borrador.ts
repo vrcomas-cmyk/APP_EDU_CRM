@@ -6,7 +6,10 @@
  * pase en vez de subir cada tecla suelta.
  */
 
-import { configuracionCampos, leerCatalogo, IDS_CAMPOS, MODOS } from '@core/puente';
+import {
+    configuracionCampos, leerCatalogo, IDS_CAMPOS, MODOS,
+    origenes, areas, unidades, tiposEvidencia
+} from '@core/puente';
 import type { BorradorCatalogo, Educador, ModoCampo, TipoActividad } from '@core/tipos';
 
 /** Las listas simples se editan todas igual; solo cambian el nombre y el texto de ayuda. */
@@ -38,10 +41,14 @@ export function borradorDesdeCatalogo(): BorradorCatalogo {
             ...t,
             campos: { ...configuracionCampos(t.nombre) }
         })),
-        origenes: [...(cat.origenes || [])],
-        areas: [...(cat.areas || [])],
-        unidades: [...(cat.unidades || [])],
-        tipos_evidencia: [...(cat.tipos_evidencia || [])],
+        // Las cuatro listas simples usan la misma resolución que ya usa el formulario de
+        // captura (catalogos.js): si la hoja aún no tiene filas, caen en sus defaults. Leer
+        // `cat.origenes` crudo aquí armaba un candado: el panel las veía vacías, `problemasDe`
+        // bloqueaba el guardado, y sin un guardado exitoso la pestaña nunca llegaba a crearse.
+        origenes: [...origenes()],
+        areas: [...areas()],
+        unidades: [...unidades()],
+        tipos_evidencia: [...tiposEvidencia()],
         sectores_ocultos: [...(cat.sectores_ocultos || [])],
         educadores: (cat.educadores || []).map(e => ({ ...e })),
         admins: [...(cat.admins || [])]

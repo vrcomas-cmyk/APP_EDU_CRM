@@ -33,7 +33,24 @@
   --hour-h: 46px;
   --shadow: 0 1px 2px rgba(16,22,23,.04), 0 8px 24px -12px rgba(16,22,23,.18);
   --shadow-lg: 0 24px 60px -20px rgba(16,22,23,.4);
+
+  /*
+    Movimiento, con una sola fuente de verdad: dos duraciones y dos curvas. `--ease` es la
+    salida de Apple —rápida al empezar, se asienta sin rebote— para todo lo que aparece,
+    mueve o cierra. `--ease-press` es la curva de resorte, reservada a propósito para el
+    único gesto que la pide: la respuesta táctil de presionar (`:active`). Repetirla en más
+    sitios dejaría de sentirse deliberada.
+  */
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
   --ease: cubic-bezier(.2, 0, 0, 1);
+  --ease-press: cubic-bezier(.34, 1.56, .64, 1);
+
+  /* Escala de radios: Vercel-crisp en controles chicos, algo más suave en superficies
+     grandes (tarjetas, drawer). Tres pasos, no un número por componente. */
+  --r-sm: 6px;
+  --r-md: 9px;
+  --r-lg: 14px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -66,6 +83,23 @@
   --shadow-lg: 0 24px 60px -20px rgba(16,22,23,.4);
 }
 
+/* ============================================================
+   TEMA DEGASA
+   Verde DEGASA (#62B81F) y azul PROTEC (#00458B), las dos marcas de la casa. `--ink`
+   gobierna cada botón, foco y estado activo por diseño — retintarlo aquí es lo único
+   que hace falta para que el resto de la app se sienta de marca sin tocar un selector
+   más. El dorado queda aparte, para un detalle puntual, no para la interacción.
+   ============================================================ */
+:root[data-theme="degasa"] {
+  --paper: #F7F9F1; --surface: #FFFFFF; --surface-2: #EEF3E1;
+  --ink: #17301C; --ink-2: #3E5A34; --muted: #71805F;
+  --rule: #DDE6C9; --rule-soft: #EAF0DC;
+  --st-plan: #8FA37E; --st-miss: #BE2D45; --st-part: #00458B; --st-done: #62B81F;
+  --st-plan-bg: #EEF2E2; --st-miss-bg: #FBEEF0; --st-part-bg: #E5EDF6; --st-done-bg: #EEF7DF;
+  --shadow: 0 1px 2px rgba(23,48,28,.05), 0 8px 24px -12px rgba(23,48,28,.22);
+  --shadow-lg: 0 24px 60px -20px rgba(23,48,28,.42);
+}
+
 /* ---------- base ---------- */
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -83,11 +117,32 @@ body {
   overscroll-behavior: none;
 }
 
-h1, h2, h3, h4 { margin: 0; letter-spacing: -.02em; font-weight: 600; }
+h1, h2, h3, h4 { margin: 0; letter-spacing: -.02em; font-weight: 700; }
+
+/*
+  Firma tipográfica: un tick cuadrado antes de cada título de ventana (drawer, modal), del
+  mismo lenguaje visual que `.dot` — el punto que ya marca el estado de una visita en todo el
+  resto de la app. Aquí no mide salud, mide jerarquía: "esto es lo que se está mirando ahora".
+  Un solo gesto repetido en un solo lugar, no un accesorio nuevo por pantalla.
+*/
+.drawer-head-txt h3, .modal-head h3 {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 15.5px; letter-spacing: -.01em;
+}
+.drawer-head-txt h3::before, .modal-head h3::before {
+  content: ''; width: 7px; height: 7px; flex: none;
+  background: var(--ink); border-radius: 1.5px;
+}
 p { margin: 0; }
 button, input, textarea, select { font-family: inherit; font-size: inherit; color: inherit; }
 
-:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; border-radius: 4px; }
+/* Anillo de foco de dos capas —tinta fina + halo del color de estado disponible en el
+   elemento vía `--st`— en vez de un solo trazo grueso: se ve exactamente igual de nítido
+   sobre cualquiera de los tres temas sin necesitar un color de foco propio por tema. */
+:focus-visible {
+  outline: 2px solid var(--ink); outline-offset: 2px; border-radius: 4px;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--st, var(--ink)) 18%, transparent);
+}
 
 .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 .eyebrow {
@@ -120,11 +175,19 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 #gate-boton { min-height: 40px; }
 
 .appbar {
+  position: relative;
   display: flex; align-items: center; gap: 12px;
   padding: 9px 14px;
   border-bottom: 1px solid var(--rule);
   background: var(--surface);
   flex: none;
+}
+/* El único sitio de la app donde la marca DEGASA se declara sin depender de --ink: un filo de
+   2px, verde a azul, que no compite con el estado (sigue siendo la única cromía del CONTENIDO)
+   porque vive en el borde, no en un botón ni una tarjeta. Invisible en claro/oscuro a propósito. */
+:root[data-theme="degasa"] .appbar::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px;
+  background: linear-gradient(90deg, #62B81F, #62B81F 60%, #00458B);
 }
 .appbar-mark {
   font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: .1em;
@@ -162,6 +225,20 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 .seg button:last-child { border-right: 0; }
 .seg button:hover { color: var(--ink); }
 .seg button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+
+/* ---------- selector de tema ---------- */
+.tema-switch button { padding: 4px 7px; display: flex; align-items: center; }
+.tema-switch button[aria-pressed="true"] {
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1.5px var(--ink);
+}
+.tema-swatch { width: 13px; height: 13px; border-radius: 50%; flex: none; border: 1px solid var(--rule); }
+.tema-swatch-claro  { background: linear-gradient(135deg, #FFFFFF 50%, #101617 50%); }
+.tema-swatch-oscuro { background: linear-gradient(135deg, #141A1B 50%, #E9EEEC 50%); }
+.tema-swatch-degasa {
+  background: conic-gradient(#62B81F 0deg 180deg, #00458B 180deg 300deg, #A37837 300deg 360deg);
+  border-color: transparent;
+}
 
 .btn-hoy {
   background: none; border: 1px solid var(--rule); border-radius: 6px;
@@ -266,6 +343,16 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 
 .cal { min-height: 100%; }
 
+/* Aviso para conectar Google Calendar, arriba de la rejilla. Solo se ve mientras no hay
+   conexión: al reconectar (sola o por clic) desaparece. */
+.calendar-conectar-barra {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 7px 12px; margin-bottom: 8px;
+  background: var(--surface-2); border: 1px dashed var(--rule); border-radius: var(--r-sm);
+  font-size: 12.5px; color: var(--muted);
+}
+.calendar-conectar-barra .aviso { font-size: 11.5px; }
+
 /* --- rejilla de horas (Día y Semana) --- */
 .grid { display: grid; position: relative; }
 .grid.dia    { grid-template-columns: 52px 1fr; }
@@ -303,24 +390,52 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 .ev {
   position: absolute;
   top: calc(var(--s) * var(--hour-h));
-  height: calc(var(--dur) * var(--hour-h) - 3px);
+  /* Un piso de alto: una junta de 10-15 min no debe encogerse hasta ser ilegible o invisible. */
+  height: max(calc(var(--dur) * var(--hour-h) - 3px), 18px);
   left: calc(3px + (100% - 6px) * var(--col) / var(--cols));
   width: calc((100% - 6px) / var(--cols) - 2px);
   background: var(--surface); border: 1px solid var(--rule);
-  border-left: 3px solid var(--st); border-radius: 6px;
+  border-left: 3px solid var(--st); border-radius: 3px var(--r-sm) var(--r-sm) 3px;
   padding: 5px 7px; overflow: hidden; cursor: pointer; text-align: left;
   display: flex; flex-direction: column; gap: 1px; z-index: 2;
-  transition: box-shadow .15s var(--ease), transform .1s var(--ease);
+  transition: box-shadow var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease-press),
+              border-left-width var(--dur-fast) var(--ease);
 }
-.ev:hover { box-shadow: var(--shadow); transform: translateY(-1px); z-index: 5; }
+/*
+  Lo que ya está en Google Calendar: mismo tamaño y posición que una visita, pero se ve como
+  lo que es — ajeno a la app. Rayado en vez de tinta sólida, sin el borde de estado (no tiene
+  salud que reportar), y por debajo de las visitas en el apilado para que un solape nunca le
+  robe el arrastre a la visita real.
+*/
+.ev.compromiso-externo {
+  z-index: 1; cursor: pointer; text-decoration: none; color: inherit;
+  background: repeating-linear-gradient(
+    135deg, var(--surface-2), var(--surface-2) 6px, var(--rule-soft) 6px, var(--rule-soft) 12px
+  );
+  border: 1px dashed var(--rule); border-left: 1px dashed var(--rule);
+  opacity: .85;
+}
+.ev.compromiso-externo .ev-client { color: var(--muted); font-weight: 600; }
+.ev.compromiso-externo:hover { opacity: 1; box-shadow: none; transform: none; border-left-width: 1px; }
+
+.ev:hover {
+  box-shadow: var(--shadow); transform: translateY(-1px); z-index: 5;
+  border-left-width: 4px;
+}
 .ev.compacta { flex-direction: row; align-items: center; gap: 6px; padding: 2px 7px; }
 .ev.compacta .ev-hosp, .ev.compacta .ev-flags { display: none; }
 
 .ev-time {
   font-family: var(--mono); font-size: 9.5px; color: var(--muted);
   font-variant-numeric: tabular-nums; flex: none;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.ev-client { font-size: 11.5px; font-weight: 600; line-height: 1.25; letter-spacing: -.01em; }
+/* Nunca se corta a la mitad de una palabra: en Semana la columna es angosta y el título de
+   una junta puede ser largo, así que se recorta con "…" en vez de partirse a ciegas. */
+.ev-client {
+  font-size: 11.5px; font-weight: 600; line-height: 1.25; letter-spacing: -.01em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+}
 .ev-hosp { font-size: 10.5px; color: var(--muted); line-height: 1.25; }
 .ev-flags { margin-top: auto; display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
 .ev-sectores { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 3px; }
@@ -477,7 +592,6 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
   display: flex; align-items: flex-start; gap: 10px;
   padding: 14px; border-bottom: 1px solid var(--rule); flex: none;
 }
-.drawer-head h3 { font-size: 15px; }
 .drawer-head .eyebrow { text-transform: capitalize; letter-spacing: .1em; }
 
 .drawer-body {
@@ -513,17 +627,23 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 
 .btn {
   border: 1px solid var(--ink); background: var(--ink); color: var(--paper);
-  border-radius: 7px; padding: 7px 14px;
+  border-radius: var(--r-sm); padding: 7px 14px;
   font-size: 13px; font-weight: 600; letter-spacing: -.01em; cursor: pointer;
-  transition: filter .15s var(--ease);
+  transition: opacity var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease-press),
+              box-shadow var(--dur-fast) var(--ease);
 }
-.btn:hover { filter: brightness(1.25); }
+/* Opacidad en vez de `filter: brightness()`: sube y baja el mismo tono en vez de lavarlo
+   hacia blanco, así que el botón sigue leyéndose como "de marca" en cualquier tema. */
+.btn:hover { opacity: .88; box-shadow: var(--shadow); transform: translateY(-1px); }
+.btn:active { transform: translateY(0) scale(.98); opacity: .94; }
 
 .btn-txt {
-  background: none; border: 0; padding: 6px 8px; border-radius: 6px;
+  background: none; border: 0; padding: 6px 8px; border-radius: var(--r-sm);
   font-size: 12.5px; font-weight: 600; color: var(--ink-2); cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
 }
 .btn-txt:hover { background: var(--surface-2); }
+.btn-txt:active { transform: scale(.97); }
 .btn-txt.peligro { color: var(--st-miss); }
 .btn-txt.peligro:hover { background: var(--st-miss-bg); }
 
@@ -1007,7 +1127,6 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
   display: flex; align-items: flex-start; gap: 10px;
   padding: 12px 14px; border-bottom: 1px solid var(--rule); flex: none;
 }
-.modal-head h3 { font-size: 14px; }
 .modal-body {
   padding: 14px; display: flex; flex-direction: column; gap: 14px;
   overflow-y: auto;
@@ -1125,6 +1244,7 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
   .appbar-mark { font-size: 10px; }
   .datenav-label { min-width: 0; font-size: 12.5px; }
   .fab { right: 14px; bottom: 14px; }
+  .tema-switch button { padding: 5px; }
 }
 
 /* ============================================================
@@ -1178,6 +1298,11 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
   padding-top: 2px;
 }
 
+/* Versión compacta del mismo patrón, para arriba de la rejilla del Calendario: solo dos
+   campos (educador y cliente), sin la fila de conteo/fecha que sí necesita el tablero. */
+.filtros-cal { padding: 8px 16px; border-radius: var(--r-sm); border: 1px solid var(--rule); margin-bottom: 8px; }
+.filtros-cal .filtro { min-width: 150px; flex: 0 1 170px; }
+
 /* ---------- tiles ---------- */
 
 .tiles {
@@ -1186,9 +1311,13 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 }
 .tile {
   display: flex; flex-direction: column; gap: 2px;
-  border: 1px solid var(--rule); border-radius: 9px;
+  border: 1px solid var(--rule); border-radius: var(--r-md);
   padding: 11px 12px; background: var(--surface);
+  transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
 }
+/* Elevación mínima al pasar el cursor: dice "esto también se puede mirar de cerca" sin
+   necesitar que cada tile sea un botón. */
+.tile:hover { border-color: var(--ink-2); box-shadow: var(--shadow); }
 .tile-lbl {
   font-family: var(--mono); font-size: 8.5px; letter-spacing: .11em;
   text-transform: uppercase; color: var(--muted);
@@ -1200,6 +1329,22 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 }
 .tile-nota { font-size: 10.5px; color: var(--muted); line-height: 1.3; }
 
+/* Lista de visitas con deuda concreta, debajo de los tiles de "Pendientes": los números
+   dicen cuánto falta, esto dice DE CUÁL — para no tener que abrir una por una a adivinar. */
+.lista-porresolver { display: flex; flex-direction: column; gap: 6px; }
+.fila-porresolver {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  width: 100%; text-align: left; cursor: pointer;
+  padding: 8px 10px; border: 1px solid var(--rule); border-left: 3px solid var(--st);
+  border-radius: 3px var(--r-sm) var(--r-sm) 3px; background: var(--surface);
+  transition: box-shadow var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease-press),
+              border-color var(--dur-fast) var(--ease);
+}
+.fila-porresolver:hover { box-shadow: var(--shadow); transform: translateY(-1px); border-color: var(--ink-2); }
+.fila-porresolver:active { transform: translateY(0) scale(.995); }
+.fila-porresolver-txt { font-size: 12px; }
+.fila-porresolver-flags { display: flex; align-items: center; gap: 6px; flex: none; }
+
 /* ---------- secciones y medidas ---------- */
 
 .dash-sec { display: flex; flex-direction: column; gap: 10px; }
@@ -1207,6 +1352,13 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
   font-size: 12px; font-weight: 700; letter-spacing: -.01em; margin: 0;
   padding-bottom: 6px; border-bottom: 1px solid var(--rule-soft);
 }
+
+.lista-compromisos { display: flex; flex-direction: column; gap: 6px; list-style: none; padding: 0; margin: 0; }
+.lista-compromisos li {
+  display: flex; align-items: baseline; gap: 8px;
+  font-size: 12.5px; padding: 4px 0; border-bottom: 1px solid var(--rule-soft);
+}
+.lista-compromisos .mono { color: var(--muted); flex: none; min-width: 52px; }
 
 .medidas { display: flex; flex-direction: column; gap: 7px; }
 
@@ -1224,10 +1376,12 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
   height: 9px; border-radius: 4px; background: var(--surface-2);
   overflow: hidden; min-width: 0;
 }
+/* El degradado es sutil a propósito: marca dirección (se llena de izquierda a derecha) sin
+   que la barra compita con el número, que sigue siendo el dato real. */
 .medida-fill {
   display: block; height: 100%; border-radius: 4px;
-  background: var(--st, var(--muted));
-  transition: width .25s var(--ease);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--st, var(--muted)) 78%, transparent), var(--st, var(--muted)));
+  transition: width var(--dur-base) var(--ease);
 }
 /* Magnitud de una sola serie: tinta, no color. No hay identidad que distinguir. */
 .medida-fill.es-tinta { background: var(--ink-2); }
@@ -1273,7 +1427,37 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 
 .hilo-nuevo { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
 .hilo-area { width: 100%; resize: vertical; min-height: 46px; font-family: inherit; }
+/* Mismo tratamiento visual que `.hilo-area`, pero es OTRA clase a propósito: una nota de
+   visita/estrategia no es un comentario, y una prueba llegó a confundir "existe un elemento
+   .hilo-area" con "hay redactor de comentarios" cuando compartían la clase. */
+.notas-area { width: 100%; resize: vertical; min-height: 46px; font-family: inherit; }
 .hilo.es-compacto .coment-txt { font-size: 12px; }
+
+/* ---------- previa (2 últimos) + botón a la ventana completa ---------- */
+.hilo-previa { display: flex; flex-direction: column; gap: 7px; }
+.hilo-barra { display: flex; }
+.hilo-abrir { font-size: 11.5px; }
+
+/* Misma técnica que `.visor` (vista previa de evidencias): posición fija y z-index alto para
+   no depender del contexto de apilado de quien la abra —visita, sector o una actividad ya
+   dentro de su propia ventana—. Cuelga de `document.body`, no del drawer. */
+.hilo-modal {
+  position: fixed; inset: 0; z-index: 95;
+  background: rgba(16, 22, 23, .4);
+  display: grid; place-items: center; padding: 16px;
+  animation: scrim-in .12s var(--ease);
+}
+.hilo-modal-caja {
+  width: min(480px, 100%); max-height: min(640px, 90dvh);
+  display: flex; flex-direction: column;
+  background: var(--surface); border: 1px solid var(--rule); border-radius: 12px;
+  box-shadow: var(--shadow-lg); overflow: hidden;
+}
+/* El redactor queda fijo abajo; solo la lista de comentarios hace scroll, para no perderlo de
+   vista en un hilo largo. */
+.hilo-modal-body { flex: 1; min-height: 0; overflow-y: hidden; }
+.hilo-modal .hilo-lista { flex: 1; min-height: 0; overflow-y: auto; padding-right: 2px; }
+.hilo-modal .hilo-nuevo { flex: none; padding-top: 10px; border-top: 1px solid var(--rule); }
 
 .historico {
   border: 1px dashed var(--rule); border-radius: 8px;
@@ -1429,6 +1613,9 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 .tabla tbody tr:hover { background: var(--surface-2); }
 .tabla td:first-child {
   max-width: 220px; overflow: hidden; text-overflow: ellipsis;
+}
+.tabla td.col-proyecto {
+  max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

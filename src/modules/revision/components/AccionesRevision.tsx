@@ -29,6 +29,11 @@ const CLASES: Record<string, string> = {
 export function AccionesRevision({ flujo, item, onEnviar }: Props) {
     const [obs, setObs] = useState('');
     const [aviso, setAviso] = useState('');
+    // Un doble clic/doble-tap antes de que la tarjeta desaparezca de la cola (el re-render que
+    // la saca es asíncrono respecto al clic) llamaba a `onEnviar` dos veces: dos revisiones
+    // append-only para el mismo elemento. No corrompía el veredicto vigente (gana la última),
+    // pero el educador veía "te revisaron dos veces" sin que hubiera pasado nada raro.
+    const [enviando, setEnviando] = useState(false);
 
     const resultados = resultadosDe(flujo);
 
@@ -41,15 +46,20 @@ export function AccionesRevision({ flujo, item, onEnviar }: Props) {
     const algunoExige = resultados.some(r => r.exige_observaciones);
 
     const mandar = (r: ResultadoFlujo) => {
+        if (enviando) return;
+        setEnviando(true);
+
         const error = onEnviar(r.valor, obs);
 
         if (error) {
+            setEnviando(false);
             setAviso(error);
             document.getElementById(idObs)?.focus();
             return;
         }
         // No se limpia el campo ni se quita el aviso: al registrarse, el elemento desaparece
-        // de la cola y con él este componente entero.
+        // de la cola y con él este componente entero. `enviando` se queda en `true` a
+        // propósito: no hay para qué volver a habilitar botones de algo que ya se fue.
     };
 
     return (
@@ -74,7 +84,11 @@ export function AccionesRevision({ flujo, item, onEnviar }: Props) {
                         key={r.valor}
                         type="button"
                         className={CLASES[r.estilo || 'txt'] || 'btn-txt'}
-                        // Deshabilitarlo escondería el porqué. Se deja pulsable y se explica.
+                        // Deshabilitarlo por falta de observaciones escondería el porqué, así
+                        // que ese caso se deja pulsable y se explica abajo. Mientras se envía
+                        // SÍ se deshabilita de verdad: ahí no hay nada que explicar, es solo
+                        // evitar el doble envío del mismo veredicto.
+                        disabled={enviando}
                         aria-disabled={(r.exige_observaciones && !obs.trim()) || undefined}
                         onClick={() => mandar(r)}
                     >

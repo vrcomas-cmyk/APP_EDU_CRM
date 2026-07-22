@@ -22,6 +22,8 @@ import {
 import { useVisita } from '../hooks/useVisita';
 import { selloDeGuardado, sellarVisita, duplicarVisita } from '../services/fabricas';
 import { faltaParaGuardar, tieneCapturaPerdible } from '../validators/requisitos';
+import { reflejarEnCalendar, quitarDeCalendar } from '../services/calendarSync';
+import { puedeEditarVisita, motivoDeBloqueo } from '../permissions/edicion';
 import * as repo from '../repository/visitasRepo';
 import { NodoVanilla } from '@shared/components/NodoVanilla';
 
@@ -48,7 +50,10 @@ export interface PropsDrawer {
     onCerrar: () => void;
     /** Abre la ventana vanilla de sector. `null` = agregar uno nuevo. */
     abrirVentanaSector: (sectorId: string | null, alTerminar: () => void, anfitrion: HTMLElement | null) => void;
-    abrirVentanaActividad: (sectorId: string, actividadId: string | null, alTerminar: () => void, anfitrion: HTMLElement | null) => void;
+    abrirVentanaActividad: (
+        sectorId: string, actividadId: string | null, alTerminar: () => void,
+        anfitrion: HTMLElement | null, soloLectura?: boolean
+    ) => void;
     /** Abre otra visita en este mismo drawer (para duplicar). */
     abrirOtraVisita: (id: string) => void;
 }
@@ -76,6 +81,7 @@ export function VisitaDrawer({
     const [sectorId, setSectorId] = useState<string | null>(null);
     const [reagendando, setReagendando] = useState(false);
     const [guardadoReciente, setGuardadoReciente] = useState(false);
+    const [pidiendoCancelacion, setPidiendoCancelacion] = useState(false);
 
     const panelRef = useRef<HTMLElement>(null);
     const relojGuardado = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -204,6 +210,8 @@ export function VisitaDrawer({
 
         avisar('Visita guardada. Sus sectores quedan registrados y ya no se editan.',
             { estado: 'completa', ms: 5000 });
+
+        if (guardada) void reflejarEnCalendar(guardada, editar, avisar);
     }
 
     /**
@@ -227,12 +235,13 @@ export function VisitaDrawer({
         }, anfitrionVentanas.current);
     }
 
-    /** Doble confirmación: cancelar una visita nunca debe pasar por accidente. */
-    function pedirCancelacion(v: Visita) {
-        if (!confirm(`¿Cancelar la visita a ${v.cliente || 'este cliente'}?\n\nNo se borra: queda en el calendario como registro.`)) return;
-
-        const motivo = prompt('¿Por qué se cancela? (queda en el registro)');
-        if (motivo === null) return;
+    /**
+     * `confirm`/`prompt` nativos no aparecen en una PWA instalada (`display: standalone`):
+     * devuelven `null` de inmediato y la cancelación quedaba imposible de completar. El motivo
+     * —obligatorio, y la propia confirmación de que se quiere cancelar— se pide con un modal.
+     */
+    function confirmarCancelacion(motivo: string) {
+        setPidiendoCancelacion(false);
 
         const r = cancelarVisita(visitaId, motivo);
         if (!r.ok) { avisar(r.error || 'No se pudo cancelar.', { estado: 'sin-registrar' }); return; }
@@ -241,6 +250,7 @@ export function VisitaDrawer({
             estado: 'programada',
             accion: { texto: 'Deshacer', fn: () => { reactivarVisita(visitaId); refrescar(); alCambiar(); } }
         });
+        if (visita) void quitarDeCalendar(visita, avisar);
         refrescar();
         alCambiar();
     }
@@ -255,6 +265,15 @@ export function VisitaDrawer({
 
     const sector = sectorId ? (visita.sectores || []).find(s => s.id === sectorId) ?? null : null;
     const cancelada = estadoDe(visita) === ESTADOS.CANCELADA;
+
+    /**
+     * Visita de otra persona: se ve completa, no se le agrega ni modifica nada. Antes esta
+     * regla solo existía del lado de la ESCRITURA (`visitasRepo.actualizarVisita` la rechaza en
+     * silencio) — quien mira la visita de su equipo veía cada botón habilitado, lo usaba
+     * creyendo que funcionaba, y el cambio simplemente no se guardaba. Calcularlo aquí también
+     * deja apagar esos controles y decir POR QUÉ, en vez de dejar que fallen callados.
+     */
+    const soloLectura = !visita.borrador && !puedeEditarVisita(visita);
 
     return (
         <div className="drawer-raiz">
@@ -273,10 +292,11 @@ export function VisitaDrawer({
                             visita={visita}
                             sector={sector}
                             avisar={avisar}
+                            soloLectura={soloLectura}
                             onAbrirActividad={(actividadId) =>
                                 abrirVentanaActividad(sector.id, actividadId,
                                     () => { refrescar(); alCambiar(); },
-                                    anfitrionVentanas.current)}
+                                    anfitrionVentanas.current, soloLectura)}
                         />
                     </>
                 ) : (
@@ -288,13 +308,17 @@ export function VisitaDrawer({
                                 <FormularioVisita visita={visita} editar={editarBorrador} avisar={avisar} />
                             ) : (
                                 <>
+                                    {soloLectura && (
+                                        <p className="aviso">{motivoDeBloqueo(visita)}</p>
+                                    )}
+
                                     {cancelada
                                         ? <AvisoCancelada visita={visita} avisar={avisar}
                                                           alTerminar={() => { refrescar(); alCambiar(); }} />
-                                        : <BloqueCheck visita={visita} avisar={avisar}
+                                        : <BloqueCheck visita={visita} avisar={avisar} soloLectura={soloLectura}
                                                        alTerminar={() => { refrescar(); alCambiar(); }} />}
 
-                                    <PanelInformacion visita={visita} />
+                                    <PanelInformacion visita={visita} editar={editar} />
 
                                     {/* Comentarios de la visita completa: lo que el cliente dijo
                                         en general, no atado a un sector en particular. Vive
@@ -326,6 +350,7 @@ export function VisitaDrawer({
 
                             <ListaSectores
                                 visita={visita}
+                                soloLectura={soloLectura}
                                 onAbrirSector={(id) => {
                                     // Mientras la visita es borrador el sector todavía se corrige,
                                     // y eso pasa en su ventana. Ya guardada, entrar al sector es
@@ -344,17 +369,85 @@ export function VisitaDrawer({
                     enSector={Boolean(sector)}
                     reagendando={reagendando}
                     guardadoReciente={guardadoReciente}
+                    soloLectura={soloLectura}
                     onVolver={() => setSectorId(null)}
                     onCerrar={cerrar}
                     onGuardar={guardarVisita}
                     onDuplicar={() => duplicar(visita)}
                     onReagendar={() => setReagendando(r => !r)}
-                    onCancelar={() => pedirCancelacion(visita)}
+                    onCancelar={() => setPidiendoCancelacion(true)}
                 />
             </aside>
 
             {/* Siempre vacío para React; las ventanas vanilla se cuelgan aquí. */}
             <div className="ventanas-host" ref={anfitrionVentanas} />
+
+            {pidiendoCancelacion && (
+                <ModalCancelacion
+                    visita={visita}
+                    onCancelar={() => setPidiendoCancelacion(false)}
+                    onConfirmar={confirmarCancelacion}
+                />
+            )}
+        </div>
+    );
+}
+
+/** Reemplaza a `confirm`/`prompt`, que una PWA instalada no muestra. Motivo obligatorio. */
+function ModalCancelacion({ visita, onCancelar, onConfirmar }: {
+    visita: Visita;
+    onCancelar: () => void;
+    onConfirmar: (motivo: string) => void;
+}) {
+    const [motivo, setMotivo] = useState('');
+
+    useEffect(() => {
+        function alEscape(e: KeyboardEvent) {
+            if (e.key === 'Escape') { e.stopPropagation(); onCancelar(); }
+        }
+        document.addEventListener('keydown', alEscape);
+        return () => document.removeEventListener('keydown', alEscape);
+    }, [onCancelar]);
+
+    return (
+        <div className="modal" onClick={(e) => { if (e.target === e.currentTarget) onCancelar(); }}>
+            <div className="modal-caja">
+                <div className="modal-head">
+                    <div className="drawer-head-txt">
+                        <h3>¿Cancelar la visita?</h3>
+                        <span className="eyebrow">
+                            {visita.cliente || 'Este cliente'} · no se borra, queda en el calendario como registro
+                        </span>
+                    </div>
+                    <button type="button" className="icon-btn" aria-label="Cerrar" onClick={onCancelar}>✕</button>
+                </div>
+                <div className="modal-body">
+                    <label className="campo">
+                        <span className="campo-lbl">Motivo</span>
+                        <input
+                            type="text" className="inp" autoFocus
+                            placeholder="¿Por qué se cancela?"
+                            value={motivo}
+                            onChange={(e) => setMotivo(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && motivo.trim()) onConfirmar(motivo.trim());
+                            }}
+                        />
+                        <p className="ayuda">Obligatorio: queda en el registro</p>
+                    </label>
+                    <div className="modal-foot">
+                        <span style={{ flex: 1 }} />
+                        <button type="button" className="btn-txt" onClick={onCancelar}>Volver</button>
+                        <button
+                            type="button" className="btn-txt peligro"
+                            disabled={!motivo.trim()}
+                            onClick={() => onConfirmar(motivo.trim())}
+                        >
+                            Cancelar visita
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }

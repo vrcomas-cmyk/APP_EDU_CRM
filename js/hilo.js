@@ -7,12 +7,22 @@
  *
  * Un comentario ya escrito se pinta en frío, sin controles: no hay botón de editar ni de
  * borrar, porque no hay a qué llamarlo. Lo único que se ofrece es escribir el siguiente.
+ *
+ * ── Vista previa + ventana propia ────────────────────────────────────────────────────
+ *
+ * En línea solo se pintan los últimos 2 comentarios: un hilo de verdad crece sin límite y
+ * pintarlo entero dentro de la actividad/sector/visita empuja el resto del formulario cada vez
+ * más abajo hasta que la pantalla deja de servir para lo que se abrió a hacer. Leer y escribir
+ * el resto pasa a una ventana propia (mismo patrón que el visor de evidencias), que se abre
+ * bajo demanda y no cuando la actividad simplemente se dibuja.
  */
 
 import { comentariosDe, comentar, AMBITOS } from './comentarios.js';
 import { puede } from './permisos.js';
 
 export { AMBITOS };
+
+const VISIBLES_EN_PREVIA = 2;
 
 /**
  * @param ambito    uno de AMBITOS
@@ -25,31 +35,57 @@ export function hiloComentarios({ ambito, idAmbito, visita, alToast = () => {}, 
 
     if (!puede('comentarios', 'leer')) return caja;
 
-    const lista = document.createElement('div');
-    lista.className = 'hilo-lista';
-    caja.appendChild(lista);
+    const previa = document.createElement('div');
+    previa.className = 'hilo-previa';
+    caja.appendChild(previa);
 
-    const pintarLista = () => {
-        lista.innerHTML = '';
+    const barra = document.createElement('div');
+    barra.className = 'hilo-barra';
+    caja.appendChild(barra);
+
+    const puedeEscribir = puede('comentarios', 'crear');
+
+    const pintar = () => {
         const comentarios = comentariosDe(ambito, idAmbito);
-
-        if (comentarios.length === 0) {
-            const p = document.createElement('p');
-            p.className = 'ayuda';
-            p.textContent = 'Sin comentarios.';
-            lista.appendChild(p);
-            return;
-        }
-        comentarios.forEach(c => lista.appendChild(burbuja(c)));
+        pintarPrevia(previa, comentarios);
+        pintarBarra(barra, comentarios, puedeEscribir, () => abrirVentanaHilo({
+            ambito, idAmbito, visita, alToast, puedeEscribir, alCerrar: pintar
+        }));
     };
 
-    pintarLista();
+    pintar();
+    return caja;
+}
 
-    if (puede('comentarios', 'crear')) {
-        caja.appendChild(redactor(ambito, idAmbito, visita, alToast, pintarLista));
+function pintarPrevia(previa, comentarios) {
+    previa.innerHTML = '';
+
+    if (comentarios.length === 0) {
+        const p = document.createElement('p');
+        p.className = 'ayuda';
+        p.textContent = 'Sin comentarios.';
+        previa.appendChild(p);
+        return;
     }
 
-    return caja;
+    comentarios.slice(-VISIBLES_EN_PREVIA).forEach(c => previa.appendChild(burbuja(c)));
+}
+
+function pintarBarra(barra, comentarios, puedeEscribir, alAbrir) {
+    barra.innerHTML = '';
+
+    const restantes = comentarios.length - VISIBLES_EN_PREVIA;
+
+    const boton = document.createElement('button');
+    boton.type = 'button';
+    boton.className = 'btn-txt hilo-abrir';
+    boton.textContent = comentarios.length === 0
+        ? (puedeEscribir ? 'Comentar' : 'Ver comentarios')
+        : restantes > 0
+            ? `Ver los ${comentarios.length}${puedeEscribir ? ' · Comentar' : ''}`
+            : puedeEscribir ? 'Ver y comentar' : 'Ver comentarios';
+    boton.addEventListener('click', alAbrir);
+    barra.appendChild(boton);
 }
 
 function burbuja(c) {
@@ -79,6 +115,96 @@ function burbuja(c) {
     return b;
 }
 
+// ---------- ventana propia ----------
+
+/**
+ * El hilo completo, en una ventana encima de todo (mismo patrón que `abrirVisor` de
+ * evidencias): posición fija y z-index alto, para no depender del contexto de apilado de
+ * quien la abra, sea la visita, un sector o una actividad dentro de su propia ventana.
+ */
+function abrirVentanaHilo({ ambito, idAmbito, visita, alToast, puedeEscribir, alCerrar }) {
+    const modal = document.createElement('div');
+    modal.className = 'hilo-modal';
+
+    const caja = document.createElement('div');
+    caja.className = 'hilo-modal-caja';
+
+    const head = document.createElement('div');
+    head.className = 'modal-head';
+
+    const headTxt = document.createElement('div');
+    headTxt.className = 'drawer-head-txt';
+    const titulo = document.createElement('h3');
+    titulo.textContent = 'Comentarios';
+    headTxt.appendChild(titulo);
+    if (visita?.hospital || visita?.cliente) {
+        const sub = document.createElement('span');
+        sub.className = 'eyebrow';
+        sub.textContent = visita.hospital || visita.cliente;
+        headTxt.appendChild(sub);
+    }
+
+    const cerrarBtn = document.createElement('button');
+    cerrarBtn.type = 'button';
+    cerrarBtn.className = 'icon-btn';
+    cerrarBtn.setAttribute('aria-label', 'Cerrar');
+    cerrarBtn.textContent = '✕';
+
+    head.append(headTxt, cerrarBtn);
+
+    const lista = document.createElement('div');
+    lista.className = 'hilo-lista';
+
+    const cuerpo = document.createElement('div');
+    cuerpo.className = 'modal-body hilo-modal-body';
+    cuerpo.appendChild(lista);
+
+    const pintarLista = () => {
+        lista.innerHTML = '';
+        const comentarios = comentariosDe(ambito, idAmbito);
+
+        if (comentarios.length === 0) {
+            const p = document.createElement('p');
+            p.className = 'ayuda';
+            p.textContent = 'Sin comentarios todavía.';
+            lista.appendChild(p);
+            return;
+        }
+        comentarios.forEach(c => lista.appendChild(burbuja(c)));
+        lista.scrollTop = lista.scrollHeight;
+    };
+
+    pintarLista();
+
+    if (puedeEscribir) {
+        cuerpo.appendChild(redactor(ambito, idAmbito, visita, alToast, () => {
+            pintarLista();
+            alCerrar();
+        }));
+    }
+
+    caja.append(head, cuerpo);
+    modal.appendChild(caja);
+
+    const cerrar = () => {
+        modal.remove();
+        document.removeEventListener('keydown', alEscape);
+        alCerrar();
+    };
+    function alEscape(e) {
+        if (e.key !== 'Escape') return;
+        e.stopPropagation();       // no cerrar también el drawer/ventana de atrás
+        cerrar();
+    }
+
+    cerrarBtn.addEventListener('click', cerrar);
+    modal.addEventListener('click', (e) => { if (e.target === modal) cerrar(); });
+    document.addEventListener('keydown', alEscape);
+
+    document.body.appendChild(modal);
+    return cerrar;
+}
+
 function redactor(ambito, idAmbito, visita, alToast, alEnviar) {
     const caja = document.createElement('div');
     caja.className = 'hilo-nuevo';
@@ -87,6 +213,7 @@ function redactor(ambito, idAmbito, visita, alToast, alEnviar) {
     area.className = 'inp hilo-area';
     area.rows = 2;
     area.placeholder = 'Escribe un comentario…';
+    area.autofocus = true;
 
     const enviar = document.createElement('button');
     enviar.type = 'button';
@@ -109,6 +236,7 @@ function redactor(ambito, idAmbito, visita, alToast, alEnviar) {
         area.value = '';
         enviar.disabled = true;
         alEnviar();
+        area.focus();
     }
 
     caja.append(area, enviar);

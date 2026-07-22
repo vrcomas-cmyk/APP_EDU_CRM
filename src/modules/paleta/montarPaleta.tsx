@@ -13,7 +13,7 @@
 import { createRoot, type Root } from 'react-dom/client';
 import { StrictMode } from 'react';
 
-import { leerVisitas } from '@modules/visitas/repository/visitasRepo';
+import { consultarVisitas } from '@core/puente';
 import { Paleta, type AccionPaleta } from './components/Paleta';
 
 export interface OpcionesPaleta {
@@ -88,7 +88,11 @@ function pintar(): void {
                 acciones={acciones}
                 // Se leen al abrir, no al inicializar: entre una apertura y otra pudo agendarse
                 // algo, y una paleta que no encuentra lo que acabas de crear se deja de usar.
-                visitas={leerVisitas()}
+                // `consultarVisitas()` y no solo local: la misma visita del equipo que ya se ve
+                // en el Calendario debe poder abrirse también desde aquí — antes la paleta solo
+                // conocía lo capturado en este dispositivo, e ir a buscar la de un compañero no
+                // la encontraba aunque estuviera justo enfrente en la rejilla.
+                visitas={consultarVisitas()}
                 onIrAVisita={(v) => {
                     // Primero el día y luego la visita: abrir el drawer sobre el calendario en
                     // otra fecha deja detrás un contexto que no corresponde.

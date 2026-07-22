@@ -90,6 +90,26 @@ export function useRBAC({ activo, avisar, confirmar, onGuardado }: Opciones): Es
         setGuardando(true);
         setError(null);
         try {
+            // Choque con otro administrador: `guardarRoles`/`guardarUsuarios` mandan el estado
+            // COMPLETO de cada uno, no un diff contra lo que el servidor tiene ahora — si dos
+            // personas tienen Accesos abierto a la vez, quien guarda al final pisa en silencio
+            // lo que la otra acabó de guardar. Se compara contra un vistazo fresco antes de
+            // escribir; los cambios locales NO se tocan, solo se avisa y se actualiza la base
+            // de comparación para que el siguiente intento ya no choque con esto mismo.
+            const fresco = await leerRBAC();
+            const enServidor = JSON.stringify({
+                roles: fresco.roles, capacidades: fresco.capacidades, usuarios: fresco.usuarios
+            });
+            if (enServidor !== inicial) {
+                setInicial(enServidor);
+                avisar?.(
+                    'Alguien más guardó cambios en Accesos desde que abriste esta pantalla. ' +
+                    'Tus cambios siguen aquí sin guardar — revísalos contra lo más reciente antes de guardar de nuevo.',
+                    { estado: 'sin-registrar', ms: 9000 }
+                );
+                return;
+            }
+
             const { roles, eliminar } = rolesParaGuardar(original.roles, borrador.roles);
             const rolesResp = await guardarRoles({ roles, eliminar }) as
                 { status?: string; message?: string };

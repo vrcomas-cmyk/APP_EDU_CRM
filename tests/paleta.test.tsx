@@ -248,6 +248,11 @@ describe('se usa entera con el teclado', () => {
 
 describe('saltar a una visita', () => {
     test('lleva primero al día y luego abre la visita', async () => {
+        // La paleta ahora lee `consultarVisitas()` (propias + equipo por jerarquía) en vez de
+        // solo local; sin sesión, `alcance()` queda vacío y ninguna visita con correo pasa el
+        // filtro de `visiblePara`. Se fija una que coincide con el correo del fixture.
+        localStorage.setItem('sesion', JSON.stringify({ correo: 'ana@degasa.com', nombre: 'Ana', id_token: 'x' }));
+
         const orden: string[] = [];
         const v = visita({ id: 'v-9', cliente: 'Hospital Norte', dia: '2026-08-03' });
 
@@ -277,6 +282,10 @@ describe('saltar a una visita', () => {
 describe('el montaje', () => {
     beforeEach(() => {
         localStorage.clear();
+        // La paleta lee `consultarVisitas()`: sin sesión, `alcance()` queda vacío y ninguna
+        // visita con correo pasa el filtro de `visiblePara`. Coincide con el correo por
+        // defecto del fixture `visita()`.
+        localStorage.setItem('sesion', JSON.stringify({ correo: 'ana@degasa.com', nombre: 'Ana', id_token: 'x' }));
         // El módulo guarda su estado fuera de React. Sin reiniciarlo, una prueba que falle
         // dejando la paleta abierta hace fallar a la siguiente, y el fallo real queda
         // enterrado bajo su propia cascada —que es como se pierde una tarde—.

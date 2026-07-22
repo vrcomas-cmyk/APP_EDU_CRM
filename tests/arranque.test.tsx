@@ -221,7 +221,7 @@ describe('el riel de módulos', () => {
         await arrancar();
 
         const rotulos = [...document.querySelectorAll('.nav-item .nav-txt')].map(e => e.textContent);
-        assert.deepEqual(rotulos, ['Calendario', 'Indicadores']);
+        assert.deepEqual(rotulos, ['Calendario', 'Mi día', 'Estrategias', 'Indicadores']);
     });
 
     test('sin permiso de tablero NO aparece el módulo', async () => {

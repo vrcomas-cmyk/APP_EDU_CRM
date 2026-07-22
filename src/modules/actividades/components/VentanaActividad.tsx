@@ -29,11 +29,13 @@ export interface PropsVentana {
     abrirVentanaMaterial: (sector: string, onAgregar: (m: { id: string }) => void) => void;
     construirEvidencia: (a: Actividad) => Node | null;
     construirComentarios: (a: Actividad, v: Visita) => Node | null;
+    /** La actividad es de otra persona: se ve completa, no se registra ni se sube nada. */
+    soloLectura?: boolean;
 }
 
 export function VentanaActividad({
     visitaId, sectorId, actividadId, avisar, alCambiar, onCerrar,
-    abrirVentanaMaterial, construirEvidencia, construirComentarios
+    abrirVentanaMaterial, construirEvidencia, construirComentarios, soloLectura = false
 }: PropsVentana) {
     // Solo existe para forzar el repintado tras escribir en el almacén, que es la fuente de
     // verdad. No se usa como `key`: eso remontaría el formulario en cada tecla y tiraría el
@@ -162,6 +164,12 @@ export function VentanaActividad({
     if (!visita || !sector || !actividad) return null;
 
     const sellada = estaGuardada(actividad);
+
+    // El espejo de equipo (`js/sync.js`) nunca manda actividades sin sello de guardado, así que
+    // en la práctica una actividad ajena SIEMPRE llega sellada. Pero si por lo que sea no lo
+    // estuviera, no hay nada editable que ofrecer: mejor no mostrar nada que un formulario que
+    // `actualizarVisita` va a rechazar en cuanto se intente guardar.
+    if (soloLectura && !sellada) return null;
 
     return (
         <div className="modal" onClick={(e) => { if (e.target === e.currentTarget) cerrar(); }}>

@@ -183,6 +183,44 @@ export function controlEvidencia(actividad, { alCambiar = () => {}, alToast = ()
     return caja;
 }
 
+/**
+ * La misma información que `controlEvidencia`, pero sin ningún botón: para quien mira la
+ * actividad de otra persona. `escribirEvidencia` escribe directo a `localStorage` (no pasa por
+ * el guardián de `visitasRepo.actualizarVisita`) precisamente porque nació pensando solo en la
+ * propia captura; sin esta vista aparte, cualquiera que abriera la actividad de alguien más
+ * vería los mismos botones de "Subir"/"Quitar" y podría creer que funcionaron.
+ */
+export function vistaEvidencia(actividad) {
+    const caja = document.createElement('div');
+    caja.className = 'evid';
+
+    const ev = actividad.evidencia || { estado: 'pendiente' };
+
+    if (ev.estado === 'subida') {
+        const ok = document.createElement('span');
+        ok.className = 'pill st-completa';
+        ok.textContent = '☁ Subida';
+        caja.appendChild(ok);
+
+        if (ev.url) {
+            const ver = document.createElement('a');
+            ver.className = 'btn-txt';
+            ver.href = ev.url;
+            ver.target = '_blank';
+            ver.rel = 'noopener';
+            ver.textContent = 'Ver';
+            caja.appendChild(ver);
+        }
+        return caja;
+    }
+
+    const pendiente = document.createElement('span');
+    pendiente.className = 'pill st-faltan-evidencias';
+    pendiente.textContent = ev.estado === 'local' ? '📎 En cola por subir' : 'Sin evidencia todavía';
+    caja.appendChild(pendiente);
+    return caja;
+}
+
 function selectorArchivo(actividad, alCambiar, alToast) {
     const etiqueta = document.createElement('label');
     etiqueta.className = 'btn-archivo';

@@ -20,6 +20,8 @@ interface Props {
     sector: Sector;
     onAbrirActividad: (actividadId: string | null) => void;
     avisar: Avisar;
+    /** Visita de otra persona: se ve, no se le registra ninguna actividad nueva. */
+    soloLectura?: boolean;
 }
 
 export function CabeceraSector({ visita, sector, onVolver, onCerrar }: {
@@ -42,7 +44,7 @@ export function CabeceraSector({ visita, sector, onVolver, onCerrar }: {
     );
 }
 
-export function CuerpoSector({ visita, sector, onAbrirActividad, avisar }: Props) {
+export function CuerpoSector({ visita, sector, onAbrirActividad, avisar, soloLectura }: Props) {
     return (
         <div className="drawer-body">
             <div className="campo panel-info">
@@ -57,7 +59,10 @@ export function CuerpoSector({ visita, sector, onAbrirActividad, avisar }: Props
                 </p>
             </div>
 
-            <BloqueActividades visita={visita} sector={sector} onAbrirActividad={onAbrirActividad} />
+            <BloqueActividades
+                visita={visita} sector={sector} onAbrirActividad={onAbrirActividad}
+                soloLectura={soloLectura}
+            />
 
             {/* Comentarios propios de ESTE sector: lo que el cliente dijo puntualmente de él,
                 distinto de los comentarios generales de la visita. */}
@@ -77,8 +82,9 @@ export function CuerpoSector({ visita, sector, onAbrirActividad, avisar }: Props
     );
 }
 
-function BloqueActividades({ visita, sector, onAbrirActividad }: {
+function BloqueActividades({ visita, sector, onAbrirActividad, soloLectura }: {
     visita: Visita; sector: Sector; onAbrirActividad: (actividadId: string | null) => void;
+    soloLectura?: boolean;
 }) {
     const actividades = sector.actividades || [];
 
@@ -95,7 +101,10 @@ function BloqueActividades({ visita, sector, onAbrirActividad }: {
             ) : (
                 <>
                     {actividades.length === 0 && (
-                        <p className="ayuda">Aún no registras actividades en este sector.</p>
+                        <p className="ayuda">
+                            {soloLectura ? 'Este sector no tiene actividades registradas.'
+                                         : 'Aún no registras actividades en este sector.'}
+                        </p>
                     )}
 
                     {actividades.map((act, i) => (
@@ -107,13 +116,17 @@ function BloqueActividades({ visita, sector, onAbrirActividad }: {
                         />
                     ))}
 
-                    <button
-                        type="button"
-                        className="btn btn-principal btn-registrar"
-                        onClick={() => onAbrirActividad(null)}
-                    >
-                        + Registrar actividad
-                    </button>
+                    {/* Registrar una actividad NUEVA es capturar: solo tiene sentido sobre la
+                        propia visita. La de otra persona se consulta, no se le agrega nada. */}
+                    {!soloLectura && (
+                        <button
+                            type="button"
+                            className="btn btn-principal btn-registrar"
+                            onClick={() => onAbrirActividad(null)}
+                        >
+                            + Registrar actividad
+                        </button>
+                    )}
                 </>
             )}
         </div>

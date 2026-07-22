@@ -8,6 +8,7 @@
 
 import { useMemo } from 'react';
 import { consultarVisitas, opcionesDeFiltro, etiquetaEstado, tieneEquipo, type Filtro } from '@core/puente';
+import { ComboFiltro } from '@shared/components/ComboFiltro';
 import type { Visita } from '@core/tipos';
 
 interface Props {
@@ -30,20 +31,25 @@ export function BarraFiltros({ filtro, visitas, onCambiar, onLimpiar }: Props) {
 
     return (
         <div className="filtros">
-            {/* El filtro por educador solo tiene sentido para quien ve a más de una persona. */}
+            {/* El filtro por educador solo tiene sentido para quien ve a más de una persona.
+                Con buscador y no un `<select>` plano: un equipo de cientos de personas no se
+                hojea con una lista nativa. */}
             {tieneEquipo() && (
-                <Select etiqueta="Educador" clave="educador" opciones={ops.educadores}
-                        filtro={filtro} onCambiar={onCambiar} />
+                <ComboFiltro etiqueta="Educador" opciones={ops.educadores}
+                             valor={filtro.educador} onCambiar={(v) => onCambiar('educador', v)} />
             )}
 
-            <Select etiqueta="Cliente" clave="cliente" opciones={ops.clientes}
-                    filtro={filtro} onCambiar={onCambiar} />
-            <Select etiqueta="Hospital" clave="hospital" opciones={ops.hospitales}
-                    filtro={filtro} onCambiar={onCambiar} />
-            <Select etiqueta="Sector" clave="sector" opciones={ops.sectores}
-                    filtro={filtro} onCambiar={onCambiar} />
-            <Select etiqueta="Tipo de actividad" clave="tipo_actividad" opciones={ops.tipos}
-                    filtro={filtro} onCambiar={onCambiar} />
+            <ComboFiltro etiqueta="Cliente" opciones={ops.clientes}
+                         valor={filtro.cliente} onCambiar={(v) => onCambiar('cliente', v)} />
+            <ComboFiltro etiqueta="Hospital" opciones={ops.hospitales}
+                         valor={filtro.hospital} onCambiar={(v) => onCambiar('hospital', v)} />
+            <ComboFiltro etiqueta="Sector" opciones={ops.sectores}
+                         valor={filtro.sector} onCambiar={(v) => onCambiar('sector', v)} />
+            <ComboFiltro etiqueta="Tipo de actividad" opciones={ops.tipos}
+                         valor={filtro.tipo_actividad} onCambiar={(v) => onCambiar('tipo_actividad', v)} />
+
+            {/* Estado sí se queda como `<select>`: son cuatro valores fijos, no un catálogo
+                que crece — el problema que resuelve el buscador no existe aquí. */}
             <Select etiqueta="Estado" clave="estado" opciones={ops.estados}
                     formato={etiquetaEstado} filtro={filtro} onCambiar={onCambiar} />
 

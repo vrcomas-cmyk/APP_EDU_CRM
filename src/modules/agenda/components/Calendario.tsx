@@ -5,14 +5,19 @@
  * vertical. Las tres decisiones están explicadas en sus componentes.
  */
 
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     claveDia, claveHoy, diasDeSemana, etiquetaMes, etiquetaRangoSemana, etiquetaDiaLarga,
-    inicioDe, finDe, reagendarVisita, type Avisar
+    inicioDe, finDe, reagendarVisita, listarCompromisos, consultarVisitas,
+    aplicarFiltro, opcionesDeFiltro, tieneEquipo,
+    type Avisar, type CompromisoCalendar, type Filtro
 } from '@core/puente';
 
 import { useCalendario, type ModoCalendario } from '../hooks/useCalendario';
+import { useConexionCalendar } from '../hooks/useConexionCalendar';
 import { useArrastreCreacion, useArrastreTarjeta } from '../hooks/useArrastre';
+import { reflejarEnCalendar } from '@modules/visitas/services/calendarSync';
+import { ComboFiltro } from '@shared/components/ComboFiltro';
 import { calcularVentana } from '../services/ventana';
 import { RejillaHoras } from './RejillaHoras';
 import { VistaMes } from './VistaMes';
@@ -45,14 +50,33 @@ export function Calendario({
     const { modo, movil, cursor, setModo, setCursor, irAHoy, irADia, mover } = useCalendario();
 
     /**
-     * Las visitas del día. Los BORRADORES no cuentan: una visita a medio capturar todavía no
-     * ocupa ese hueco, y pintarla haría que se planeara alrededor de algo que puede terminar
-     * descartado.
+     * Las visitas visibles para quien mira: propias + equipo según jerarquía, igual que
+     * "Mi día" y el resto del tablero — `consultarVisitas()` ya junta local + espejo de
+     * Supabase y recorta por `alcance()`, así que lo que se guardó en Sheets/Supabase desde
+     * otro dispositivo (o de la gente a cargo) aparece aquí también, no solo en este teléfono.
+     *
+     * Usar `repo.leerVisitas()` a secas (solo local) fue el bug original: un gerente veía a
+     * su equipo en "Mi día" pero no en el Calendario, porque esa vista leía nada más lo
+     * capturado en su propio dispositivo. Los BORRADORES tampoco cuentan aquí: una visita a
+     * medio capturar todavía no ocupa ese hueco.
      */
-    const visitas = useMemo(
-        () => repo.leerVisitas().filter(v => !v.borrador),
+    const todasVisibles = useMemo(
+        () => consultarVisitas(),
         // `version` es la dependencia real: el almacén no avisa cuando cambia.
         [version]
+    );
+
+    /**
+     * Filtro por educador/cliente — solo tiene sentido para quien ve a más de una persona.
+     * Las opciones salen de TODO lo visible (antes de filtrar), igual que en `BarraFiltros`
+     * del tablero: si salieran del resultado ya filtrado, el propio valor elegido sería la
+     * única opción de su lista.
+     */
+    const [filtro, setFiltro] = useState<Pick<Filtro, 'educador' | 'cliente'>>({ educador: '', cliente: '' });
+    const opciones = useMemo(() => opcionesDeFiltro(todasVisibles), [todasVisibles]);
+    const visitas = useMemo(
+        () => (filtro.educador || filtro.cliente ? aplicarFiltro(todasVisibles, filtro) : todasVisibles),
+        [todasVisibles, filtro]
     );
 
     const porDia = useMemo(() => {
@@ -79,20 +103,75 @@ export function Calendario({
         return calcularVentana(rangos, claves.includes(claveHoy()) ? new Date() : null);
     }, [claves, visitasDe]);
 
+    /**
+     * Lo que ya está en Google Calendar, agrupado por día. Silencioso si falla o si nadie lo
+     * conectó: es un extra sobre la rejilla, no una condición para que el calendario funcione.
+     */
+    const { conectado: calendarConectado, conectar: conectarCalendarBtn, conectando, error: errorCalendar } = useConexionCalendar();
+    const [compromisos, setCompromisos] = useState<Map<string, CompromisoCalendar[]>>(new Map());
+
+    useEffect(() => {
+        if (!calendarConectado || claves.length === 0) { setCompromisos(new Map()); return; }
+
+        let vivo = true;
+        const desde = new Date(`${claves[0]}T00:00:00`);
+        const hasta = new Date(`${claves[claves.length - 1]}T23:59:59`);
+
+        listarCompromisos(desde.toISOString(), hasta.toISOString())
+            .then(lista => {
+                if (!vivo) return;
+                const mapa = new Map<string, CompromisoCalendar[]>();
+                for (const c of lista) {
+                    if (c.todoElDia) continue;
+                    const clave = claveDia(new Date(c.inicio));
+                    (mapa.get(clave) ?? mapa.set(clave, []).get(clave)!).push(c);
+                }
+                setCompromisos(mapa);
+            })
+            .catch((err) => {
+                console.error('No se pudieron leer los compromisos de Calendar:', err);
+                if (vivo) setCompromisos(new Map());
+            });
+
+        return () => { vivo = false; };
+    }, [claves, calendarConectado]);
+
+    const compromisosDe = useCallback(
+        (clave: string) => compromisos.get(clave) ?? [],
+        [compromisos]
+    );
+
     const titulo = useMemo(() => {
         if (movil || modo === 'semana') return etiquetaRangoSemana(cursor);
         if (modo === 'mes') return etiquetaMes(cursor);
         return etiquetaDiaLarga(claveDia(cursor));
     }, [movil, modo, cursor]);
 
-    /** Reagendar SIEMPRE pide motivo: sin él no es un campo editable, es un rastro que se borra. */
+    /**
+     * Reagendar SIEMPRE pide motivo: sin él no es un campo editable, es un rastro que se borra.
+     *
+     * `window.prompt` no sirve aquí: una PWA instalada (`display: standalone`) suele no mostrar
+     * el diálogo nativo y `prompt()` devuelve `null` de inmediato, así que el arrastre se veía
+     * pero el reagendado nunca se aplicaba. El motivo se pide con un modal propio en su lugar.
+     */
+    const [pendiente, setPendiente] = useState<{
+        id: string;
+        cambios: { dia?: string; hora_inicio?: string; hora_fin?: string };
+        pregunta: string;
+    } | null>(null);
+
     const pedirMotivoYReagendar = useCallback((
         id: string,
         cambios: { dia?: string; hora_inicio?: string; hora_fin?: string },
         pregunta: string
     ) => {
-        const motivo = prompt(pregunta);
-        if (motivo === null) return;   // canceló: nada mutó, la tarjeta sigue en su sitio
+        setPendiente({ id, cambios, pregunta });
+    }, []);
+
+    const confirmarMotivo = useCallback((motivo: string) => {
+        if (!pendiente) return;
+        const { id, cambios } = pendiente;
+        setPendiente(null);
 
         const r = reagendarVisita(id, {
             dia: cambios.dia ?? '',
@@ -104,8 +183,11 @@ export function Calendario({
         if (!r.ok) { avisar(r.error || 'No se pudo reagendar.', { estado: 'sin-registrar' }); return; }
 
         avisar('Visita reagendada. Queda el registro del cambio.', { estado: 'completa' });
+        if (r.visita) {
+            void reflejarEnCalendar(r.visita, (mutador) => repo.actualizarVisita(id, mutador), avisar);
+        }
         onCambio();
-    }, [avisar, onCambio]);
+    }, [pendiente, avisar, onCambio]);
 
     const alCrear = useArrastreCreacion({ ventana, onCrear: onCrearEn });
     const { alMover, alRedimensionar } = useArrastreTarjeta({
@@ -120,32 +202,173 @@ export function Calendario({
         publicarMandos?.({ irAHoy, irADia, setModo });
     }, [publicarMandos, irAHoy, irADia, setModo]);
 
+    const barraFiltros = tieneEquipo() && (
+        <FiltrosCalendario filtro={filtro} opciones={opciones} onCambiar={setFiltro} />
+    );
+
     if (movil) {
         return (
-            <AgendaMovil
-                cursor={cursor}
-                visitasDe={visitasDe}
-                onElegirDia={setCursor}
-                onAbrir={onAbrirVisita}
-            />
+            <>
+                {barraFiltros}
+                <AgendaMovil
+                    cursor={cursor}
+                    visitasDe={visitasDe}
+                    onElegirDia={setCursor}
+                    onAbrir={onAbrirVisita}
+                />
+                {pendiente && (
+                    <ModalMotivo
+                        pregunta={pendiente.pregunta}
+                        onCancelar={() => setPendiente(null)}
+                        onConfirmar={confirmarMotivo}
+                    />
+                )}
+            </>
         );
     }
 
     if (modo === 'mes') {
-        return <VistaMes cursor={cursor} visitasDe={visitasDe} onElegirDia={irADia} />;
+        return (
+            <>
+                {barraFiltros}
+                <VistaMes cursor={cursor} visitasDe={visitasDe} onElegirDia={irADia} />
+                {pendiente && (
+                    <ModalMotivo
+                        pregunta={pendiente.pregunta}
+                        onCancelar={() => setPendiente(null)}
+                        onConfirmar={confirmarMotivo}
+                    />
+                )}
+            </>
+        );
     }
 
     return (
-        <RejillaHoras
-            claves={claves}
-            clase={modo === 'semana' ? 'semana' : 'dia'}
-            ventana={ventana}
-            visitasDe={visitasDe}
-            onPointerDownColumna={alCrear}
-            onPointerDownCuerpo={alMover}
-            onPointerDownManija={alRedimensionar}
-            onAbrir={onAbrirVisita}
-        />
+        <>
+            {barraFiltros}
+            {!calendarConectado && (
+                <div className="calendar-conectar-barra">
+                    <span>
+                        {conectando
+                            ? 'Conectando con Google Calendar…'
+                            : 'Conecta Google Calendar para ver tus juntas en la rejilla.'}
+                    </span>
+                    <button type="button" className="btn-txt" disabled={conectando} onClick={conectarCalendarBtn}>
+                        Conectar Google Calendar
+                    </button>
+                    {errorCalendar && <span className="aviso">{errorCalendar}</span>}
+                </div>
+            )}
+            <RejillaHoras
+                claves={claves}
+                clase={modo === 'semana' ? 'semana' : 'dia'}
+                ventana={ventana}
+                visitasDe={visitasDe}
+                compromisosDe={compromisosDe}
+                onPointerDownColumna={alCrear}
+                onPointerDownCuerpo={alMover}
+                onPointerDownManija={alRedimensionar}
+                onAbrir={onAbrirVisita}
+            />
+            {pendiente && (
+                <ModalMotivo
+                    pregunta={pendiente.pregunta}
+                    onCancelar={() => setPendiente(null)}
+                    onConfirmar={confirmarMotivo}
+                />
+            )}
+        </>
+    );
+}
+
+// ---------- filtro por educador/cliente ----------
+
+/**
+ * Solo aparece si hay a quién filtrar: sin equipo a cargo, el educador es el único valor
+ * posible y ofrecer el select sería un control decorativo.
+ */
+function FiltrosCalendario({ filtro, opciones, onCambiar }: {
+    filtro: Pick<Filtro, 'educador' | 'cliente'>;
+    opciones: ReturnType<typeof opcionesDeFiltro>;
+    onCambiar: (f: Pick<Filtro, 'educador' | 'cliente'>) => void;
+}) {
+    const activos = (filtro.educador ? 1 : 0) + (filtro.cliente ? 1 : 0);
+
+    return (
+        <div className="filtros filtros-cal">
+            <ComboFiltro
+                etiqueta="Educador" opciones={opciones.educadores}
+                valor={filtro.educador} onCambiar={(v) => onCambiar({ ...filtro, educador: v })}
+            />
+            <ComboFiltro
+                etiqueta="Cliente" opciones={opciones.clientes}
+                valor={filtro.cliente} onCambiar={(v) => onCambiar({ ...filtro, cliente: v })}
+            />
+            {activos > 0 && (
+                <button type="button" className="btn-txt" onClick={() => onCambiar({ educador: '', cliente: '' })}>
+                    Limpiar {activos} filtro{activos === 1 ? '' : 's'}
+                </button>
+            )}
+        </div>
+    );
+}
+
+// ---------- modal del motivo de reagendado ----------
+
+/** Reemplaza a `window.prompt`, que una PWA instalada no muestra. Motivo obligatorio. */
+function ModalMotivo({ pregunta, onCancelar, onConfirmar }: {
+    pregunta: string;
+    onCancelar: () => void;
+    onConfirmar: (motivo: string) => void;
+}) {
+    const [motivo, setMotivo] = useState('');
+
+    useEffect(() => {
+        function alEscape(e: KeyboardEvent) {
+            if (e.key === 'Escape') onCancelar();
+        }
+        document.addEventListener('keydown', alEscape);
+        return () => document.removeEventListener('keydown', alEscape);
+    }, [onCancelar]);
+
+    return (
+        <div className="modal" onClick={(e) => { if (e.target === e.currentTarget) onCancelar(); }}>
+            <div className="modal-caja">
+                <div className="modal-head">
+                    <div className="drawer-head-txt">
+                        <h3>Motivo del cambio</h3>
+                        <span className="eyebrow">{pregunta}</span>
+                    </div>
+                    <button type="button" className="icon-btn" aria-label="Cerrar" onClick={onCancelar}>✕</button>
+                </div>
+                <div className="modal-body">
+                    <label className="campo">
+                        <span className="campo-lbl">Motivo</span>
+                        <input
+                            type="text" className="inp" autoFocus
+                            placeholder="¿Por qué se mueve esta visita?"
+                            value={motivo}
+                            onChange={(e) => setMotivo(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && motivo.trim()) onConfirmar(motivo.trim());
+                            }}
+                        />
+                        <p className="ayuda">Obligatorio: queda en el historial</p>
+                    </label>
+                    <div className="modal-foot">
+                        <span style={{ flex: 1 }} />
+                        <button type="button" className="btn-txt" onClick={onCancelar}>Cancelar</button>
+                        <button
+                            type="button" className="btn btn-principal"
+                            disabled={!motivo.trim()}
+                            onClick={() => onConfirmar(motivo.trim())}
+                        >
+                            Reagendar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
     );
 }
 

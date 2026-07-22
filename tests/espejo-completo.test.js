@@ -62,6 +62,17 @@ const ESPEJOS = {
 /** Las que escriben en Postgres SIN copia en la hoja: su fallo no se puede callar. */
 const SOLO_POSTGRES = ['guardarRoles', 'guardarUsuarios', 'guardarFlujos'];
 
+/**
+ * Estrategias no tiene alcance por jerarquía: es una referencia PLANA que ve todo el equipo
+ * por igual (cliente × sector × grupo de artículo), y esa visibilidad ya la resuelve la propia
+ * hoja de Sheets —cualquiera que llame a `leerEstrategias` ve la tabla entera— sin pasar por
+ * Postgres. El espejo existe en las demás acciones para poder leer "el equipo de quien
+ * pregunta" con un recorrido recursivo de jerarquía (`pdt_alcance`); aquí no hay "mi equipo",
+ * hay "el catálogo completo", así que ese recorrido no aplica. Si algún día Estrategias
+ * necesita filtrarse por jerarquía, ese es el momento de espejarla.
+ */
+const SIN_ESPEJO_POR_DISEÑO = ['guardarEstrategias'];
+
 describe('el espejo de Supabase', () => {
     for (const [funcion, rpc] of Object.entries(ESPEJOS)) {
         test(`${funcion} escribe también en Supabase`, () => {
@@ -82,7 +93,7 @@ describe('el espejo de Supabase', () => {
 
         assert.ok(acciones.length >= 5, `se esperaban varias acciones, salieron ${acciones.length}`);
 
-        const sinEspejo = acciones.filter(a => !ESPEJOS[a]);
+        const sinEspejo = acciones.filter(a => !ESPEJOS[a] && !SIN_ESPEJO_POR_DISEÑO.includes(a));
         assert.deepEqual(sinEspejo, [],
             `estas acciones guardan y nadie declaró su espejo: ${sinEspejo.join(', ')}`);
     });

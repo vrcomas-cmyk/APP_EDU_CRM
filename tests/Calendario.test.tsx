@@ -75,6 +75,12 @@ function arrastrar(desde: number, hasta: number) {
 beforeEach(() => {
     localStorage.clear();
 
+    // El calendario ahora lee `consultarVisitas()` (propias + equipo por jerarquía), igual que
+    // "Mi día": sin sesión, `alcance()` queda vacío y ninguna visita con correo pasa el filtro
+    // de `visiblePara`. Se fija una sesión que coincide con `educador_correo` de las visitas
+    // de prueba para que el perfil de respaldo (`permisos.js`) resuelva alcance = [ese correo].
+    localStorage.setItem('sesion', JSON.stringify({ correo: 'ana@x.com', nombre: 'Ana López', id_token: 'x' }));
+
     // El reloj se fija a media mañana, y no es un capricho: la ventana de la rejilla se
     // estira para que quepa la línea de "ahora", así que a las 19:30 la rejilla llega hasta
     // las 20:00 y cambian los píxeles por hora. Sin fijar la hora, estas pruebas darían

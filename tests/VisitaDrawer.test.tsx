@@ -72,10 +72,21 @@ const guardada = (campos: Partial<Visita> = {}): Visita => ({
 beforeEach(() => {
     localStorage.clear();
     olvidarPerfil();
-    guardarCatalogo({ clientes: ['Cliente Uno', 'Cliente Dos'], sectores: ['GASAS'] });
+    guardarCatalogo({
+        clientes: ['Cliente Uno', 'Cliente Dos'], sectores: ['GASAS'],
+        clientes_zona: { 'Cliente Uno': '801' },
+        ejecutivos: { '801': 'Sandra Carbajal' }
+    });
 });
 
-afterEach(cleanup);
+afterEach(() => {
+    cleanup();
+    // El hilo de comentarios cuelga su ventana de `document.body` (mismo patrón que el visor
+    // de evidencias), fuera del árbol de React: `cleanup()` no la toca. Sin esto, cada prueba
+    // que la abre deja un `.hilo-modal` y su listener de Escape vivos para la siguiente —el
+    // mismo tipo de acumulación entre pruebas que ya documenta ARQUITECTURA.md.
+    document.querySelectorAll('.hilo-modal').forEach(m => m.remove());
+});
 
 describe('borrador — nada existe hasta guardar', () => {
     test('el botón Guardar nace deshabilitado', () => {
@@ -157,6 +168,39 @@ describe('borrador — nada existe hasta guardar', () => {
         assert.equal(enDisco.cliente, 'Cliente Dos');
         assert.equal(enDisco.borrador, true,
             'el autoguardado es una red contra perder lo escrito, no un registro');
+    });
+
+    test('elegir un cliente del catálogo resuelve Zona y Ejecutivo solos', () => {
+        const v = borrador();
+        montar(v);
+
+        const inputs = [...document.querySelectorAll<HTMLInputElement>('input.inp')];
+        const cliente = inputs.find(i => i.placeholder?.includes('razón social'))!;
+
+        // Escribir NO alcanza: hay que ELEGIR la opción, igual que en producción, porque
+        // solo `onElegir` confirma que es un cliente real del catálogo y no texto libre.
+        // El combo elige con `mousedown` (no `click`): el blur del input llega antes que el
+        // click y la opción ya no existiría para recibirlo.
+        fireEvent.change(cliente, { target: { value: 'Cliente Uno' } });
+        fireEvent.mouseDown(screen.getByRole('option', { name: 'Cliente Uno' }));
+
+        const enDisco = repo.obtenerVisita(v.id)!;
+        assert.equal(enDisco.zona, '801');
+        assert.equal(enDisco.ejecutivo, 'Sandra Carbajal');
+        assert.ok(screen.getByText('Sandra Carbajal'), 'el Ejecutivo se muestra, no se escribe');
+    });
+
+    test('escribir un cliente que no está en el catálogo no inventa Zona ni Ejecutivo', () => {
+        const v = borrador();
+        montar(v);
+
+        const inputs = [...document.querySelectorAll<HTMLInputElement>('input.inp')];
+        const cliente = inputs.find(i => i.placeholder?.includes('razón social'))!;
+        fireEvent.change(cliente, { target: { value: 'Cliente que no existe' } });
+
+        const enDisco = repo.obtenerVisita(v.id)!;
+        assert.equal(enDisco.zona, undefined);
+        assert.equal(enDisco.ejecutivo, undefined);
     });
 
     test('mover el inicio MUEVE el bloque conservando la duración', () => {
@@ -244,6 +288,44 @@ describe('visita guardada — inmutable, con acciones', () => {
 
         assert.ok(screen.getByRole('button', { name: /Finalizar visita/ }));
         assert.equal(screen.queryByRole('button', { name: /Iniciar visita/ }), null);
+    });
+
+    test('Zona y Ejecutivo se muestran en el panel de información', () => {
+        montar(guardada({ zona: '801', ejecutivo: 'Sandra Carbajal' }));
+
+        assert.match(document.body.textContent!, /801/);
+        assert.match(document.body.textContent!, /Sandra Carbajal/);
+    });
+
+    test('Notas se puede seguir editando aunque la visita ya esté guardada', () => {
+        const v = guardada({ notas: 'Revisar contrato' });
+        montar(v);
+
+        const area = document.querySelector('.notas-area') as HTMLTextAreaElement;
+        assert.equal(area.value, 'Revisar contrato');
+
+        fireEvent.change(area, { target: { value: 'Revisar contrato y precios' } });
+        assert.equal(repo.obtenerVisita(v.id)!.notas, 'Revisar contrato y precios');
+    });
+
+    test('llegada dentro de los 15 min de gracia se marca Puntual', () => {
+        // Se construye en hora LOCAL (como hace la app de verdad al capturar el check-in) y
+        // no con un ISO 'Z' fijo: `minutosDeRetraso` compara la hora local de la llegada
+        // contra `hora_inicio`, así que un huso horario distinto al de Ciudad de México
+        // volvería la prueba falsa sin que el código tuviera ningún error.
+        montar(guardada({
+            hora_inicio: '09:00',
+            check_in: { momento: new Date(2026, 6, 15, 9, 10, 0).toISOString() }
+        }));
+        assert.ok(screen.getByText('Puntual'));
+    });
+
+    test('llegada más de 15 min tarde se marca Impuntual, con los minutos', () => {
+        montar(guardada({
+            hora_inicio: '09:00',
+            check_in: { momento: new Date(2026, 6, 15, 9, 30, 0).toISOString() }
+        }));
+        assert.ok(screen.getByText(/Impuntual · 30 min tarde/));
     });
 
     test('una cancelada no ofrece reagendar ni cancelar, pero sí reactivar', () => {
@@ -429,12 +511,20 @@ describe('comentarios (Fase 4)', () => {
         conPermisoDeComentar();
         montar(guardada());
 
-        const area = document.querySelector('.hilo-area') as HTMLTextAreaElement;
+        // La previa solo muestra los últimos 2 y un botón a la ventana completa: el redactor
+        // vive ahí, no en línea.
+        fireEvent.click(document.querySelector('.hilo-abrir')!);
+
+        const area = document.querySelector('.hilo-modal .hilo-area') as HTMLTextAreaElement;
         // El redactor es vanilla y escucha 'input' (no 'change') para habilitar el botón.
         fireEvent.input(area, { target: { value: 'El cliente pidió más gasas.' } });
-        fireEvent.click(screen.getByText('Comentar'));
+        fireEvent.click(document.querySelector('.hilo-modal .hilo-nuevo button')!);
 
-        assert.ok(document.querySelector('.coment-txt')?.textContent?.includes('más gasas'));
+        assert.ok(document.querySelector('.hilo-modal .coment-txt')?.textContent?.includes('más gasas'));
+
+        // La ventana cuelga de `document.body` y su listener de Escape vive fuera del árbol
+        // de React: cerrarla de verdad (no solo quitar el nodo) es lo que lo retira.
+        fireEvent.click(document.querySelector('.hilo-modal .icon-btn')!);
     });
 
     test('el sector tiene su propio hilo, distinto del de la visita', () => {
@@ -445,11 +535,15 @@ describe('comentarios (Fase 4)', () => {
 
         assert.ok(screen.getByText('Comentarios del sector'));
 
-        const area = document.querySelector('.hilo-area') as HTMLTextAreaElement;
-        fireEvent.input(area, { target: { value: 'Piden reforzar la técnica.' } });
-        fireEvent.click(screen.getByText('Comentar'));
+        fireEvent.click(document.querySelector('.hilo-abrir')!);
 
-        assert.ok(document.querySelector('.coment-txt')?.textContent?.includes('reforzar la técnica'));
+        const area = document.querySelector('.hilo-modal .hilo-area') as HTMLTextAreaElement;
+        fireEvent.input(area, { target: { value: 'Piden reforzar la técnica.' } });
+        fireEvent.click(document.querySelector('.hilo-modal .hilo-nuevo button')!);
+
+        assert.ok(document.querySelector('.hilo-modal .coment-txt')?.textContent?.includes('reforzar la técnica'));
+
+        fireEvent.click(document.querySelector('.hilo-modal .icon-btn')!);
     });
 
     test('un perfil sin el permiso de crear no ofrece redactor', () => {

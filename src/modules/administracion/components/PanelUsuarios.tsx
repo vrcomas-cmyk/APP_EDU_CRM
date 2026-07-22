@@ -63,6 +63,7 @@ export function PanelUsuarios({ borrador, cambiar }: Props) {
                                     ...b, usuarios: conActivoDeUsuario(b.usuarios, i, v)
                                 }))}
                             />
+                            {!esNuevo && <EstadoInvitacion invitacion={u.invitacion} />}
                             {esNuevo && (
                                 <button
                                     type="button"
@@ -104,4 +105,17 @@ export function PanelUsuarios({ borrador, cambiar }: Props) {
             </button>
         </div>
     );
+}
+
+/**
+ * "Sin invitar" (`null`) y "invitación revocada" se ven idénticos si solo se muestra
+ * Activo/Inactivo: los dos casos son personas que hoy no entran, pero uno nunca recibió
+ * invitación y al otro se le retiró a propósito. Un administrador que investiga "¿por qué
+ * esta persona no puede entrar?" necesita distinguirlos, no solo saber que no puede.
+ */
+function EstadoInvitacion({ invitacion }: { invitacion: string | null }) {
+    if (invitacion === 'pendiente') return <span className="pill st-programada">Invitación pendiente</span>;
+    if (invitacion === 'revocada') return <span className="pill st-sin-registrar">Invitación revocada</span>;
+    if (invitacion === 'aceptada') return null; // el caso normal no necesita distinguirse con una pastilla.
+    return <span className="pill neutro">Sin invitar</span>;
 }

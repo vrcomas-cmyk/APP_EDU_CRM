@@ -100,10 +100,22 @@ const SHEET_VISITAS_ID = '1_HjRYIje0_yNMK3s3ACAxMG0rgOjHeSaWpJBX4u8Duc';
 // Catálogos: pestaña y nombre de la columna a leer (si no se encuentra, se usa la col. A).
 const HOJA_CLIENTES = 'Clientes';
 const COL_CLIENTE = 'N° Cliente y Razon Social';
+// La Zona de la visita no la escribe el educador: sale de esta columna, por cliente.
+const COL_GPO_VENDEDORES = 'Gpo. vendedores';
+
+// El Ejecutivo (a quién le reporta la zona) sale de otra pestaña, buscando la Zona del
+// cliente en su columna "Zona" y devolviendo su columna "Ejecutivo". Dos tablas, un solo
+// salto —Cliente → Zona → Ejecutivo— para no repetir el nombre del ejecutivo en cada cliente.
+const HOJA_EJECUTIVOS = 'Ejecutivos';
+const COL_ZONA_EJECUTIVO = 'Zona';
+const COL_EJECUTIVO = 'Ejecutivo';
 
 // Los sectores NO tienen pestaña propia: salen de los materiales, deduplicados.
 const HOJA_MATERIALES = 'Materiales';
 const COL_SECTOR = 'Descr. Sector';
+// El grupo de artículo de Estrategias sale de la misma pestaña, por la misma razón: es la
+// familia comercial del producto, y esa sola vive en "Materiales", no en un catálogo aparte.
+const COL_GRUPO_ARTICULO = 'Descr. Grupo de Art.';
 
 // Educadores: col. A = nombre, col. B = correo.
 const HOJA_EDUCADORES = 'Educadores';
@@ -115,6 +127,7 @@ const HOJA_MATERIALES_CAPTURA = 'Materiales_Capturados';
 const HOJA_EVENTOS = 'Eventos';
 const HOJA_COMENTARIOS = 'Comentarios';
 const HOJA_REVISIONES = 'Revisiones';
+const HOJA_ESTRATEGIAS = 'Estrategias';
 
 // Catálogo de materiales que lee el buscador de la app (filtrado por sector).
 const COL_MATERIAL = 'Material y Nombre';
@@ -304,7 +317,8 @@ const ENCABEZADOS_VISITAS = [
     // Se agregan AL FINAL, nunca junto a la columna con la que se leen. `obtenerHoja` exige
     // que las columnas ya existentes coincidan en nombre Y posición: meter una en medio haría
     // tronar la sincronización de todas las hojas que ya están en producción.
-    'solicitado_por', 'sector_guardado_momento', 'sector_guardado_usuario'
+    'solicitado_por', 'sector_guardado_momento', 'sector_guardado_usuario',
+    'zona', 'ejecutivo', 'notas'
 ];
 
 const ENCABEZADOS_ACTIVIDADES = [
@@ -337,6 +351,15 @@ const ENCABEZADOS_REVISIONES = [
     'revisor', 'revisor_correo', 'actualizado'
 ];
 
+// Cliente × Sector × Grupo de Artículo. Cualquier educador o gerente la escribe y la corrige,
+// así que es upsert por id como Visitas/Actividades, no append como Comentarios — no hay un
+// dueño único cuyo cambio "pisar" sería un error.
+const ENCABEZADOS_ESTRATEGIAS = [
+    'id', 'cliente', 'sector', 'grupo_articulo', 'etapa',
+    'proyecto', 'productos', 'observaciones',
+    'actualizado', 'actualizado_por', 'actualizado_correo'
+];
+
 const ENCABEZADOS_EVENTOS = [
     'id', 'tipo', 'momento', 'id_visita', 'cliente', 'hospital',
     'educador', 'educador_correo', 'dispositivo', 'datos', 'actualizado'
@@ -350,7 +373,10 @@ function doGet() {
         return json({
             educadores: leerEducadores(db),
             sectores: leerSectores(db),
+            grupos_articulo: leerGruposArticulo(db),
             clientes: leerClientes(db),
+            clientes_zona: leerClientesZona(db),
+            ejecutivos: leerEjecutivos(db),
             // Si estas pestañas no existen todavía, van vacías y la PWA usa sus valores
             // por defecto: la app funciona desde el primer día, sin configurar nada.
             tipos_actividad: leerTipos(),
@@ -374,15 +400,27 @@ var ACCIONES_CON_IDENTIDAD = ['guardarVisitas', 'subirEvidencia', 'guardarEvento
                               'guardarCatalogosAdmin', 'guardarComentarios',
                               'leerVisitasEquipo', 'guardarRevisiones', 'leerRevisiones',
                               'leerRBAC', 'guardarRoles', 'guardarUsuarios',
-                              'leerFlujos', 'guardarFlujos'];
+                              'leerFlujos', 'guardarFlujos',
+                              'guardarEstrategias', 'leerEstrategias'];
+
+// Acciones de solo LECTURA: no tocan ninguna hoja, así que no necesitan turnarse detrás del
+// candado global. Antes SÍ lo hacían —un `waitLock` compartido con las escrituras— y eso
+// significaba que una subida de evidencia grande (base64, puede tardar varios segundos)
+// bloqueaba hasta 30s la lectura de "Mi día"/Calendario de TODO el equipo, no solo de quien
+// subía. Separarlas es lo que de verdad resuelve la lentitud, más que el tamaño del payload.
+var ACCIONES_DE_LECTURA = ['leerVisitasEquipo', 'leerRevisiones', 'leerRBAC', 'leerFlujos', 'leerEstrategias'];
 
 function doPost(e) {
-    // La PWA manda Content-Type: text/plain para evitar el preflight OPTIONS,
-    // que Apps Script no sabe responder. Por eso el body llega crudo aquí.
-    var lock = LockService.getScriptLock();
+    var lock = null;
     try {
-        lock.waitLock(30000);
+        // La PWA manda Content-Type: text/plain para evitar el preflight OPTIONS,
+        // que Apps Script no sabe responder. Por eso el body llega crudo aquí.
         var body = JSON.parse(e.postData.contents);
+        var esLectura = ACCIONES_DE_LECTURA.indexOf(body.action) !== -1;
+        if (!esLectura) {
+            lock = LockService.getScriptLock();
+            lock.waitLock(30000);
+        }
 
         var identidad = null;
         if (ACCIONES_CON_IDENTIDAD.indexOf(body.action) !== -1) {
@@ -417,13 +455,17 @@ function doPost(e) {
                 return json(leerFlujos(identidad));
             case 'guardarFlujos':
                 return json(guardarFlujos(body, identidad));
+            case 'guardarEstrategias':
+                return json(guardarEstrategias(body.estrategias || [], identidad));
+            case 'leerEstrategias':
+                return json(leerEstrategias());
             default:
                 return json({ status: 'error', message: 'action desconocida: ' + body.action });
         }
     } catch (err) {
         return json({ status: 'error', message: String(err) });
     } finally {
-        lock.releaseLock();
+        if (lock) lock.releaseLock();
     }
 }
 
@@ -503,9 +545,60 @@ function leerClientes(db) {
     return leerColumnaUnica(db, HOJA_CLIENTES, COL_CLIENTE);
 }
 
+/**
+ * Cliente → Zona. Un objeto, no un arreglo: la PWA lo consulta por el nombre exacto que ya
+ * eligió en el combo de Cliente (que sale de esta misma pestaña), así que no hace falta
+ * buscar — es una lectura directa por llave.
+ */
+function leerClientesZona(db) {
+    var hoja = db.getSheetByName(HOJA_CLIENTES);
+    if (!hoja) return {};
+
+    var datos = hoja.getDataRange().getValues();
+    if (datos.length < 2) return {};
+
+    var iCliente = datos[0].indexOf(COL_CLIENTE);
+    var iZona = datos[0].indexOf(COL_GPO_VENDEDORES);
+    if (iCliente === -1 || iZona === -1) return {};
+
+    var mapa = {};
+    for (var i = 1; i < datos.length; i++) {
+        var cliente = String(datos[i][iCliente]).trim();
+        if (cliente === '') continue;
+        mapa[cliente] = String(datos[i][iZona]).trim();
+    }
+    return mapa;
+}
+
+/** Zona → Ejecutivo. Misma idea: un objeto para consultar directo por la zona ya resuelta. */
+function leerEjecutivos(db) {
+    var hoja = db.getSheetByName(HOJA_EJECUTIVOS);
+    if (!hoja) return {};
+
+    var datos = hoja.getDataRange().getValues();
+    if (datos.length < 2) return {};
+
+    var iZona = datos[0].indexOf(COL_ZONA_EJECUTIVO);
+    var iEjecutivo = datos[0].indexOf(COL_EJECUTIVO);
+    if (iZona === -1 || iEjecutivo === -1) return {};
+
+    var mapa = {};
+    for (var i = 1; i < datos.length; i++) {
+        var zona = String(datos[i][iZona]).trim();
+        if (zona === '') continue;
+        mapa[zona] = String(datos[i][iEjecutivo]).trim();
+    }
+    return mapa;
+}
+
 /** Los sectores son las líneas de producto de "Materiales", sin repetir. */
 function leerSectores(db) {
     return leerColumnaUnica(db, HOJA_MATERIALES, COL_SECTOR);
+}
+
+/** Grupos de artículo (familia comercial): misma pestaña "Materiales", sin repetir. */
+function leerGruposArticulo(db) {
+    return leerColumnaUnica(db, HOJA_MATERIALES, COL_GRUPO_ARTICULO);
 }
 
 /**
@@ -703,7 +796,8 @@ function guardarVisitas(visitas, identidad) {
                     direccionDe(checkOut), checkOut.usuario || '', checkOut.error || '',
                     permanencia != null ? permanencia : '', (visita.reagendas || []).length, ahora,
                     sector.solicitado_por || '',
-                    (sector.guardado || {}).momento || '', (sector.guardado || {}).usuario || ''
+                    (sector.guardado || {}).momento || '', (sector.guardado || {}).usuario || '',
+                    visita.zona || '', visita.ejecutivo || '', visita.notas || ''
                 ]
             });
 
@@ -988,6 +1082,51 @@ function guardarComentarios(comentarios, identidad) {
         ids: comentarios.map(function (c) { return c.id; }),
         insertados: filas.length
     };
+}
+
+/**
+ * Cliente × Sector × Grupo de Artículo: upsert por id, igual que Visitas/Actividades. A
+ * diferencia de una visita, aquí no hay dueño: cualquiera puede corregir la fila de cualquiera,
+ * así que no se compara contra "lo que ya había" antes de sobrescribir.
+ */
+function guardarEstrategias(estrategias, identidad) {
+    if (estrategias.length === 0) return { status: 'ok', ids: [] };
+
+    var hoja = obtenerHoja(HOJA_ESTRATEGIAS, ENCABEZADOS_ESTRATEGIAS);
+    var ahora = new Date();
+
+    var filas = estrategias.filter(function (e) { return e && e.id; }).map(function (e) {
+        return {
+            id: e.id,
+            valores: [
+                e.id, e.cliente || '', e.sector || '', e.grupo_articulo || '', e.etapa || '',
+                e.proyecto || '', e.productos || '', e.observaciones || '',
+                ahora, identidad.nombre || '', identidad.correo || ''
+            ]
+        };
+    });
+
+    upsert(hoja, ENCABEZADOS_ESTRATEGIAS, filas, []);
+
+    return { status: 'ok', ids: filas.map(function (f) { return f.id; }) };
+}
+
+/** Todas las estrategias, como objetos. Referencia compartida: no se recorta por alcance. */
+function leerEstrategias() {
+    var hoja = obtenerHoja(HOJA_ESTRATEGIAS, ENCABEZADOS_ESTRATEGIAS);
+    if (hoja.getLastRow() < 2) return { status: 'ok', estrategias: [] };
+
+    var datos = hoja.getRange(2, 1, hoja.getLastRow() - 1, ENCABEZADOS_ESTRATEGIAS.length).getValues();
+    var estrategias = datos
+        .filter(function (fila) { return String(fila[0]).trim() !== ''; })
+        .map(function (fila) {
+            var obj = {};
+            ENCABEZADOS_ESTRATEGIAS.forEach(function (col, i) { obj[col] = fila[i]; });
+            obj.actualizado = obj.actualizado ? new Date(obj.actualizado).toISOString() : '';
+            return obj;
+        });
+
+    return { status: 'ok', estrategias: estrategias };
 }
 
 function guardarCatalogosAdmin(body, identidad) {
@@ -1334,6 +1473,26 @@ function upsert(hoja, encabezados, filas, columnasPreservadas) {
     }
 }
 
+/**
+ * Fila de UN id, sin traer la columna entera al script.
+ *
+ * `mapaDeIds` está pensado para `upsert()`: ahí SÍ conviene leer la columna en bloque una sola
+ * vez para resolver decenas de filas de golpe. Pero `subirEvidencia` busca un solo id, y con
+ * miles de actividades acumuladas, traer y recorrer la columna completa en cada subida es
+ * justo el tipo de operación que se vuelve más lenta con cada mes que pasa. `TextFinder` hace
+ * la búsqueda del lado de Sheets, sin mandar los datos al script.
+ */
+function filaPorId(hoja, id) {
+    if (!id || hoja.getLastRow() < 2) return null;
+
+    var encontrada = hoja.getRange(2, 1, hoja.getLastRow() - 1, 1)
+        .createTextFinder(String(id))
+        .matchEntireCell(true)
+        .findNext();
+
+    return encontrada ? encontrada.getRow() : null;
+}
+
 /** id -> número de fila. Una sola lectura en bloque; leer fila por fila es lentísimo. */
 function mapaDeIds(hoja) {
     var mapa = {};
@@ -1438,7 +1597,7 @@ function subirEvidencia(body) {
     var url = archivo.getUrl();
 
     var hoja = obtenerHoja(HOJA_ACTIVIDADES, ENCABEZADOS_ACTIVIDADES);
-    var fila = mapaDeIds(hoja)[body.id_actividad];
+    var fila = filaPorId(hoja, body.id_actividad);
     var columna = ENCABEZADOS_ACTIVIDADES.indexOf('evidencia_url') + 1;
 
     if (fila) {
@@ -1618,7 +1777,8 @@ function revisarConfiguracion() {
 
     [
         [HOJA_VISITAS, ENCABEZADOS_VISITAS], [HOJA_ACTIVIDADES, ENCABEZADOS_ACTIVIDADES],
-        [HOJA_MATERIALES_CAPTURA, ENCABEZADOS_MATERIALES_CAPTURA], [HOJA_EVENTOS, ENCABEZADOS_EVENTOS]
+        [HOJA_MATERIALES_CAPTURA, ENCABEZADOS_MATERIALES_CAPTURA], [HOJA_EVENTOS, ENCABEZADOS_EVENTOS],
+        [HOJA_ESTRATEGIAS, ENCABEZADOS_ESTRATEGIAS]
     ].forEach(function (par) {
             var hoja = libro.getSheetByName(par[0]);
             if (!hoja) {

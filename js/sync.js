@@ -10,7 +10,8 @@
 
 import {
     leerVisitas, guardarVisitas as persistirVisitas, guardarCatalogo,
-    leerArchivo, borrarArchivo, todasLasActividades
+    leerArchivo, borrarArchivo, todasLasActividades,
+    leerEstrategias, guardarEstrategias as persistirEstrategias, fusionarEstrategiasEquipo
 } from './storage.js';
 import { eventosPendientes, marcarSincronizados } from './eventos.js';
 import {
@@ -55,18 +56,23 @@ export async function sincronizarVisitas() {
     const pendientes = leerVisitas().filter(v => !v.sincronizado && !v.borrador);
     if (pendientes.length === 0) return { enviadas: 0 };
 
-    await postear({ action: 'guardarVisitas', visitas: pendientes.map(soloGuardadas) });
+    const resultado = await postear({ action: 'guardarVisitas', visitas: pendientes.map(soloGuardadas) });
 
-    // Se relee: el usuario pudo editar algo mientras el POST estaba en vuelo, y marcar
-    // esa edición como sincronizada la perdería.
+    // El servidor ya escribió en Sheets pase lo que pase (esa parte nunca lanza). Pero si el
+    // espejo a Supabase falló, `resultado.espejo` viene en `false` — y marcar aquí
+    // `sincronizado = true` de todos modos dejaría a esa visita ausente PARA SIEMPRE de la
+    // fuente "equipo": el flag local ya diría "sincronizada" y nunca se volvería a mandar. Se
+    // deja `sincronizado = false` en ese caso para que el siguiente ciclo la reintente; volver
+    // a escribir la misma fila en Sheets no duplica nada (`guardarVisitas` es upsert por id).
     const idsEnviados = new Set(pendientes.map(v => v.id));
+    const seEspejeo = resultado?.espejo !== false;
     const visitas = leerVisitas();
     visitas.forEach(v => {
-        if (idsEnviados.has(v.id)) v.sincronizado = true;
+        if (idsEnviados.has(v.id)) v.sincronizado = seEspejeo;
     });
     persistirVisitas(visitas);
 
-    return { enviadas: pendientes.length };
+    return { enviadas: pendientes.length, espejo: seEspejeo };
 }
 
 // ---------- evidencias ----------
@@ -137,6 +143,44 @@ export async function subirEvidenciasPendientes() {
     }
 
     return { subidas, fallidas };
+}
+
+// ---------- estrategias ----------
+//
+// Es una referencia COMPARTIDA por todo el equipo, no un registro personal: no se recorta por
+// alcance ni por dueño. Se sube lo que cambió localmente y se releen todas, para que lo que
+// otro educador o gerente acaba de escribir aparezca sin esperar a que alguien reagende algo.
+
+export async function sincronizarEstrategias() {
+    const pendientes = leerEstrategias().filter(e => !e.sincronizado);
+    if (pendientes.length === 0) return { enviadas: 0 };
+
+    await postear({ action: 'guardarEstrategias', estrategias: pendientes });
+
+    const idsEnviados = new Set(pendientes.map(e => e.id));
+    const estrategias = leerEstrategias();
+    estrategias.forEach(e => { if (idsEnviados.has(e.id)) e.sincronizado = true; });
+    persistirEstrategias(estrategias);
+
+    return { enviadas: pendientes.length };
+}
+
+/**
+ * Trae la lista completa del equipo y la funde con la local. Nunca lanza: es contexto de
+ * planeación, no un bloqueo — si falla, se sigue trabajando con lo que ya había.
+ */
+export async function descargarEstrategiasEquipo() {
+    if (!navigator.onLine) return { estrategias: leerEstrategias() };
+
+    try {
+        const r = await postear({ action: 'leerEstrategias' });
+        const remotas = Array.isArray(r?.estrategias) ? r.estrategias : [];
+        fusionarEstrategiasEquipo(remotas);
+        return { estrategias: leerEstrategias() };
+    } catch (err) {
+        console.error('No se pudieron leer las estrategias del equipo:', err);
+        return { estrategias: leerEstrategias() };
+    }
 }
 
 // ---------- espejo de lectura ----------
@@ -277,5 +321,6 @@ export async function sincronizarTodo() {
     const eventos = await sincronizarEventos();
     const comentarios = await sincronizarComentarios();
     const revisiones = await sincronizarRevisiones();
-    return { visitas, evidencias, eventos, comentarios, revisiones };
+    const estrategias = await sincronizarEstrategias();
+    return { visitas, evidencias, eventos, comentarios, revisiones, estrategias };
 }
