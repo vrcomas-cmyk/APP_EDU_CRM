@@ -16,11 +16,15 @@
   --rule:       #DCE3E1;
   --rule-soft:  #E8EDEB;
 
-  /* Los cuatro estados. Única cromía del producto. */
+  /* Los cuatro estados. Única cromía del producto.
+     Rojo/azul/verde se separaron más (más croma, más distancia de luminancia entre sí):
+     los tres eran tonos medios muy parecidos entre ellos, difíciles de diferenciar de un
+     vistazo rápido y peor aún con daltonismo rojo-verde. El color nunca va solo —siempre
+     lleva punto/pastilla con texto—, pero esa regla no debe ser la única defensa. */
   --st-plan:    #8A9691;
-  --st-miss:    #BE2D45;
-  --st-part:    #1C6FA6;
-  --st-done:    #2E7D57;
+  --st-miss:    #C81E3A;
+  --st-part:    #0B72B9;
+  --st-done:    #1F8A54;
 
   --st-plan-bg: #EEF2F1;
   --st-miss-bg: #FBEEF0;
@@ -88,7 +92,7 @@
   --paper: #F5F8F7; --surface: #FFFFFF; --surface-2: #EDF2F0;
   --ink: #101617; --ink-2: #3D4A48; --muted: #69746F;
   --rule: #DCE3E1; --rule-soft: #E8EDEB;
-  --st-plan: #8A9691; --st-miss: #BE2D45; --st-part: #1C6FA6; --st-done: #2E7D57;
+  --st-plan: #8A9691; --st-miss: #C81E3A; --st-part: #0B72B9; --st-done: #1F8A54;
   --st-plan-bg: #EEF2F1; --st-miss-bg: #FBEEF0; --st-part-bg: #EAF2F8; --st-done-bg: #EAF4EE;
   --shadow: 0 1px 2px rgba(16,22,23,.04), 0 8px 24px -12px rgba(16,22,23,.18);
   --shadow-lg: 0 24px 60px -20px rgba(16,22,23,.4);
@@ -105,7 +109,7 @@
   --paper: #F7F9F1; --surface: #FFFFFF; --surface-2: #EEF3E1;
   --ink: #17301C; --ink-2: #3E5A34; --muted: #71805F;
   --rule: #DDE6C9; --rule-soft: #EAF0DC;
-  --st-plan: #8FA37E; --st-miss: #BE2D45; --st-part: #00458B; --st-done: #62B81F;
+  --st-plan: #8FA37E; --st-miss: #C81E3A; --st-part: #00458B; --st-done: #62B81F;
   --st-plan-bg: #EEF2E2; --st-miss-bg: #FBEEF0; --st-part-bg: #E5EDF6; --st-done-bg: #EEF7DF;
   --shadow: 0 1px 2px rgba(23,48,28,.05), 0 8px 24px -12px rgba(23,48,28,.22);
   --shadow-lg: 0 24px 60px -20px rgba(23,48,28,.42);
@@ -171,7 +175,7 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
    SHELL
    ============================================================ */
 
-.app { display: flex; flex-direction: column; height: 100dvh; }
+.app { display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
 .app[hidden] { display: none; }
 
 /* ---------- pantalla de entrada ---------- */
@@ -305,7 +309,16 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 .sesion-chip #sesion-nombre { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sesion-chip[hidden] { display: none; }
 
-.main { flex: 1; overflow: auto; position: relative; }
+/*
+  `overflow: auto` vivía aquí antes de que existiera el riel de navegación (`.nav-modulos`).
+  Ahora `.main` es una fila flex (nav + `.vista-host`, ver la regla de más abajo) y el único
+  que debe desplazarse es el contenido, no la fila entera con el riel adentro — por eso ese
+  `overflow` quedaba anidado con el de `.vista-host` (línea ~1828): DOS barras de scroll
+  independientes peleándose por la misma rueda del mouse, más notorio en pantallas largas
+  como la cola de Revisión. `min-height: 0` (la regla `.main` de abajo) es justo la técnica
+  para dejar que el HIJO se encoja y desplace en su lugar.
+*/
+.main { flex: 1; position: relative; }
 
 /* ---------- FAB ---------- */
 .fab {
@@ -360,6 +373,13 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
   background: var(--st-bg); color: var(--st);
 }
 .pill.neutro { background: var(--surface-2); color: var(--muted); }
+
+/* Chip removible: un producto ya elegido en Estrategias, con su propia "x" para quitarlo sin
+   tener que borrar texto — coherente con `.chips` (ChipToggle) pero esto no es un toggle. */
+.pill-quitar {
+  all: unset; margin-left: 4px; cursor: pointer; font-size: 8px; vertical-align: middle;
+}
+.pill-quitar:hover { opacity: .6; }
 
 /* ============================================================
    CALENDARIO
@@ -1607,7 +1627,7 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
   display: grid; place-items: center; background: var(--surface-2);
 }
 .visor-cuerpo img, .visor-cuerpo video { max-width: 100%; max-height: 78dvh; display: block; }
-.visor-cuerpo object { width: 100%; height: 78dvh; }
+.visor-cuerpo object, .visor-cuerpo .visor-pdf { width: 100%; height: 78dvh; border: 0; }
 
 @media (max-width: 720px) {
   .visor { padding: 0; }
@@ -1709,6 +1729,8 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 }
 .tabla td.num, .tabla th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .tabla tbody tr:hover { background: var(--row-hover); }
+.tabla tbody tr.fila-clicable { cursor: pointer; }
+.estrategia-linea { align-items: flex-start; }
 .tabla td:first-child {
   max-width: 220px; overflow: hidden; text-overflow: ellipsis;
 }
@@ -1823,6 +1845,7 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 .vista-host {
     flex: 1;
     min-width: 0;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     overflow: auto;

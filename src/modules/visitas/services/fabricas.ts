@@ -14,6 +14,14 @@ export interface DatosNuevaVisita {
     dia?: string;
     hora_inicio?: string;
     hora_fin?: string;
+    /** Prellenados al generar la visita desde una Estrategia — igual que arrastrar sobre el
+     *  calendario, esto no es un valor por defecto: el clic en la Estrategia ya eligió cliente
+     *  y sectores, así que llegan puestos en vez de obligar a repetirlos a mano. */
+    cliente?: string;
+    zona?: string;
+    ejecutivo?: string;
+    id_estrategia?: string;
+    sectorNombres?: string[];
 }
 
 /**
@@ -27,20 +35,34 @@ export interface DatosNuevaVisita {
  * llegan puestas. Eso no es un valor por defecto, es lo que el usuario acaba de señalar.
  */
 export function nuevaVisita(
-    { dia = '', hora_inicio = '', hora_fin = '' }: DatosNuevaVisita,
+    {
+        dia = '', hora_inicio = '', hora_fin = '',
+        cliente = '', zona, ejecutivo, id_estrategia, sectorNombres
+    }: DatosNuevaVisita,
     sesion: Sesion | null,
     nuevoId: GeneradorId
 ): Visita {
+    const sectores: Sector[] = (sectorNombres || []).map(nombre => ({
+        id: nuevoId('s'),
+        nombre,
+        objetivo: '',
+        origen: [],
+        actividades: []
+    }));
+
     return {
         id: nuevoId('v'),
         educador: sesion?.nombre || '',
         educador_correo: sesion?.correo || '',
-        cliente: '',
+        cliente,
+        zona,
+        ejecutivo,
+        id_estrategia,
         hospital: '',
         dia, hora_inicio, hora_fin,
         estado: 'programada',
         reagendas: [],
-        sectores: [],
+        sectores,
         sincronizado: false,
         borrador: true
     };

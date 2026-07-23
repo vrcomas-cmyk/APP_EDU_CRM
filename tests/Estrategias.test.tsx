@@ -135,6 +135,64 @@ describe('Estrategias', () => {
         assert.equal(screen.queryByText('Hospital B'), null);
     });
 
+    test('elegir un sector en el formulario acota el grupo de artículo a ese sector', async () => {
+        guardarCatalogo({
+            clientes: ['Cliente Uno'], sectores: ['GASAS', 'SUTURAS'],
+            grupos_articulo: ['Suturas', 'Gasas', 'Cuidado de Heridas'],
+            materiales: [
+                { material: 'GASA SIMPLE', sector: 'GASAS', grupo_articulo: 'Gasas' },
+                { material: 'GASA DOBLADA', sector: 'GASAS', grupo_articulo: 'Cuidado de Heridas' },
+                { material: 'SUTURA 3-0', sector: 'SUTURAS', grupo_articulo: 'Suturas' }
+            ]
+        });
+
+        await act(async () => montar());
+        fireEvent.click(screen.getByText('+ Nueva estrategia'));
+        const modal = within(document.querySelector('.modal-body') as HTMLElement);
+
+        fireEvent.change(modal.getByLabelText('Sector'), { target: { value: 'GASAS' } });
+
+        assert.ok(modal.getByText('Cuidado de Heridas'));
+        assert.ok(modal.getByText('Gasas'));
+        assert.equal(modal.queryByText('Suturas'), null,
+            'Suturas no se trabaja en el sector GASAS de este catálogo');
+    });
+
+    test('Productos: autocompleta materiales del sector y permite varios', async () => {
+        guardarCatalogo({
+            clientes: ['Cliente Uno'], sectores: ['GASAS'], grupos_articulo: ['Gasas'],
+            materiales: [
+                { material: 'GASA SIMPLE 10X10', sector: 'GASAS', grupo_articulo: 'Gasas' },
+                { material: 'GASA DOBLADA 5X5', sector: 'GASAS', grupo_articulo: 'Gasas' }
+            ]
+        });
+
+        await act(async () => montar());
+        fireEvent.click(screen.getByText('+ Nueva estrategia'));
+        const modal = within(document.querySelector('.modal-body') as HTMLElement);
+
+        fireEvent.change(inputClienteModal(), { target: { value: 'Cliente Uno' } });
+        fireEvent.change(modal.getByLabelText('Sector'), { target: { value: 'GASAS' } });
+
+        const campoProductos = modal.getByLabelText('Productos') as HTMLInputElement;
+        fireEvent.change(campoProductos, { target: { value: 'gasa' } });
+        fireEvent.mouseDown(modal.getByRole('option', { name: 'GASA SIMPLE 10X10' }));
+
+        assert.ok(modal.getByText('GASA SIMPLE 10X10'), 'queda como chip elegido');
+
+        // El campo se limpia y deja agregar un segundo producto.
+        fireEvent.change(modal.getByLabelText('Productos'), { target: { value: 'gasa doblada' } });
+        fireEvent.mouseDown(modal.getByRole('option', { name: 'GASA DOBLADA 5X5' }));
+
+        assert.ok(modal.getByText('GASA SIMPLE 10X10'));
+        assert.ok(modal.getByText('GASA DOBLADA 5X5'));
+
+        await act(async () => { fireEvent.click(screen.getByText('Guardar')); });
+
+        const guardada = leerEstrategias()[0] as { productos?: string[] };
+        assert.deepEqual(guardada.productos, ['GASA SIMPLE 10X10', 'GASA DOBLADA 5X5']);
+    });
+
     test('eliminar quita la fila del almacén', async () => {
         await act(async () => montar());
         fireEvent.click(screen.getByText('+ Nueva estrategia'));

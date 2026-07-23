@@ -142,6 +142,10 @@ export interface Visita {
     ejecutivo?: string;
     /** Libre, distinta de los comentarios: una nota de planeación, no una conversación. */
     notas?: string;
+    /** Qué Estrategia (Cliente × Sector × Grupo de Artículo) avanza esta visita, si el
+     *  educador eligió una al agendar. Opcional: una visita sin estrategia sigue siendo una
+     *  visita normal — no todo cliente tiene un plan activo. */
+    id_estrategia?: string;
     dia?: string;                     // 'YYYY-MM-DD'
     hora_inicio?: string;             // 'HH:MM'
     hora_fin?: string;
@@ -171,7 +175,10 @@ export interface Estrategia {
     grupo_articulo?: string;
     etapa?: string;
     proyecto?: string;
-    productos?: string;
+    /** Materiales/productos involucrados — varios, elegidos del catálogo del sector (ver
+     *  `buscarMateriales`). Antes era texto libre de uno solo; una fila vieja que aún traiga
+     *  un string se envuelve en un arreglo de un elemento al leerla (`js/storage.js`). */
+    productos?: string[];
     observaciones?: string;
     actualizado?: string;          // ISO 8601
     actualizado_por?: string;
@@ -192,6 +199,9 @@ export interface Perfil {
     permisos: Permiso[];
     /** Correos que este usuario puede ver. Lo resuelve Postgres, no el cliente. */
     alcance: string[];
+    /** Zonas que puede operar HOY (titular + cobertura vigente). Dimensión distinta de
+     *  `alcance`: esa es jerarquía de personas, esta es territorio de clientes. */
+    zonas: string[];
     /** true / false / null: "no tiene" y "todavía no sé" son cosas distintas. */
     invitado: boolean | null;
     invitacion_estado?: string;
@@ -447,6 +457,36 @@ export interface BorradorRBAC {
     roles: RolAdmin[];
     capacidades: CapacidadAdmin[];
     usuarios: UsuarioAdmin[];
+}
+
+// ---------- territorios ----------
+
+/** Una zona con su titular. Una zona, un titular — nunca ambigua. */
+export interface TitularZona {
+    zona: string;
+    educador_correo: string;
+}
+
+/**
+ * Cobertura temporal: `educador_correo` puede operar `zona` sin dejar de existir el titular.
+ * `id` es un uuid real una vez guardada en Supabase; una fila nueva sin guardar todavía usa un
+ * id temporal generado en el cliente (ver `nuevaCobertura` en `borradorTerritorios.ts`) para
+ * poder distinguirla de una ya existente al calcular el diff.
+ */
+export interface CoberturaZona {
+    id: string;
+    zona: string;
+    educador_correo: string;
+    desde: string;             // ISO 8601
+    hasta: string | null;      // null = indefinida
+    motivo: string | null;
+    creado_por?: string;
+}
+
+/** Lo que la pantalla de Territorios edita: el espejo local de `leerTerritorios`. */
+export interface BorradorTerritorios {
+    titulares: TitularZona[];
+    coberturas: CoberturaZona[];
 }
 
 // ---------- flujos de revisión administrables ----------

@@ -15,13 +15,31 @@ import {
     configuracionCampos, modoCampo, campoVisible, campoObligatorio, campoEditable,
     reglaDe, requiereEvidencia, camposExtra,
     tiposActividad, origenes, unidades, sectores, sectoresDelCatalogo, sectoresOcultos,
-    materialesDe, buscarMateriales, hayMateriales,
+    materialesDe, buscarMateriales, hayMateriales, gruposArticulo, gruposDeSector,
+    zonasDelCatalogo, clientesDelCatalogo, clientesEnMisZonas,
+    GRUPOS_ARTICULO_POR_DEFECTO,
     TIPOS_POR_DEFECTO, ORIGENES_POR_DEFECTO
 } from '../js/catalogos.js';
+import { olvidarPerfil } from '../js/permisos.js';
 
 const ponerCatalogo = (datos) => localStorage.setItem('datosPWA', JSON.stringify(datos));
 
-beforeEach(() => limpiarAlmacen());
+/** Fija el perfil con las zonas dadas, igual que llegarían de `pdt_perfil`. */
+function conZonas(zonas) {
+    localStorage.setItem('sesion', JSON.stringify({
+        correo: 'ana@x.com', nombre: 'Ana', id_token: 'x', expira: Date.now() + 3600e3
+    }));
+    localStorage.setItem('pdt_perfil_cache', JSON.stringify({
+        correo: 'ana@x.com', nombre: 'Ana', rol: 'educador', es_admin: false,
+        permisos: [], alcance: ['ana@x.com'], zonas,
+        invitado: true, origen: 'prueba'
+    }));
+}
+
+beforeEach(() => {
+    limpiarAlmacen();
+    olvidarPerfil();
+});
 
 describe('listas — los defaults existen para el primer día', () => {
     test('sin catálogo se usan los valores por defecto', () => {
@@ -215,6 +233,74 @@ describe('materiales', () => {
     test('sin catálogo no revienta', () => {
         limpiarAlmacen();
         assert.deepEqual(materialesDe('GASAS'), []);
+    });
+});
+
+describe('gruposDeSector — Estrategias solo ofrece lo que ese sector trabaja', () => {
+    beforeEach(() => {
+        ponerCatalogo({ materiales: [
+            { material: 'GASA SIMPLE', sector: 'GASAS', grupo_articulo: 'Gasas' },
+            { material: 'GASA DOBLADA', sector: 'GASAS', grupo_articulo: 'Cuidado de Heridas' },
+            { material: 'GUANTE LATEX', sector: 'GUANTES', grupo_articulo: 'Guantes' }
+        ] });
+    });
+
+    test('solo los grupos que aparecen en materiales de ese sector', () => {
+        assert.deepEqual(gruposDeSector('GASAS'), ['Cuidado de Heridas', 'Gasas']);
+        assert.deepEqual(gruposDeSector('GUANTES'), ['Guantes']);
+    });
+
+    test('sin sector, el catálogo completo', () => {
+        assert.deepEqual(gruposDeSector(''), gruposArticulo());
+    });
+
+    test('un sector sin materiales en el catálogo cae al catálogo completo', () => {
+        assert.deepEqual(gruposDeSector('SUTURAS'), gruposArticulo());
+    });
+
+    test('sin la columna grupo_articulo en ningún material, cae al catálogo completo', () => {
+        ponerCatalogo({ materiales: [{ material: 'GASA SIMPLE', sector: 'GASAS' }] });
+        assert.deepEqual(gruposDeSector('GASAS'), GRUPOS_ARTICULO_POR_DEFECTO);
+    });
+});
+
+describe('zonasDelCatalogo — el universo asignable en Administración → Territorios', () => {
+    test('las zonas únicas de clientes_zona, sin repetir', () => {
+        ponerCatalogo({ clientes_zona: { 'Cliente A': '001', 'Cliente B': '002', 'Cliente C': '001' } });
+        assert.deepEqual(zonasDelCatalogo(), ['001', '002']);
+    });
+
+    test('sin catálogo, ninguna', () => {
+        assert.deepEqual(zonasDelCatalogo(), []);
+    });
+});
+
+describe('clientesEnMisZonas — la restricción de territorio', () => {
+    beforeEach(() => {
+        ponerCatalogo({
+            clientes: ['Cliente A', 'Cliente B', 'Cliente C'],
+            clientes_zona: { 'Cliente A': '001', 'Cliente B': '002', 'Cliente C': '001' }
+        });
+    });
+
+    test('sin ninguna zona asignada, cae al catálogo completo', () => {
+        conZonas([]);
+        assert.deepEqual(clientesEnMisZonas(), clientesDelCatalogo());
+    });
+
+    test('con una zona asignada, solo los clientes de esa zona', () => {
+        conZonas(['001']);
+        assert.deepEqual(clientesEnMisZonas(), ['Cliente A', 'Cliente C']);
+    });
+
+    test('con varias zonas (titular + cobertura), la unión de ambas', () => {
+        conZonas(['001', '002']);
+        assert.deepEqual(clientesEnMisZonas(), ['Cliente A', 'Cliente B', 'Cliente C']);
+    });
+
+    test('una zona sin ningún cliente no revienta: lista vacía, no el catálogo completo', () => {
+        conZonas(['999']);
+        assert.deepEqual(clientesEnMisZonas(), []);
     });
 });
 

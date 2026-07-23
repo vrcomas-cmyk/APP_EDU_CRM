@@ -102,8 +102,7 @@ function Cuerpo({ ind, visitas }: { ind: Indicadores; visitas: Visita[] }) {
     const magnitudes: Array<[string, Record<string, number>, string]> = [
         ['Actividades por tipo', ind.por_tipo, 'actividades'],
         ['Sectores más atendidos', ind.por_sector, 'sectores'],
-        ['Clientes más visitados', ind.por_cliente, 'visitas'],
-        ['Hospitales con más actividad', ind.por_hospital, 'visitas']
+        ['Clientes más visitados', ind.por_cliente, 'visitas']
     ];
 
     const porEducador = tieneEquipo() ? top(ind.por_educador, 10) : [];

@@ -130,7 +130,15 @@ export function eliminarVisita(id) {
 export function leerEstrategias() {
     try {
         const crudo = localStorage.getItem(CLAVE_ESTRATEGIAS);
-        return crudo ? JSON.parse(crudo) : [];
+        const lista = crudo ? JSON.parse(crudo) : [];
+        // `productos` era texto libre de uno solo; una estrategia guardada en el teléfono
+        // ANTES de este cambio todavía lo trae como string. Se envuelve en un arreglo de un
+        // elemento al leerla, para no perder lo ya escrito.
+        return lista.map(e => (
+            typeof e.productos === 'string'
+                ? { ...e, productos: e.productos.trim() ? [e.productos.trim()] : [] }
+                : e
+        ));
     } catch (err) {
         console.error('No se pudieron leer las estrategias:', err);
         return [];

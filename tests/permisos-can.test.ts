@@ -22,6 +22,7 @@ const perfil = (campos: Partial<Perfil> = {}): Perfil => ({
     es_admin: false,
     permisos: [],
     alcance: ['ana@x.com'],
+    zonas: [],
     invitado: true,
     origen: 'prueba',
     ...campos

@@ -16,7 +16,7 @@ import { StrictMode } from 'react';
 import { VisitaDrawer } from './components/VisitaDrawer';
 import { nuevaVisita, type DatosNuevaVisita } from './services/fabricas';
 import * as repo from './repository/visitasRepo';
-import { sesionActual, type Avisar } from '@core/puente';
+import { sesionActual, zonaDeCliente, ejecutivoDeZona, type Avisar } from '@core/puente';
 
 import { abrirSector } from '@modules/sectores/montarSector';
 import { abrirActividad } from '@modules/actividades/montarActividad';
@@ -85,7 +85,14 @@ export function abrirVisita(id: string): void {
  * para la sincronización hasta que se guarde.
  */
 export function abrirNuevaVisita(datos: DatosNuevaVisita = {}): void {
-    const visita = nuevaVisita(datos, sesionActual(), repo.nuevoId);
+    // Igual que al elegir el cliente a mano en el formulario: Zona y Ejecutivo se resuelven
+    // solos, nunca se escriben. Aquí el cliente ya viene puesto (arrastre de calendario o
+    // generado desde una Estrategia), así que toca resolverlos en el mismo acto.
+    const zona = datos.cliente ? zonaDeCliente(datos.cliente) : undefined;
+    const visita = nuevaVisita(
+        { ...datos, zona, ejecutivo: zona ? ejecutivoDeZona(zona) : undefined },
+        sesionActual(), repo.nuevoId
+    );
     repo.agregarVisita(visita);
     abrirVisita(visita.id);
 }

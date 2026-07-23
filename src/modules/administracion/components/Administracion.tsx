@@ -14,12 +14,14 @@ import type { Avisar } from '@core/puente';
 import { useAdmin } from '../hooks/useAdmin';
 import { useRBAC } from '../hooks/useRBAC';
 import { useFlujos } from '../hooks/useFlujos';
+import { useTerritorios } from '../hooks/useTerritorios';
 import { PanelTipos } from './PanelTipos';
 import { PanelSectores } from './PanelSectores';
 import { PanelListas } from './PanelListas';
 import { PanelEducadores } from './PanelEducadores';
 import { GestionAccesos } from './GestionAccesos';
 import { PanelFlujos } from './PanelFlujos';
+import { PanelTerritorios } from './PanelTerritorios';
 
 const PESTANAS = [
     { id: 'tipos', etiqueta: 'Tipos y campos' },
@@ -39,7 +41,8 @@ type Pestana = (typeof PESTANAS)[number]['id'];
 const AREAS = [
     { id: 'catalogos', etiqueta: 'Catálogos' },
     { id: 'accesos', etiqueta: 'Accesos' },
-    { id: 'flujos', etiqueta: 'Flujos' }
+    { id: 'flujos', etiqueta: 'Flujos' },
+    { id: 'territorios', etiqueta: 'Territorios' }
 ] as const;
 
 type Area = (typeof AREAS)[number]['id'];
@@ -61,13 +64,18 @@ export function Administracion({ avisar, confirmar, onGuardado }: Props) {
     // la pena gastar la ida de red en datos que quizás no va a mirar.
     const rbac = useRBAC({ activo: area === 'accesos', avisar, confirmar: preguntar, onGuardado });
     const flujos = useFlujos({ activo: area === 'flujos', avisar, confirmar: preguntar, onGuardado });
+    const territorios = useTerritorios({ activo: area === 'territorios', avisar, confirmar: preguntar, onGuardado });
 
-    const activo = area === 'catalogos' ? catalogos : area === 'accesos' ? rbac : flujos;
+    const activo = area === 'catalogos' ? catalogos
+        : area === 'accesos' ? rbac
+        : area === 'flujos' ? flujos
+        : territorios;
 
     const descripciones: Record<Area, string> = {
         catalogos: 'Catálogos compartidos por todos los educadores.',
         accesos: 'Quién puede hacer qué, y quién ve a quién.',
-        flujos: 'Qué se revisa en cada flujo, y con qué veredictos.'
+        flujos: 'Qué se revisa en cada flujo, y con qué veredictos.',
+        territorios: 'Qué zona es de qué educador, y quién más la cubre mientras tanto.'
     };
 
     return (
@@ -137,6 +145,24 @@ export function Administracion({ avisar, confirmar, onGuardado }: Props) {
                         </div>
                     ) : (
                         <PanelFlujos borrador={flujos.borrador} cambiar={flujos.cambiar} confirmar={preguntar} />
+                    )}
+                </div>
+            )}
+
+            {area === 'territorios' && (
+                <div className="panel-body">
+                    {territorios.cargando && territorios.borrador.titulares.length === 0
+                        && territorios.borrador.coberturas.length === 0 ? (
+                        <p className="ayuda">Cargando territorios…</p>
+                    ) : territorios.error && territorios.borrador.titulares.length === 0 ? (
+                        <div className="campo es-error">
+                            <p className="ayuda">No se pudo cargar: {territorios.error}</p>
+                            <button type="button" className="btn-txt" onClick={() => { void territorios.recargar(); }}>
+                                Reintentar
+                            </button>
+                        </div>
+                    ) : (
+                        <PanelTerritorios borrador={territorios.borrador} cambiar={territorios.cambiar} />
                     )}
                 </div>
             )}

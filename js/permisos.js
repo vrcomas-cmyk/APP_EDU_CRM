@@ -68,6 +68,10 @@ function perfilDeRespaldo(correo) {
         invitacion_estado: 'desconocido',
         permisos: [...PERMISOS_EDUCADOR],
         alcance: correo ? [correo] : [],
+        // Sin red, no se sabe de qué zonas es titular. `[]` es el lado seguro: en
+        // `clientesEnMisZonas()` una lista vacía cae al catálogo completo, así que sin esto un
+        // educador en un pasillo sin señal no se queda sin poder buscar a SU cliente de siempre.
+        zonas: [],
         origen: 'respaldo'
     };
 }
@@ -116,6 +120,7 @@ export async function actualizarPerfil() {
             alcance: Array.isArray(datos.alcance) && datos.alcance.length
                 ? datos.alcance
                 : [sesion.correo],
+            zonas: Array.isArray(datos.zonas) ? datos.zonas : [],
             invitado: datos.invitado === true,
             invitacion_estado: datos.invitacion_estado || 'sin_invitacion',
             origen: 'supabase'
@@ -173,6 +178,18 @@ export function enAlcance(correo) {
     if (!correo) return false;
     const objetivo = String(correo).trim().toLowerCase();
     return alcance().some(c => String(c).trim().toLowerCase() === objetivo);
+}
+
+/**
+ * Zonas que este usuario puede operar HOY: las suyas como titular, más las que cubre
+ * vigentes (`pdt_zonas_de` en Supabase). Es una dimensión DISTINTA de `alcance()` — esa es
+ * jerarquía de PERSONAS (a quién ve), esta es territorio (qué clientes le tocan). Un correo
+ * sin ninguna zona asignada (todavía sin configurar, o un rol que no captura) devuelve `[]`,
+ * y quien filtre por ella debe tratar la lista vacía como "sin restricción" — ver
+ * `clientesEnMisZonas` en catalogos.js.
+ */
+export function misZonas() {
+    return perfilActual()?.zonas || [];
 }
 
 // ---------- invitación ----------

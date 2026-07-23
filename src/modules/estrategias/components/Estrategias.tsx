@@ -13,22 +13,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     leerEstrategias, upsertEstrategia, eliminarEstrategia, nuevoId,
-    descargarEstrategiasEquipo, sincronizarEstrategias, leerCatalogo,
-    sectores, gruposArticulo, ETAPAS_ESTRATEGIA, sesionActual, type Avisar
+    descargarEstrategiasEquipo, sincronizarEstrategias, clientesEnMisZonas,
+    sectores, gruposDeSector, buscarMateriales, ETAPAS_ESTRATEGIA, sesionActual,
+    consultarVisitas, type Avisar
 } from '@core/puente';
 import { Combo, filtrar } from '@shared/components/Combo';
+import { abrirNuevaVisita } from '@modules/visitas/montarDrawer';
 import type { Estrategia } from '@core/tipos';
-
-/** Clientes del catálogo descargado. Son ~11.5k: nunca se pintan todos de golpe. */
-function clientesDelCatalogo(): string[] {
-    const cat = leerCatalogo() as { clientes?: string[] } | null;
-    return Array.isArray(cat?.clientes) ? cat.clientes : [];
-}
 
 export function Estrategias({ avisar }: { avisar?: Avisar }) {
     const [version, setVersion] = useState(0);
     const [cargando, setCargando] = useState(true);
     const [editando, setEditando] = useState<Estrategia | 'nueva' | null>(null);
+    const [generando, setGenerando] = useState<string | null>(null); // cliente elegido
 
     const [fCliente, setFCliente] = useState('');
     const [fSector, setFSector] = useState('');
@@ -74,9 +71,37 @@ export function Estrategias({ avisar }: { avisar?: Avisar }) {
         (!fGrupo || e.grupo_articulo === fGrupo)
     ).sort((a, b) => (b.actualizado || '').localeCompare(a.actualizado || '')), [estrategias, fCliente, fSector, fGrupo]);
 
+    /**
+     * Cuántas visitas ya se generaron para cada estrategia, y la más reciente — el avance real
+     * hacia el objetivo, no solo el plan escrito. Se deriva de `consultarVisitas()` (nunca se
+     * guarda un contador aparte): la fuente de verdad es la propia visita vinculada
+     * (`id_estrategia`), y un contador guardado se desalinearía en cuanto alguien reagendara o
+     * cancelara sin que nadie se acordara de actualizarlo.
+     */
+    const avancePorEstrategia = useMemo(() => {
+        const mapa = new Map<string, { visitas: number; ultima: string }>();
+        for (const v of consultarVisitas()) {
+            if (!v.id_estrategia) continue;
+            const previo = mapa.get(v.id_estrategia) ?? { visitas: 0, ultima: '' };
+            previo.visitas++;
+            if ((v.dia || '') > previo.ultima) previo.ultima = v.dia || '';
+            mapa.set(v.id_estrategia, previo);
+        }
+        return mapa;
+    }, [version]);
+
     const catalogoSectores = useMemo(() => sectores(), []);
-    const catalogoGrupos = useMemo(() => gruposArticulo(), []);
-    const catalogoClientes = useMemo(() => clientesDelCatalogo(), []);
+    // Con un sector elegido, solo los grupos que de verdad se trabajan ahí (ver
+    // `gruposDeSector` en catalogos.js) — sin sector, el catálogo completo.
+    const catalogoGrupos = useMemo(() => gruposDeSector(fSector), [fSector]);
+    // Solo los clientes de MIS zonas — sin ninguna asignada, ya cae al catálogo completo.
+    const catalogoClientes = useMemo(() => clientesEnMisZonas(), []);
+
+    // Cambiar de sector puede dejar el grupo elegido fuera de la lista nueva — mantenerlo
+    // filtraría por algo que ya no aparece en el select, silencioso y confuso.
+    useEffect(() => {
+        if (fGrupo && !catalogoGrupos.includes(fGrupo)) setFGrupo('');
+    }, [catalogoGrupos, fGrupo]);
     const opcionesCliente = useCallback(
         (q: string) => filtrar(catalogoClientes, q), [catalogoClientes]
     );
@@ -141,26 +166,38 @@ export function Estrategias({ avisar }: { avisar?: Avisar }) {
                                 <th>Grupo de artículo</th>
                                 <th>Etapa</th>
                                 <th>Proyecto / objetivo</th>
+                                <th>Visitas</th>
                                 <th>Actualizó</th>
                                 <th></th>
                             </tr>
                         </thead>
                         <tbody>
-                            {filtradas.map(e => (
-                                <tr key={e.id}>
-                                    <td>{e.cliente}</td>
-                                    <td>{e.sector || '—'}</td>
-                                    <td>{e.grupo_articulo || '—'}</td>
-                                    <td>{e.etapa ? <span className="pill neutro">{e.etapa}</span> : '—'}</td>
-                                    <td className="col-proyecto">{e.proyecto || '—'}</td>
-                                    <td className="mono" title={e.actualizado_correo}>{e.actualizado_por || '—'}</td>
-                                    <td>
-                                        <button type="button" className="btn-txt" onClick={() => setEditando(e)}>
-                                            Editar
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
+                            {filtradas.map(e => {
+                                const avance = avancePorEstrategia.get(e.id);
+                                return (
+                                    <tr key={e.id} className="fila-clicable" onClick={() => setGenerando(e.cliente)}>
+                                        <td>{e.cliente}</td>
+                                        <td>{e.sector || '—'}</td>
+                                        <td>{e.grupo_articulo || '—'}</td>
+                                        <td>{e.etapa ? <span className="pill neutro">{e.etapa}</span> : '—'}</td>
+                                        <td className="col-proyecto">{e.proyecto || '—'}</td>
+                                        <td className="mono">
+                                            {avance
+                                                ? `${avance.visitas} · última ${avance.ultima}`
+                                                : 'Ninguna aún'}
+                                        </td>
+                                        <td className="mono" title={e.actualizado_correo}>{e.actualizado_por || '—'}</td>
+                                        <td>
+                                            <button
+                                                type="button" className="btn-txt"
+                                                onClick={(ev) => { ev.stopPropagation(); setEditando(e); }}
+                                            >
+                                                Editar
+                                            </button>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>
@@ -170,21 +207,119 @@ export function Estrategias({ avisar }: { avisar?: Avisar }) {
                 <FormularioEstrategia
                     estrategia={editando === 'nueva' ? null : editando}
                     sectores={catalogoSectores}
-                    grupos={catalogoGrupos}
                     clientes={catalogoClientes}
                     onGuardar={guardar}
                     onEliminar={editando !== 'nueva' ? () => { quitar((editando as Estrategia).id); setEditando(null); } : undefined}
                     onCerrar={() => setEditando(null)}
                 />
             )}
+
+            {generando && (
+                <GenerarVisita
+                    cliente={generando}
+                    estrategias={estrategias.filter(e => e.cliente === generando)}
+                    onCerrar={() => setGenerando(null)}
+                    onGenerada={() => { setGenerando(null); avisar?.('Visita generada desde la estrategia.', { estado: 'programada' }); }}
+                />
+            )}
         </div>
     );
 }
 
-function FormularioEstrategia({ estrategia, sectores, grupos, clientes, onGuardar, onEliminar, onCerrar }: {
+/**
+ * Un cliente puede tener varias Estrategias activas (una por sector). Al generar la visita se
+ * muestran TODAS juntas, separadas, para ver en qué momento va cada una antes de decidir cuáles
+ * sectores entran a la visita — la visita resultante es una visita normal desde el segundo cero:
+ * se le pueden agregar más sectores (aunque no estén aquí), reagendar, cancelar, etc.
+ */
+function GenerarVisita({ cliente, estrategias, onCerrar, onGenerada }: {
+    cliente: string;
+    estrategias: Estrategia[];
+    onCerrar: () => void;
+    onGenerada: () => void;
+}) {
+    const ordenadas = useMemo(
+        () => [...estrategias].sort((a, b) => (b.actualizado || '').localeCompare(a.actualizado || '')),
+        [estrategias]
+    );
+    const [elegidas, setElegidas] = useState<Set<string>>(
+        () => new Set(ordenadas.filter(e => e.etapa !== 'Consolidado').map(e => e.id))
+    );
+
+    const alternar = (id: string) => setElegidas(prev => {
+        const copia = new Set(prev);
+        if (copia.has(id)) copia.delete(id); else copia.add(id);
+        return copia;
+    });
+
+    const seleccionadas = ordenadas.filter(e => elegidas.has(e.id));
+    const sectores = [...new Set(seleccionadas.map(e => e.sector).filter((s): s is string => !!s))];
+    const listo = seleccionadas.length > 0;
+
+    return (
+        <div className="modal" onClick={(e) => { if (e.target === e.currentTarget) onCerrar(); }}>
+            <div className="modal-caja es-actividad">
+                <div className="modal-head">
+                    <div className="drawer-head-txt">
+                        <h3>Generar visita</h3>
+                        <span className="eyebrow">{cliente}</span>
+                    </div>
+                    <button type="button" className="icon-btn" aria-label="Cerrar" onClick={onCerrar}>✕</button>
+                </div>
+
+                <div className="modal-body">
+                    <p className="ayuda">
+                        Elige qué estrategias de este cliente entran a la visita. Cada una aporta
+                        su sector; la visita resultante se agenda como cualquier otra.
+                    </p>
+
+                    {ordenadas.map((e, i) => (
+                        <label className="admin-fila-col estrategia-linea" key={e.id}>
+                            {i > 0 && <hr />}
+                            <div className="admin-fila">
+                                <input
+                                    type="checkbox"
+                                    checked={elegidas.has(e.id)}
+                                    onChange={() => alternar(e.id)}
+                                />
+                                <span className="pill neutro">{e.sector || 'Sin sector'}</span>
+                                {e.grupo_articulo && <span className="mono">{e.grupo_articulo}</span>}
+                                {e.etapa && <span className="pill neutro">{e.etapa}</span>}
+                            </div>
+                            {e.proyecto && <p className="ayuda">{e.proyecto}</p>}
+                        </label>
+                    ))}
+
+                    <div className="modal-foot">
+                        <span className={'pista' + (listo ? ' es-ok' : '')}>
+                            {listo
+                                ? `${sectores.length} sector${sectores.length === 1 ? '' : 'es'}: ${sectores.join(', ')}`
+                                : 'Elige al menos una estrategia.'}
+                        </span>
+                        <span style={{ flex: 1 }} />
+                        <button
+                            type="button" className="btn btn-principal" disabled={!listo}
+                            onClick={() => {
+                                abrirNuevaVisita({
+                                    cliente,
+                                    id_estrategia: seleccionadas[0]?.id,
+                                    sectorNombres: sectores
+                                });
+                                onGenerada();
+                            }}
+                        >
+                            Generar visita
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function FormularioEstrategia({ estrategia, sectores, clientes, onGuardar, onEliminar, onCerrar }: {
     estrategia: Estrategia | null;
     sectores: string[];
-    grupos: string[];
     clientes: string[];
     onGuardar: (e: Estrategia) => void;
     onEliminar?: () => void;
@@ -195,10 +330,24 @@ function FormularioEstrategia({ estrategia, sectores, grupos, clientes, onGuarda
     const [grupo, setGrupo] = useState(estrategia?.grupo_articulo || '');
     const [etapa, setEtapa] = useState(estrategia?.etapa || '');
     const [proyecto, setProyecto] = useState(estrategia?.proyecto || '');
-    const [productos, setProductos] = useState(estrategia?.productos || '');
+    const [productos, setProductos] = useState<string[]>(estrategia?.productos || []);
     const [observaciones, setObservaciones] = useState(estrategia?.observaciones || '');
 
     const opcionesCliente = useCallback((q: string) => filtrar(clientes, q), [clientes]);
+
+    // Grupos que de verdad se trabajan en ESTE sector — se recalcula al cambiar el sector del
+    // formulario, no el del filtro de fuera (son estados independientes).
+    const grupos = useMemo(() => gruposDeSector(sector), [sector]);
+    useEffect(() => {
+        if (grupo && !grupos.includes(grupo)) setGrupo('');
+    }, [grupos, grupo]);
+
+    // El autocompletado de Productos se acota al sector elegido —igual que al registrar una
+    // actividad—: ofrecer materiales de otro sector sería ruido que invita a equivocarse.
+    const opcionesProductos = useCallback(
+        (q: string) => (sector ? buscarMateriales(sector, q).map(m => m.material) : []),
+        [sector]
+    );
 
     const listo = cliente.trim().length > 0;
 
@@ -258,13 +407,32 @@ function FormularioEstrategia({ estrategia, sectores, grupos, clientes, onGuarda
                         />
                     </label>
 
-                    <label className="campo">
-                        <span className="campo-lbl">Productos</span>
-                        <input
-                            type="text" className="inp" placeholder="Productos involucrados"
-                            value={productos} onChange={(e) => setProductos(e.target.value)}
-                        />
-                    </label>
+                    {/* `key` fuerza un remontaje al agregar uno: así el campo queda limpio y
+                        listo para el siguiente en vez de conservar el texto ya elegido. */}
+                    <Combo
+                        key={productos.length}
+                        etiqueta="Productos"
+                        valor=""
+                        placeholder={sector ? 'Busca un material de este sector…' : 'Elige un sector primero'}
+                        opciones={opcionesProductos}
+                        onElegir={(m) => setProductos(ps => (ps.includes(m) ? ps : [...ps, m]))}
+                        onEscribir={() => {}}
+                    />
+                    {productos.length > 0 && (
+                        <div className="chips">
+                            {productos.map(p => (
+                                <span className="pill neutro" key={p}>
+                                    {p}
+                                    <button
+                                        type="button" className="pill-quitar" aria-label={`Quitar ${p}`}
+                                        onClick={() => setProductos(ps => ps.filter(x => x !== p))}
+                                    >
+                                        ✕
+                                    </button>
+                                </span>
+                            ))}
+                        </div>
+                    )}
 
                     <label className="campo">
                         <span className="campo-lbl">Observaciones</span>
@@ -291,7 +459,7 @@ function FormularioEstrategia({ estrategia, sectores, grupos, clientes, onGuarda
                                 grupo_articulo: grupo || undefined,
                                 etapa: etapa || undefined,
                                 proyecto: proyecto.trim() || undefined,
-                                productos: productos.trim() || undefined,
+                                productos: productos.length > 0 ? productos : undefined,
                                 observaciones: observaciones.trim() || undefined
                             })}
                         >

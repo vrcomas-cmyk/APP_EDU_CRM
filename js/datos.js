@@ -82,7 +82,7 @@ export function olvidarVisitasEquipo() {
 // ---------- filtros ----------
 
 export const FILTRO_VACIO = {
-    educador: '', cliente: '', hospital: '', sector: '',
+    educador: '', ejecutivo: '', cliente: '', hospital: '', sector: '',
     tipo_actividad: '', estado: '', desde: '', hasta: ''
 };
 
@@ -106,6 +106,7 @@ export function aplicarFiltro(visitas, filtro = FILTRO_VACIO) {
     return visitas.filter(v => {
         if (f.educador && norm(v.educador_correo) !== norm(f.educador)
             && norm(v.educador) !== norm(f.educador)) return false;
+        if (f.ejecutivo && norm(v.ejecutivo) !== norm(f.ejecutivo)) return false;
         if (f.cliente && norm(v.cliente) !== norm(f.cliente)) return false;
         if (f.hospital && norm(v.hospital) !== norm(f.hospital)) return false;
         if (f.estado && estadoDe(v) !== f.estado) return false;
@@ -188,6 +189,7 @@ export function opcionesDeFiltro(visitas = consultarVisitas()) {
 
     return {
         educadores: conjunto((v, s) => s.add(v.educador)),
+        ejecutivos: conjunto((v, s) => s.add(v.ejecutivo)),
         clientes: conjunto((v, s) => s.add(v.cliente)),
         hospitales: conjunto((v, s) => s.add(v.hospital)),
         sectores: conjunto((v, s) => (v.sectores || []).forEach(x => s.add(x.nombre))),
@@ -216,7 +218,7 @@ export function calcularIndicadores(visitas) {
         reagendaciones: 0, retrasos: 0,
         minutos_efectivos: 0,
         por_educador: {}, por_tipo: {}, por_sector: {},
-        por_cliente: {}, por_hospital: {}, por_dia: {}
+        por_cliente: {}, por_dia: {}
     };
 
     const sectoresVistos = new Set();
@@ -259,7 +261,6 @@ export function calcularIndicadores(visitas) {
 
         suma(ind.por_educador, v.educador);
         suma(ind.por_cliente, v.cliente);
-        suma(ind.por_hospital, v.hospital);
         suma(ind.por_dia, v.dia);
 
         for (const s of v.sectores || []) {
@@ -358,15 +359,40 @@ export function top(mapa, n = 8) {
 // ---------- evidencias ----------
 
 /**
+ * El id de archivo dentro de una URL de Drive (`/file/d/ID/...` o `?id=ID`). `null` si la URL
+ * no tiene esa forma —una evidencia futura en otro almacén no tendría por qué tenerla.
+ */
+function idDeDrive(url) {
+    const m = String(url || '').match(/\/file\/d\/([^/?]+)/) || String(url || '').match(/[?&]id=([^&]+)/);
+    return m ? m[1] : null;
+}
+
+/**
  * Dónde vive el archivo de una evidencia. Hoy Drive; mañana R2.
  *
  * Existe para que ninguna pantalla escriba una URL de Drive a mano: el día que el archivo
  * viva en R2, cambia esta función y nada más.
+ *
+ * `url` es la que devuelve Drive al subir (`archivo.getUrl()` en Codigo.gs) — la página
+ * "/file/d/ID/view" completa, pensada para abrirse en una pestaña, NO para incrustarse:
+ * Drive la bloquea con `X-Frame-Options` en un `<iframe>`/`<object>` y no sirve bytes de
+ * imagen para un `<img src>`. Por eso se derivan dos URLs más, embebibles, sin tocar la
+ * original —que se conserva tal cual para "Abrir aparte", donde si tiene que verse la
+ * página real de Drive con su propio visor y botón de descarga—.
  */
 export function urlEvidencia(actividad) {
     const ev = actividad?.evidencia;
     if (!ev) return null;
-    if (ev.estado === 'subida' && ev.url) return { tipo: 'remota', url: ev.url, mime: ev.mime || '' };
+    if (ev.estado === 'subida' && ev.url) {
+        const id = idDeDrive(ev.url);
+        return {
+            tipo: 'remota',
+            url: ev.url,
+            mime: ev.mime || '',
+            urlMiniatura: id ? `https://drive.google.com/thumbnail?id=${id}&sz=w800` : ev.url,
+            urlVisor: id ? `https://drive.google.com/file/d/${id}/preview` : ev.url
+        };
+    }
     if (ev.estado === 'local') return { tipo: 'local', id: actividad.id, mime: ev.mime || '' };
     return null;
 }

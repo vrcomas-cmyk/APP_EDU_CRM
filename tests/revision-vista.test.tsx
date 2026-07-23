@@ -581,6 +581,31 @@ describe('agrupar la cola', () => {
         assert.ok(titulos.some(t => t?.includes('Beto Ruiz')));
     });
 
+    test('con equipo, un filtro de Educador acota la cola a una sola persona', async () => {
+        comoRevisor(['visitas.calificar']);
+        ponerFlujos([{
+            clave: 'calidad_visita', nombre: 'Calidad de la visita', ambito: 'visita',
+            permiso: 'visitas.calificar', orden: 1
+        }]);
+        localStorage.setItem('pdt_perfil_cache', JSON.stringify({
+            correo: 'rev@x.com', nombre: 'Quien Revisa', rol: 'gerente', es_admin: false,
+            permisos: ['visitas.calificar', 'visitas.consultar'],
+            alcance: ['rev@x.com', 'ana@degasa.com', 'beto@degasa.com'],
+            invitado: true, invitacion_estado: 'aceptada', origen: 'prueba'
+        }));
+        guardarVisitas(dosVisitasDeDosEducadores());
+        pintar();
+
+        assert.equal(document.querySelectorAll('.revision-card').length, 2);
+
+        const campo = screen.getByLabelText('Educador') as HTMLInputElement;
+        fireEvent.change(campo, { target: { value: 'Beto Ruiz' } });
+        fireEvent.mouseDown(screen.getByRole('option', { name: 'Beto Ruiz' }));
+
+        assert.equal(document.querySelectorAll('.revision-card').length, 1);
+        assert.ok(document.querySelector('.revision-card')?.textContent?.includes('Beto Ruiz'));
+    });
+
     test('agrupar por semana junta lo de la misma semana y separa lo de otra', async () => {
         comoRevisor(['visitas.calificar']);
         ponerFlujos([{

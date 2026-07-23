@@ -9,9 +9,10 @@
  * es una interrupción de dos segundos, es a lo que alguien se sienta durante un rato.
  */
 
-import { useState } from 'react';
-import type { Avisar } from '@core/puente';
+import { useMemo, useState } from 'react';
+import { tieneEquipo, type Avisar } from '@core/puente';
 import { ChipToggle } from '@shared/components/ChipToggle';
+import { ComboFiltro } from '@shared/components/ComboFiltro';
 import { plural } from '../services/formato';
 import { agruparPendientes, SIN_AGRUPAR, type CriteriosAgrupacion } from '../services/agrupar';
 import { useRevision } from '../hooks/useRevision';
@@ -30,7 +31,19 @@ export function Revision({ onCambio, avisar }: Props) {
     // Vive aquí y no en el hook: es puramente cómo se PINTA la misma cola, no qué hay en ella.
     // Sobrevive a cambiar de pestaña de flujo porque el componente no se desmonta al hacerlo.
     const [criterios, setCriterios] = useState<CriteriosAgrupacion>(SIN_AGRUPAR);
-    const grupos = agruparPendientes(pendientes, criterios);
+
+    // Filtro por educador — solo tiene sentido con equipo a cargo. Es conveniencia de
+    // pantalla: el aislamiento real de qué se puede revisar ya lo da `consultarVisitas()`.
+    const [fEducador, setFEducador] = useState('');
+    const educadores = useMemo(
+        () => [...new Set(pendientes.map(p => p.educador).filter(Boolean))].sort((a, b) => a!.localeCompare(b!, 'es')) as string[],
+        [pendientes]
+    );
+    const pendientesFiltrados = useMemo(
+        () => (fEducador ? pendientes.filter(p => p.educador === fEducador) : pendientes),
+        [pendientes, fEducador]
+    );
+    const grupos = agruparPendientes(pendientesFiltrados, criterios);
 
     return (
         <div className="vista vista-revision">
@@ -70,7 +83,15 @@ export function Revision({ onCambio, avisar }: Props) {
                         </div>
                     )}
 
-                    {pendientes.length === 0 ? <AlDia nombre={flujo.nombre} /> : (
+                    {tieneEquipo() && pendientes.length > 0 && (
+                        <div className="filtros filtros-cal">
+                            <ComboFiltro etiqueta="Educador" opciones={educadores} valor={fEducador} onCambiar={setFEducador} />
+                        </div>
+                    )}
+
+                    {pendientes.length === 0 ? <AlDia nombre={flujo.nombre} /> : pendientesFiltrados.length === 0 ? (
+                        <p className="ayuda">Nadie llamado «{fEducador}» tiene pendientes en «{flujo.nombre}».</p>
+                    ) : (
                         <div className="revision-grupos">
                             {grupos.map(grupo => (
                                 <div key={grupo.clave} className="revision-grupo">

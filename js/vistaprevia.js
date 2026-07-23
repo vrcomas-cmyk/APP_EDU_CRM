@@ -51,15 +51,15 @@ export function miniaturaEvidencia(actividad) {
     marca.textContent = '…';
     caja.appendChild(marca);
 
-    resolver(fuente).then(({ url, mime, revocar }) => {
+    resolver(fuente).then(({ url, urlMiniatura, urlVisor, mime, revocar }) => {
         if (!url) {
             marca.textContent = '⚠';
             marca.title = 'No se pudo cargar la evidencia';
             return;
         }
         caja.innerHTML = '';
-        caja.appendChild(cuerpoMiniatura(url, mime));
-        caja.addEventListener('click', () => abrirVisor(url, mime, actividad));
+        caja.appendChild(cuerpoMiniatura(urlMiniatura, mime));
+        caja.addEventListener('click', () => abrirVisor(url, mime, actividad, urlVisor));
         // El objectURL vive mientras viva la miniatura; el visor crea el suyo.
         caja._revocar = revocar;
     });
@@ -108,14 +108,23 @@ function cuerpoMiniatura(url, mime) {
  */
 async function resolver(fuente) {
     if (fuente.tipo === 'remota') {
-        return { url: fuente.url, mime: fuente.mime, revocar: () => {} };
+        // `urlMiniatura`/`urlVisor` embebibles; `url` es la original de Drive, para
+        // "Abrir aparte". Un archivo remoto sin id reconocible (formato inesperado) cae a
+        // usar `url` en los tres — no se ve mejor, pero tampoco se rompe.
+        return {
+            url: fuente.url,
+            urlMiniatura: fuente.urlMiniatura || fuente.url,
+            urlVisor: fuente.urlVisor || fuente.url,
+            mime: fuente.mime,
+            revocar: () => {}
+        };
     }
     try {
         const blob = await leerArchivo(fuente.id);
         if (!blob) return { url: null };
         const url = URL.createObjectURL(blob);
         return {
-            url,
+            url, urlMiniatura: url, urlVisor: url,
             mime: blob.type || fuente.mime,
             revocar: () => URL.revokeObjectURL(url)
         };
@@ -127,8 +136,14 @@ async function resolver(fuente) {
 
 // ---------- visor ----------
 
-/** Ampliada. Un modal propio, encima de todo, que se cierra con Escape, clic fuera o la ✕. */
-export function abrirVisor(url, mime, actividad) {
+/**
+ * Ampliada. Un modal propio, encima de todo, que se cierra con Escape, clic fuera o la ✕.
+ *
+ * `urlVisor` (si se pasa) es la que se incrusta en el cuerpo del visor; `url` sigue siendo la
+ * original de Drive, para "Abrir aparte" — la página real de Drive, con su descarga y su
+ * propio zoom, que sigue siendo mejor que cualquier cosa que se pueda ofrecer aquí dentro.
+ */
+export function abrirVisor(url, mime, actividad, urlVisor = url) {
     const modal = document.createElement('div');
     modal.className = 'visor';
 
@@ -168,7 +183,7 @@ export function abrirVisor(url, mime, actividad) {
 
     const cuerpo = document.createElement('div');
     cuerpo.className = 'visor-cuerpo';
-    cuerpo.appendChild(cuerpoVisor(url, mime));
+    cuerpo.appendChild(cuerpoVisor(urlVisor, mime));
 
     caja.append(head, cuerpo);
     modal.appendChild(caja);
@@ -209,17 +224,28 @@ function cuerpoVisor(url, mime) {
     }
 
     if (esPDF(mime)) {
-        // <object> usa el visor de PDF del navegador. El <p> interior solo se ve si el
-        // navegador no sabe mostrarlo, que es exactamente cuando hace falta el enlace.
-        const obj = document.createElement('object');
-        obj.data = url;
-        obj.type = 'application/pdf';
+        // Remoto: `url` aquí es la página de visor embebible de Drive
+        // (`/file/d/ID/preview`), NO el PDF crudo — Drive la sirve para vivir dentro de un
+        // <iframe>, y un <object type="application/pdf"> fallaría porque lo que llega es
+        // HTML, no bytes de PDF. Local (`blob:`): sí son los bytes crudos del archivo, y ahí
+        // el <object> con el visor nativo del navegador es lo correcto.
+        if (String(url).startsWith('blob:')) {
+            const obj = document.createElement('object');
+            obj.data = url;
+            obj.type = 'application/pdf';
 
-        const alterno = document.createElement('p');
-        alterno.className = 'ayuda';
-        alterno.textContent = 'Este navegador no puede mostrar el PDF aquí. Usa "Abrir aparte".';
-        obj.appendChild(alterno);
-        return obj;
+            const alterno = document.createElement('p');
+            alterno.className = 'ayuda';
+            alterno.textContent = 'Este navegador no puede mostrar el PDF aquí. Usa "Abrir aparte".';
+            obj.appendChild(alterno);
+            return obj;
+        }
+
+        const marco = document.createElement('iframe');
+        marco.src = url;
+        marco.className = 'visor-pdf';
+        marco.title = 'Vista previa del PDF';
+        return marco;
     }
 
     const p = document.createElement('p');

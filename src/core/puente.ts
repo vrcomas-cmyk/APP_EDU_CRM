@@ -63,12 +63,37 @@ export const sectores = _catalogos.sectores as () => string[];
 export const origenes = _catalogos.origenes as () => string[];
 /** "Descr. Grupo de Art." de "Materiales", deduplicado — misma fuente y mecanismo que `sectores`. */
 export const gruposArticulo = _catalogos.gruposArticulo as () => string[];
+/** Grupos de artículo que de verdad se trabajan en ESE sector. Sin sector, el catálogo completo. */
+export const gruposDeSector = _catalogos.gruposDeSector as (sector?: string) => string[];
 export const ETAPAS_ESTRATEGIA = _catalogos.ETAPAS_ESTRATEGIA as string[];
+
+/** Una fila del catálogo de materiales — no confundir con `Material` (el que ya se eligió y
+ *  quedó en una actividad, con cantidad/unidad/origen). Este es solo lo que hay para elegir. */
+export interface MaterialCatalogo {
+    material: string;
+    sector: string;
+    grupo_articulo?: string;
+}
+/** Materiales de un sector, tal cual vienen de "Materiales". */
+export const materialesDe = _catalogos.materialesDe as (sector: string) => MaterialCatalogo[];
+/** Buscador fuzzy (palabras sueltas, cualquier orden) dentro de los materiales de un sector. */
+export const buscarMateriales = _catalogos.buscarMateriales as (
+    sector: string, consulta: string, limite?: number
+) => MaterialCatalogo[];
 
 /** Zona del cliente (Clientes → "Gpo. vendedores"). Vacío si el cliente no está en el catálogo. */
 export const zonaDeCliente = _catalogos.zonaDeCliente as (cliente: string) => string;
 /** Ejecutivo que reporta esa zona (Ejecutivos: Zona → Ejecutivo). */
 export const ejecutivoDeZona = _catalogos.ejecutivoDeZona as (zona: string) => string;
+/** Todos los clientes del catálogo, sin recortar por territorio. */
+export const clientesDelCatalogo = _catalogos.clientesDelCatalogo as () => string[];
+/** Todas las zonas que existen entre los clientes descargados — el universo asignable. */
+export const zonasDelCatalogo = _catalogos.zonasDelCatalogo as () => string[];
+/** Solo los clientes de MIS zonas (titular + cobertura vigente). Sin zona asignada, el
+ *  catálogo completo — ver el porqué en `js/catalogos.js`. */
+export const clientesEnMisZonas = _catalogos.clientesEnMisZonas as () => string[];
+/** Zonas que puedo operar hoy (titular + cobertura vigente). */
+export const misZonas = _permisos.misZonas as () => string[];
 
 export const ETIQUETAS_MODO = _catalogos.ETIQUETAS_MODO as Record<string, string>;
 /**
@@ -122,6 +147,26 @@ export const guardarFlujosAdmin = _sync.guardarFlujos as (cambios: {
         resultados: ResultadoFlujo[] | null;
     }>;
     eliminar: string[];
+}) => Promise<unknown>;
+
+/** Titulares de zona + coberturas vigentes. Ver `js/sync.js: leerTerritorios`. */
+export const leerTerritorios = _sync.leerTerritorios as () => Promise<{
+    titulares: Array<{ zona: string; educador_correo: string }>;
+    coberturas: Array<{
+        id: string; zona: string; educador_correo: string;
+        desde: string; hasta: string | null; motivo: string | null; creado_por: string;
+    }>;
+}>;
+
+/** Asigna/quita titulares de zona y agrega/quita coberturas. */
+export const guardarTerritorios = _sync.guardarTerritorios as (cambios: {
+    asignar: Array<{ zona: string; educador_correo: string }>;
+    quitar_zona: string[];
+    agregar_cobertura: Array<{
+        zona: string; educador_correo: string;
+        desde: string | null; hasta: string | null; motivo: string | null;
+    }>;
+    quitar_cobertura: string[];
 }) => Promise<unknown>;
 
 export const describirDispositivo = _geo.describirDispositivo as () => string;
@@ -194,7 +239,7 @@ import * as _revisiones from '../../js/revisiones.js';
 import * as _permisos from '../../js/permisos.js';
 
 export interface Filtro {
-    educador: string; cliente: string; hospital: string; sector: string;
+    educador: string; ejecutivo: string; cliente: string; hospital: string; sector: string;
     tipo_actividad: string; estado: string; desde: string; hasta: string;
 }
 
@@ -209,7 +254,7 @@ export interface Indicadores {
     minutos_efectivos: number; horas_efectivas: number; cumplimiento: number;
     por_educador: Record<string, number>; por_tipo: Record<string, number>;
     por_sector: Record<string, number>; por_cliente: Record<string, number>;
-    por_hospital: Record<string, number>; por_dia: Record<string, number>;
+    por_dia: Record<string, number>;
 }
 
 export const consultarVisitas = _datos.consultarVisitas as (f?: Partial<Filtro>) => Visita[];
@@ -226,7 +271,7 @@ export const indicadoresPorEducador = _datos.indicadoresPorEducador as (
     v: Visita[]
 ) => IndicadoresEducador[];
 export const opcionesDeFiltro = _datos.opcionesDeFiltro as (v?: Visita[]) => {
-    educadores: string[]; clientes: string[]; hospitales: string[];
+    educadores: string[]; ejecutivos: string[]; clientes: string[]; hospitales: string[];
     sectores: string[]; tipos: string[]; estados: string[];
 };
 export const filtroVacio = _datos.filtroVacio as () => Filtro;

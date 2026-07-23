@@ -10,7 +10,7 @@ import { useCallback, useMemo } from 'react';
 import { Combo, filtrar } from '@shared/components/Combo';
 import {
     etiquetaDiaLarga, buscarSolapes, estadoDe, ESTADOS, consultarVisitas,
-    zonaDeCliente, ejecutivoDeZona, type Avisar
+    zonaDeCliente, ejecutivoDeZona, clientesEnMisZonas, leerEstrategias, type Avisar
 } from '@core/puente';
 import { moverInicio, cambiarFin } from '../services/horario';
 import * as repo from '../repository/visitasRepo';
@@ -29,6 +29,7 @@ export function FormularioVisita({ visita, editar, avisar }: Props) {
             <CampoEducador visita={visita} />
             <CampoCliente visita={visita} editar={editar} />
             <SubindiceZonaEjecutivo visita={visita} />
+            <CampoEstrategia visita={visita} editar={editar} />
             <CampoHospital visita={visita} editar={editar} />
             <HistoricoCliente visita={visita} />
 
@@ -84,6 +85,40 @@ function SubindiceZonaEjecutivo({ visita }: { visita: Visita }) {
 }
 
 /**
+ * Qué Estrategia avanza esta visita, si el cliente tiene alguna activa (etapa distinta de
+ * "Consolidado" — una vez consolidada, ya no hay objetivo pendiente que las próximas visitas
+ * tengan que empujar). Opcional a propósito: no todo cliente tiene un plan, y forzar el enlace
+ * inventaría una relación que nadie definió.
+ */
+function CampoEstrategia({ visita, editar }: { visita: Visita; editar: Props['editar'] }) {
+    const activas = useMemo(
+        () => leerEstrategias().filter(e => e.cliente === visita.cliente && e.etapa !== 'Consolidado'),
+        [visita.cliente]
+    );
+
+    if (!visita.cliente?.trim() || activas.length === 0) return null;
+
+    return (
+        <label className="campo">
+            <span className="campo-lbl">Estrategia</span>
+            <select
+                className="inp"
+                value={visita.id_estrategia || ''}
+                onChange={(e) => editar(v => { v.id_estrategia = e.target.value || undefined; })}
+            >
+                <option value="">Sin vincular</option>
+                {activas.map(e => (
+                    <option key={e.id} value={e.id}>
+                        {[e.sector, e.grupo_articulo, e.proyecto].filter(Boolean).join(' · ') || 'Sin detalle'}
+                    </option>
+                ))}
+            </select>
+            <p className="ayuda">Esta visita cuenta para el avance de la estrategia elegida.</p>
+        </label>
+    );
+}
+
+/**
  * El educador no se elige: es quien tiene la sesión abierta.
  *
  * Se muestra —hay que poder verlo antes de guardar— pero como dato, no como campo. Dejar
@@ -105,8 +140,10 @@ function CampoEducador({ visita }: { visita: Visita }) {
 }
 
 function CampoCliente({ visita, editar }: { visita: Visita; editar: Props['editar'] }) {
-    // Se lee una vez: son ~11,500 y releerlos en cada tecla recorre el arreglo entero.
-    const clientes = useMemo(() => repo.clientesDelCatalogo(), []);
+    // Solo los clientes de MIS zonas (titular + cobertura vigente) — sin ninguna asignada,
+    // `clientesEnMisZonas` ya cae sola al catálogo completo. Se lee una vez: son hasta ~11,500
+    // y releerlos en cada tecla recorre el arreglo entero.
+    const clientes = useMemo(() => clientesEnMisZonas(), []);
     // Minúsculas precalculadas una sola vez: si no, cada tecla vuelve a hacer `.toLowerCase()`
     // de las 11,500 entradas dentro de `filtrar`, y ese es el campo que más se escribe.
     const clientesLower = useMemo(() => clientes.map(c => c.toLowerCase()), [clientes]);
@@ -253,6 +290,14 @@ export function PanelInformacion({ visita, editar }: { visita: Visita; editar?: 
         ['Horario', `${visita.hora_inicio}–${visita.hora_fin}`],
         ['Sectores', String((visita.sectores || []).length)]
     ];
+
+    // Solo si esta visita quedó vinculada a una — la mayoría de los clientes no tienen plan.
+    if (visita.id_estrategia) {
+        const estrategia = leerEstrategias().find(e => e.id === visita.id_estrategia);
+        filas.splice(3, 0, ['Estrategia', estrategia
+            ? [estrategia.sector, estrategia.grupo_articulo, estrategia.proyecto].filter(Boolean).join(' · ') || 'Sin detalle'
+            : '—']);
+    }
 
     return (
         <div className="campo panel-info">

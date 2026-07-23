@@ -34,12 +34,15 @@ describe('hayFiltro', () => {
 describe('aplicarFiltro', () => {
     const visitas = [
         visita({ educador: 'Ana López', educador_correo: 'ana@x.com', cliente: 'C1', hospital: 'ABC',
+                 ejecutivo: 'Sandra Carbajal',
                  dia: '2026-07-10', estado: 'finalizada',
                  sectores: [sector({ nombre: 'GASAS', actividades: [actividad({ tipo: 'Capacitación' })] })] }),
         visita({ educador: 'Beto Ruiz', educador_correo: 'beto@x.com', cliente: 'C2', hospital: 'XYZ',
+                 ejecutivo: 'Luis Peña',
                  dia: '2026-07-20', estado: 'programada',
                  sectores: [sector({ nombre: 'GUANTES', actividades: [actividad({ tipo: 'Seguimiento' })] })] }),
         visita({ educador: 'Ana López', educador_correo: 'ana@x.com', cliente: 'C1', hospital: 'ABC',
+                 ejecutivo: 'Sandra Carbajal',
                  dia: '2026-07-15', estado: 'cancelada',
                  sectores: [
                      sector({ nombre: 'GASAS', actividades: [] }),
@@ -83,6 +86,12 @@ describe('aplicarFiltro', () => {
         assert.equal(filtrar({ educador: 'ana@x.com', estado: 'cancelada' }).length, 1);
     });
 
+    test('el ejecutivo filtra igual que educador/cliente/hospital', () => {
+        assert.equal(filtrar({ ejecutivo: 'Sandra Carbajal' }).length, 2);
+        assert.equal(filtrar({ ejecutivo: '  sandra carbajal ' }).length, 2, 'sin distinguir mayúsculas/espacios');
+        assert.equal(filtrar({ ejecutivo: 'Nadie' }).length, 0);
+    });
+
     test('un filtro sin coincidencias devuelve vacío, no todo', () => {
         assert.equal(filtrar({ hospital: 'No Existe' }).length, 0);
     });
@@ -90,6 +99,7 @@ describe('aplicarFiltro', () => {
     test('opcionesDeFiltro saca los valores reales, ordenados y sin repetir', () => {
         const op = opcionesDeFiltro(visitas);
         assert.deepEqual(op.educadores, ['Ana López', 'Beto Ruiz']);
+        assert.deepEqual(op.ejecutivos, ['Luis Peña', 'Sandra Carbajal']);
         assert.deepEqual(op.hospitales, ['ABC', 'XYZ']);
         assert.deepEqual(op.sectores, ['GASAS', 'GUANTES', 'SUTURAS']);
     });
@@ -279,6 +289,25 @@ describe('urlEvidencia — la única que sabe dónde vive el archivo', () => {
         const r = urlEvidencia(actividad({ evidencia: { estado: 'subida', url: 'https://drive/x', mime: 'image/jpeg' } }));
         assert.equal(r.tipo, 'remota');
         assert.equal(r.url, 'https://drive/x');
+    });
+
+    test('de una URL de Drive normal deriva miniatura y visor embebibles', () => {
+        // `archivo.getUrl()` en Codigo.gs devuelve justo esta forma: pensada para abrirse en
+        // una pestaña, no para incrustarse en <img>/<object> (Drive la bloquea).
+        const url = 'https://drive.google.com/file/d/ABC123XYZ/view?usp=drivesdk';
+        const r = urlEvidencia(actividad({ evidencia: { estado: 'subida', url, mime: 'application/pdf' } }));
+
+        assert.equal(r.url, url, 'la original se conserva tal cual, para "Abrir aparte"');
+        assert.equal(r.urlMiniatura, 'https://drive.google.com/thumbnail?id=ABC123XYZ&sz=w800');
+        assert.equal(r.urlVisor, 'https://drive.google.com/file/d/ABC123XYZ/preview');
+    });
+
+    test('una URL sin id reconocible cae a usar la original en los tres', () => {
+        const url = 'https://algo-que-no-es-drive.example/archivo.pdf';
+        const r = urlEvidencia(actividad({ evidencia: { estado: 'subida', url, mime: 'application/pdf' } }));
+
+        assert.equal(r.urlMiniatura, url);
+        assert.equal(r.urlVisor, url);
     });
 
     test('local apunta a IndexedDB por el id de la actividad', () => {

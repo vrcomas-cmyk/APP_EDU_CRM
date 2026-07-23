@@ -24,6 +24,7 @@
  */
 
 import { leerCatalogo } from './storage.js';
+import { misZonas } from './permisos.js';
 
 // ---------- modos ----------
 
@@ -107,6 +108,45 @@ export function ejecutivoDeZona(zona) {
     const mapa = leerCatalogo()?.ejecutivos;
     if (!mapa || typeof mapa !== 'object' || !zona) return '';
     return String(mapa[zona] || '').trim();
+}
+
+/**
+ * Todas las zonas que existen entre los clientes descargados ("Gpo. vendedores" único), para
+ * el panel de Administración → Territorios. No es lo mismo que "mis zonas" (`misZonas` en
+ * permisos.js): esto es el universo completo que se puede asignar, aquella es el recorte de
+ * uno.
+ */
+export function zonasDelCatalogo() {
+    const mapa = leerCatalogo()?.clientes_zona;
+    if (!mapa || typeof mapa !== 'object') return [];
+    const unicas = new Set(Object.values(mapa).map(z => String(z || '').trim()).filter(Boolean));
+    return [...unicas].sort((a, b) => a.localeCompare(b, 'es'));
+}
+
+/** Todos los clientes del catálogo descargado. Son ~11.5k: nunca se pintan todos de golpe. */
+export function clientesDelCatalogo() {
+    const cat = leerCatalogo() || {};
+    return Array.isArray(cat.clientes) ? cat.clientes : [];
+}
+
+/**
+ * Solo los clientes de MIS zonas (titular + cobertura vigente, ver `misZonas` en permisos.js).
+ * Es la restricción de territorio: cada educador busca y agenda dentro de sus clientes, no en
+ * el catálogo completo de la compañía.
+ *
+ * Sin ninguna zona asignada, se cae al catálogo COMPLETO — es el lado seguro: un rol que no
+ * captura (analista, gerente, administrador) o un educador todavía sin configurar no debe
+ * quedarse sin poder buscar un cliente por una falta de configuración que no es suya.
+ */
+export function clientesEnMisZonas() {
+    const zonas = misZonas();
+    if (zonas.length === 0) return clientesDelCatalogo();
+
+    const mapa = leerCatalogo()?.clientes_zona;
+    if (!mapa || typeof mapa !== 'object') return clientesDelCatalogo();
+
+    const propias = new Set(zonas);
+    return clientesDelCatalogo().filter(c => propias.has(String(mapa[c] || '').trim()));
 }
 
 /**
@@ -286,6 +326,22 @@ export const GRUPOS_ARTICULO_POR_DEFECTO = [
  */
 export function gruposArticulo() {
     return delCatalogo('grupos_articulo', GRUPOS_ARTICULO_POR_DEFECTO);
+}
+
+/**
+ * Grupos de artículo que de verdad se trabajan en un sector — los que aparecen en alguna
+ * fila de "Materiales" con ese sector. Sin sector, o si la hoja todavía no trae la columna
+ * de grupo (`grupo_articulo` en cada material), se cae al catálogo completo: es el lado
+ * seguro, ofrecer de más nunca rompe nada, ofrecer de menos sí escondería una opción válida.
+ */
+export function gruposDeSector(sector) {
+    if (!sector) return gruposArticulo();
+    const todos = leerCatalogo()?.materiales;
+    if (!Array.isArray(todos) || todos.length === 0) return gruposArticulo();
+
+    const deEsteSector = todos.filter(m => m.sector === sector);
+    const grupos = [...new Set(deEsteSector.map(m => m.grupo_articulo).filter(Boolean))];
+    return grupos.length > 0 ? grupos.sort((a, b) => a.localeCompare(b, 'es')) : gruposArticulo();
 }
 
 export const ETAPAS_ESTRATEGIA = ['Prospección', 'En desarrollo', 'Consolidado', 'En riesgo'];

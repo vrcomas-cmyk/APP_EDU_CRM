@@ -151,11 +151,24 @@ export async function subirEvidenciasPendientes() {
 // alcance ni por dueño. Se sube lo que cambió localmente y se releen todas, para que lo que
 // otro educador o gerente acaba de escribir aparezca sin esperar a que alguien reagende algo.
 
+// `productos` vive como arreglo en la app (multi-selección de materiales), pero la hoja de
+// Estrategias tiene una sola celda de texto por fila — Apps Script no necesita saber que es
+// una lista, así que la conversión vive aquí, en el único lugar donde el dato cruza al POST.
+function productosATexto(productos) {
+    return Array.isArray(productos) ? productos.filter(Boolean).join('; ') : (productos || '');
+}
+function productosDesdeTexto(texto) {
+    return String(texto || '').split(';').map(s => s.trim()).filter(Boolean);
+}
+
 export async function sincronizarEstrategias() {
     const pendientes = leerEstrategias().filter(e => !e.sincronizado);
     if (pendientes.length === 0) return { enviadas: 0 };
 
-    await postear({ action: 'guardarEstrategias', estrategias: pendientes });
+    await postear({
+        action: 'guardarEstrategias',
+        estrategias: pendientes.map(e => ({ ...e, productos: productosATexto(e.productos) }))
+    });
 
     const idsEnviados = new Set(pendientes.map(e => e.id));
     const estrategias = leerEstrategias();
@@ -174,7 +187,8 @@ export async function descargarEstrategiasEquipo() {
 
     try {
         const r = await postear({ action: 'leerEstrategias' });
-        const remotas = Array.isArray(r?.estrategias) ? r.estrategias : [];
+        const remotas = (Array.isArray(r?.estrategias) ? r.estrategias : [])
+            .map(e => ({ ...e, productos: productosDesdeTexto(e.productos) }));
         fusionarEstrategiasEquipo(remotas);
         return { estrategias: leerEstrategias() };
     } catch (err) {
@@ -258,6 +272,23 @@ export async function guardarRoles(cambios) {
  */
 export async function guardarUsuarios(cambios) {
     return postear({ action: 'guardarUsuarios', ...cambios });
+}
+
+// ---------- territorios ----------
+
+/** Titulares de zona + coberturas vigentes. Requiere ser admin: el servidor lo vuelve a revisar. */
+export async function leerTerritorios() {
+    return postear({ action: 'leerTerritorios' });
+}
+
+/**
+ * Asigna/quita titulares y agrega/quita coberturas.
+ * Carga: { asignar: [{zona, educador_correo}], quitar_zona: ["001"],
+ *          agregar_cobertura: [{zona, educador_correo, desde, hasta, motivo}],
+ *          quitar_cobertura: ["uuid"] }.
+ */
+export async function guardarTerritorios(cambios) {
+    return postear({ action: 'guardarTerritorios', ...cambios });
 }
 
 // ---------- flujos de revisión ----------

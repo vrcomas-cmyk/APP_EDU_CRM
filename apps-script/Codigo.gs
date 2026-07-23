@@ -318,7 +318,7 @@ const ENCABEZADOS_VISITAS = [
     // que las columnas ya existentes coincidan en nombre Y posición: meter una en medio haría
     // tronar la sincronización de todas las hojas que ya están en producción.
     'solicitado_por', 'sector_guardado_momento', 'sector_guardado_usuario',
-    'zona', 'ejecutivo', 'notas'
+    'zona', 'ejecutivo', 'notas', 'id_estrategia'
 ];
 
 const ENCABEZADOS_ACTIVIDADES = [
@@ -401,14 +401,15 @@ var ACCIONES_CON_IDENTIDAD = ['guardarVisitas', 'subirEvidencia', 'guardarEvento
                               'leerVisitasEquipo', 'guardarRevisiones', 'leerRevisiones',
                               'leerRBAC', 'guardarRoles', 'guardarUsuarios',
                               'leerFlujos', 'guardarFlujos',
-                              'guardarEstrategias', 'leerEstrategias'];
+                              'guardarEstrategias', 'leerEstrategias',
+                              'leerTerritorios', 'guardarTerritorios'];
 
 // Acciones de solo LECTURA: no tocan ninguna hoja, así que no necesitan turnarse detrás del
 // candado global. Antes SÍ lo hacían —un `waitLock` compartido con las escrituras— y eso
 // significaba que una subida de evidencia grande (base64, puede tardar varios segundos)
 // bloqueaba hasta 30s la lectura de "Mi día"/Calendario de TODO el equipo, no solo de quien
 // subía. Separarlas es lo que de verdad resuelve la lentitud, más que el tamaño del payload.
-var ACCIONES_DE_LECTURA = ['leerVisitasEquipo', 'leerRevisiones', 'leerRBAC', 'leerFlujos', 'leerEstrategias'];
+var ACCIONES_DE_LECTURA = ['leerVisitasEquipo', 'leerRevisiones', 'leerRBAC', 'leerFlujos', 'leerEstrategias', 'leerTerritorios'];
 
 function doPost(e) {
     var lock = null;
@@ -459,6 +460,10 @@ function doPost(e) {
                 return json(guardarEstrategias(body.estrategias || [], identidad));
             case 'leerEstrategias':
                 return json(leerEstrategias());
+            case 'leerTerritorios':
+                return json(leerTerritorios(identidad));
+            case 'guardarTerritorios':
+                return json(guardarTerritorios(body, identidad));
             default:
                 return json({ status: 'error', message: 'action desconocida: ' + body.action });
         }
@@ -615,13 +620,18 @@ function leerMateriales(db) {
 
     var iMaterial = datos[0].indexOf(COL_MATERIAL);
     var iSector = datos[0].indexOf(COL_SECTOR);
+    // Columna opcional: si la hoja todavía no la tiene, el material sigue leyéndose igual
+    // que antes, solo sin grupo (`gruposDeSector` en catalogos.js cae al catálogo completo).
+    var iGrupo = datos[0].indexOf(COL_GRUPO_ARTICULO);
     if (iMaterial === -1 || iSector === -1) return [];
 
     var salida = [];
     for (var i = 1; i < datos.length; i++) {
         var material = String(datos[i][iMaterial]).trim();
         if (material === '') continue;
-        salida.push({ material: material, sector: String(datos[i][iSector]).trim() });
+        var fila = { material: material, sector: String(datos[i][iSector]).trim() };
+        if (iGrupo !== -1) fila.grupo_articulo = String(datos[i][iGrupo]).trim();
+        salida.push(fila);
     }
     return salida;
 }
@@ -797,7 +807,8 @@ function guardarVisitas(visitas, identidad) {
                     permanencia != null ? permanencia : '', (visita.reagendas || []).length, ahora,
                     sector.solicitado_por || '',
                     (sector.guardado || {}).momento || '', (sector.guardado || {}).usuario || '',
-                    visita.zona || '', visita.ejecutivo || '', visita.notas || ''
+                    visita.zona || '', visita.ejecutivo || '', visita.notas || '',
+                    visita.id_estrategia || ''
                 ]
             });
 
@@ -1405,6 +1416,97 @@ function guardarUsuarios(body, identidad) {
     }
 
     return { status: 'ok', guardados: guardados };
+}
+
+/* ══════════════════ Territorios: qué zona es de quién ══════════════════
+ *
+ * Igual que Roles/Jerarquía: vive solo en Postgres (`pdt_zona_educador`, `pdt_zona_cobertura`),
+ * no en Sheets — necesita una pantalla para asignar sin editar una hoja a mano, y las
+ * coberturas son temporales (piden fecha, no una celda de texto libre). Ver la migración
+ * `20260722_pdt_territorios_y_estrategias.sql` para el porqué completo.
+ */
+
+/** Lo que necesita el panel de Administración: titulares de zona + coberturas vigentes. */
+function leerTerritorios(identidad) {
+    var db = SpreadsheetApp.openById(SHEET_DB_ID);
+    if (!esAdmin(db, identidad.correo)) {
+        return { status: 'error', message: 'Tu cuenta (' + identidad.correo + ') no tiene permisos de administrador.' };
+    }
+
+    var r = supabaseRPCEstricto('pdt_territorios_listar', { p_actor: identidad.correo });
+    if (!r.ok) return { status: 'error', message: r.error };
+
+    return {
+        status: 'ok',
+        titulares: (r.datos || {}).titulares || [],
+        coberturas: (r.datos || {}).coberturas || []
+    };
+}
+
+/**
+ * Asigna/quita titulares de zona y agrega/quita coberturas.
+ *
+ * Carga: { asignar: [{zona, educador_correo}], quitar_zona: ["001"],
+ *          agregar_cobertura: [{zona, educador_correo, desde, hasta, motivo}],
+ *          quitar_cobertura: ["uuid"] }
+ *
+ * Igual que `guardarRoles`: no es atómico entre operaciones, se para en la primera que falle
+ * y dice qué alcanzó a hacer — un error opaco tras el cual la mitad de los cambios sí están
+ * puestos es peor que un parcial que se puede ver y reintentar.
+ */
+function guardarTerritorios(body, identidad) {
+    var db = SpreadsheetApp.openById(SHEET_DB_ID);
+    if (!esAdmin(db, identidad.correo)) {
+        return { status: 'error', message: 'Tu cuenta (' + identidad.correo + ') no tiene permisos de administrador.' };
+    }
+
+    var asignados = [];
+    var asignar = body.asignar || [];
+    for (var i = 0; i < asignar.length; i++) {
+        var a = supabaseRPCEstricto('pdt_zona_asignar', {
+            p_actor: identidad.correo,
+            p_zona: asignar[i].zona,
+            p_educador_correo: asignar[i].educador_correo
+        });
+        if (!a.ok) return { status: 'error', message: a.error, asignados: asignados };
+        asignados.push(asignar[i].zona);
+    }
+
+    var quitarZona = body.quitar_zona || [];
+    for (var j = 0; j < quitarZona.length; j++) {
+        var q = supabaseRPCEstricto('pdt_zona_quitar', {
+            p_actor: identidad.correo,
+            p_zona: quitarZona[j]
+        });
+        if (!q.ok) return { status: 'error', message: q.error, asignados: asignados };
+    }
+
+    var coberturasAgregadas = [];
+    var agregarCobertura = body.agregar_cobertura || [];
+    for (var k = 0; k < agregarCobertura.length; k++) {
+        var c = agregarCobertura[k];
+        var ac = supabaseRPCEstricto('pdt_cobertura_agregar', {
+            p_actor: identidad.correo,
+            p_zona: c.zona,
+            p_educador_correo: c.educador_correo,
+            p_desde: c.desde || null,
+            p_hasta: c.hasta || null,
+            p_motivo: c.motivo || null
+        });
+        if (!ac.ok) return { status: 'error', message: ac.error, asignados: asignados, coberturas: coberturasAgregadas };
+        coberturasAgregadas.push((ac.datos || {}).id);
+    }
+
+    var quitarCobertura = body.quitar_cobertura || [];
+    for (var l = 0; l < quitarCobertura.length; l++) {
+        var qc = supabaseRPCEstricto('pdt_cobertura_quitar', {
+            p_actor: identidad.correo,
+            p_id: quitarCobertura[l]
+        });
+        if (!qc.ok) return { status: 'error', message: qc.error, asignados: asignados, coberturas: coberturasAgregadas };
+    }
+
+    return { status: 'ok', asignados: asignados, coberturas: coberturasAgregadas };
 }
 
 /**

@@ -10,14 +10,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     consultarVisitas, claveHoy, etiquetaDiaLarga, calcularIndicadores, indicadoresPorEducador,
-    tieneEquipo, flujosDisponibles, conteoPendientes,
+    tieneEquipo, flujosDisponibles, conteoPendientes, opcionesDeFiltro, aplicarFiltro,
     listarCompromisos, tieneCheckIn, saludDe, SALUD, detalleEstado,
-    type CompromisoCalendar
+    type CompromisoCalendar, type Filtro
 } from '@core/puente';
 import type { Visita } from '@core/tipos';
 import { BanderasVisita } from '@shared/components/Indicadores';
 import { FilaAgenda } from '@modules/agenda/components/AgendaMovil';
 import { useConexionCalendar } from '@modules/agenda/hooks/useConexionCalendar';
+import { ComboFiltro } from '@shared/components/ComboFiltro';
 import { TablaEducadores } from '@modules/dashboard/components/TablaEducadores';
 
 export function MiDia({ onAbrirVisita }: { onAbrirVisita: (id: string) => void }) {
@@ -25,14 +26,31 @@ export function MiDia({ onAbrirVisita }: { onAbrirVisita: (id: string) => void }
 
     // Sin filtro: como el resto de la app, `consultarVisitas` ya recorta al alcance de quien
     // pregunta (uno mismo, o el equipo si tiene gente a cargo).
-    const todas = useMemo(() => consultarVisitas(), []);
+    const todasVisibles = useMemo(() => consultarVisitas(), []);
 
+    /** Por educador/ejecutivo, solo tiene sentido con equipo a cargo — mismo patrón que el
+     *  filtro del Calendario (`FiltrosCalendario`). */
+    const [filtro, setFiltro] = useState<Pick<Filtro, 'educador' | 'ejecutivo'>>({ educador: '', ejecutivo: '' });
+    const opciones = useMemo(() => opcionesDeFiltro(todasVisibles), [todasVisibles]);
+    const todas = useMemo(
+        () => (filtro.educador || filtro.ejecutivo ? aplicarFiltro(todasVisibles, filtro) : todasVisibles),
+        [todasVisibles, filtro]
+    );
+
+    /**
+     * Solo lo que sigue pendiente: canceladas y ya completas (todo con soporte) no piden
+     * ninguna acción hoy, así que verlas en "Hoy" sería ruido — "qué me falta antes de salir"
+     * es justo la pregunta que este bloque responde, no "qué tenía agendado".
+     */
     const deHoy = useMemo(
         () => todas
-            .filter(v => v.dia === hoy)
+            .filter(v => v.dia === hoy && saludDe(v) !== SALUD.CANCELADA && saludDe(v) !== SALUD.COMPLETA)
             .sort((a, b) => (a.hora_inicio || '').localeCompare(b.hora_inicio || '')),
         [todas, hoy]
     );
+    // Para distinguir "no hay nada agendado hoy" de "ya se resolvió todo lo de hoy": son
+    // mensajes distintos, y el segundo es una buena noticia que merece decirse como tal.
+    const hayAgendadoHoy = useMemo(() => todas.some(v => v.dia === hoy), [todas, hoy]);
 
     const ind = useMemo(() => calcularIndicadores(todas), [todas]);
     const hayRevision = flujosDisponibles().length > 0;
@@ -60,12 +78,35 @@ export function MiDia({ onAbrirVisita }: { onAbrirVisita: (id: string) => void }
                 <p className="eyebrow">{etiquetaDiaLarga(hoy)}</p>
             </header>
 
+            {tieneEquipo() && (
+                <div className="filtros filtros-cal">
+                    <ComboFiltro
+                        etiqueta="Educador" opciones={opciones.educadores}
+                        valor={filtro.educador} onCambiar={(v) => setFiltro(f => ({ ...f, educador: v }))}
+                    />
+                    <ComboFiltro
+                        etiqueta="Ejecutivo" opciones={opciones.ejecutivos}
+                        valor={filtro.ejecutivo} onCambiar={(v) => setFiltro(f => ({ ...f, ejecutivo: v }))}
+                    />
+                    {(filtro.educador || filtro.ejecutivo) && (
+                        <button type="button" className="btn-txt"
+                                onClick={() => setFiltro({ educador: '', ejecutivo: '' })}>
+                            Limpiar filtro
+                        </button>
+                    )}
+                </div>
+            )}
+
             <section className="dash-sec">
                 <h4 className="dash-titulo">
-                    Hoy · {deHoy.length} visita{deHoy.length === 1 ? '' : 's'}
+                    Pendiente hoy · {deHoy.length} visita{deHoy.length === 1 ? '' : 's'}
                 </h4>
                 {deHoy.length === 0 ? (
-                    <p className="ayuda">Sin visitas agendadas para hoy.</p>
+                    <p className="ayuda">
+                        {hayAgendadoHoy
+                            ? 'Ya se resolvió todo lo de hoy.'
+                            : 'Sin visitas agendadas para hoy.'}
+                    </p>
                 ) : (
                     <div className="agenda-list">
                         {deHoy.map(v => <FilaAgenda visita={v} key={v.id} onAbrir={onAbrirVisita} />)}
