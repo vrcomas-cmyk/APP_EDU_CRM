@@ -94,7 +94,8 @@ describe('problemasDeTerritorios', () => {
             coberturas: [{
                 id: 'nueva-1', zona: '002', educador_correo: 'beto@x.com',
                 desde: '2026-07-01', hasta: null, motivo: 'Vacaciones'
-            }]
+            }],
+            excepcionesCliente: []
         };
         assert.deepEqual(problemasDeTerritorios(b), []);
     });

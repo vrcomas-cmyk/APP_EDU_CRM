@@ -6,9 +6,9 @@
  * esa respuesta llega (ver `useTerritorios`).
  */
 
-import type { BorradorTerritorios, CoberturaZona, TitularZona } from '@core/tipos';
+import type { BorradorTerritorios, CoberturaZona, ExcepcionCliente, TitularZona } from '@core/tipos';
 
-export const VACIO_TERRITORIOS: BorradorTerritorios = { titulares: [], coberturas: [] };
+export const VACIO_TERRITORIOS: BorradorTerritorios = { titulares: [], coberturas: [], excepcionesCliente: [] };
 
 // ---------- titulares ----------
 
@@ -53,6 +53,35 @@ export function sinCobertura(coberturas: CoberturaZona[], id: string): Cobertura
     return coberturas.filter(c => c.id !== id);
 }
 
+// ---------- excepciones de cliente ----------
+
+/**
+ * Un cliente suelto, fuera de zona, que un educador puede ver por excepción — el caso contado
+ * de "necesito ver a este cliente que no es mío" sin prestarle la zona entera. Mismo patrón de
+ * id temporal que `coberturaNueva`.
+ */
+export function excepcionNueva(): ExcepcionCliente {
+    return {
+        id: `nueva-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        cliente: '', educador_correo: '', desde: new Date().toISOString().slice(0, 10),
+        hasta: null, motivo: null
+    };
+}
+
+export function esExcepcionNueva(e: ExcepcionCliente): boolean {
+    return e.id.startsWith('nueva-');
+}
+
+export function conExcepcion(
+    excepciones: ExcepcionCliente[], id: string, cambios: Partial<ExcepcionCliente>
+): ExcepcionCliente[] {
+    return excepciones.map(e => (e.id === id ? { ...e, ...cambios } : e));
+}
+
+export function sinExcepcion(excepciones: ExcepcionCliente[], id: string): ExcepcionCliente[] {
+    return excepciones.filter(e => e.id !== id);
+}
+
 /** Qué impide guardar. Devuelve TODOS los problemas, no el primero. */
 export function problemasDeTerritorios(b: BorradorTerritorios): string[] {
     const problemas: string[] = [];
@@ -78,6 +107,22 @@ export function problemasDeTerritorios(b: BorradorTerritorios): string[] {
     for (const c of b.coberturas) {
         if (c.hasta && c.hasta < c.desde) {
             problemas.push('hay una cobertura que termina antes de empezar');
+            break;
+        }
+    }
+
+    for (const e of b.excepcionesCliente) {
+        if (!e.cliente.trim()) { problemas.push('hay una excepción sin cliente'); break; }
+    }
+    for (const e of b.excepcionesCliente) {
+        if (!correoValido.test(e.educador_correo.trim())) {
+            problemas.push('hay una excepción con un correo que no parece válido');
+            break;
+        }
+    }
+    for (const e of b.excepcionesCliente) {
+        if (e.hasta && e.hasta < e.desde) {
+            problemas.push('hay una excepción que termina antes de empezar');
             break;
         }
     }
@@ -120,4 +165,19 @@ export function coberturasParaGuardar(original: CoberturaZona[], actual: Cobertu
         .map(c => c.id);
 
     return { agregarCobertura, quitarCobertura };
+}
+
+/** Igual que `coberturasParaGuardar`, para excepciones de cliente. */
+export function excepcionesParaGuardar(original: ExcepcionCliente[], actual: ExcepcionCliente[]) {
+    const agregarExcepcion = actual.filter(esExcepcionNueva).map(e => ({
+        cliente: e.cliente.trim(), educador_correo: e.educador_correo.trim().toLowerCase(),
+        desde: e.desde || null, hasta: e.hasta || null, motivo: e.motivo?.trim() || null
+    }));
+
+    const idsActuales = new Set(actual.map(e => e.id));
+    const quitarExcepcion = original
+        .filter(e => !esExcepcionNueva(e) && !idsActuales.has(e.id))
+        .map(e => e.id);
+
+    return { agregarExcepcion, quitarExcepcion };
 }

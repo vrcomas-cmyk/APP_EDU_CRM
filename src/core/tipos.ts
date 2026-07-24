@@ -483,10 +483,26 @@ export interface CoberturaZona {
     creado_por?: string;
 }
 
+/**
+ * Un cliente suelto, fuera de sus zonas, que un educador puede ver por excepción puntual —
+ * distinto de `CoberturaZona`: aquella presta una zona ENTERA, esto un cliente contado. Misma
+ * forma que `CoberturaZona` salvo por `cliente` en vez de `zona`.
+ */
+export interface ExcepcionCliente {
+    id: string;
+    cliente: string;
+    educador_correo: string;
+    desde: string;             // ISO 8601
+    hasta: string | null;      // null = indefinida
+    motivo: string | null;
+    creado_por?: string;
+}
+
 /** Lo que la pantalla de Territorios edita: el espejo local de `leerTerritorios`. */
 export interface BorradorTerritorios {
     titulares: TitularZona[];
     coberturas: CoberturaZona[];
+    excepcionesCliente: ExcepcionCliente[];
 }
 
 // ---------- flujos de revisión administrables ----------

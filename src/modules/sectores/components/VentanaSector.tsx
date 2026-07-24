@@ -15,7 +15,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { sectores as catalogoSectores, origenes, type Avisar } from '@core/puente';
+import { sectores as catalogoSectores, origenes, leerEstrategias, type Avisar } from '@core/puente';
 
 import { faltaEnSector, sectorCompleto, conservables, sectoresLibres } from '../validators/requisitos';
 import { filtrarSectores } from '../services/busqueda';
@@ -105,6 +105,7 @@ export function VentanaSector({
                 {sectorActual ? (
                     <PasoCompletar
                         key={sectorActual.id}
+                        visita={visita}
                         sector={sectorActual}
                         version={version}
                         editar={editar}
@@ -227,7 +228,8 @@ function PasoElegir({ visita, onElegir, onCorregir, onCerrar }: {
 
 // ---------- paso 2: completar ----------
 
-function PasoCompletar({ sector, editar, avisar, onListo }: {
+function PasoCompletar({ visita, sector, editar, avisar, onListo }: {
+    visita: Visita;
     sector: Sector;
     version: number;
     editar: (m: (v: Visita) => void) => void;
@@ -240,6 +242,17 @@ function PasoCompletar({ sector, editar, avisar, onListo }: {
             if (s) mutador(s);
         });
     }, [editar, sector.id]);
+
+    /**
+     * Contexto, no relleno: si este cliente ya tiene una Estrategia activa para ESTE sector, se
+     * muestra su proyecto/objetivo general arriba del campo — pero el Objetivo del sector sigue
+     * en blanco y obligatorio. Son dos cosas distintas: el objetivo GENERAL del plan (la
+     * estrategia) y el objetivo de ESTA visita puntual, que puede matizarlo o ser un paso
+     * intermedio distinto. Auto-llenarlo borraría esa distinción.
+     */
+    const estrategiaDelSector = useMemo(() => leerEstrategias().find(e =>
+        e.cliente === visita.cliente && e.sector === sector.nombre && e.etapa !== 'Consolidado'
+    ), [visita.cliente, sector.nombre]);
 
     // Ya sellado: se abre para consultarlo, no para cambiarlo.
     if (sector.guardado) {
@@ -266,6 +279,12 @@ function PasoCompletar({ sector, editar, avisar, onListo }: {
         <div className="modal-body">
             <label className="campo">
                 <span className="campo-lbl">Objetivo</span>
+                {estrategiaDelSector && (
+                    <p className="ayuda">
+                        Estrategia en curso: {[estrategiaDelSector.grupo_articulo, estrategiaDelSector.proyecto]
+                            .filter(Boolean).join(' · ') || 'sin más detalle'}
+                    </p>
+                )}
                 <input
                     type="text" className="inp" placeholder="¿Qué se busca lograr aquí?"
                     value={sector.objetivo || ''}

@@ -192,6 +192,15 @@ export function misZonas() {
     return perfilActual()?.zonas || [];
 }
 
+/**
+ * Clientes puntuales, fuera de las zonas propias, que este usuario puede ver hoy por excepción
+ * (`pdt_clientes_extra_de` en Supabase) — el caso contado de "necesito ver a este cliente que
+ * no es mío" sin prestarle la zona completa. Igual que `misZonas()`, viaja en el mismo perfil.
+ */
+export function misClientesExtra() {
+    return perfilActual()?.clientes_extra || [];
+}
+
 // ---------- invitación ----------
 
 /**

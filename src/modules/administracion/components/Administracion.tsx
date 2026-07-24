@@ -62,7 +62,9 @@ export function Administracion({ avisar, confirmar, onGuardado }: Props) {
     const catalogos = useAdmin({ avisar, confirmar: preguntar, onGuardado });
     // La carga es perezosa (`activo`): mientras el administrador no entra a esa área, no vale
     // la pena gastar la ida de red en datos que quizás no va a mirar.
-    const rbac = useRBAC({ activo: area === 'accesos', avisar, confirmar: preguntar, onGuardado });
+    // También se carga en Territorios: el panel necesita la lista de educadores para el
+    // selector de responsable de zona, y es la misma que ya trae Accesos.
+    const rbac = useRBAC({ activo: area === 'accesos' || area === 'territorios', avisar, confirmar: preguntar, onGuardado });
     const flujos = useFlujos({ activo: area === 'flujos', avisar, confirmar: preguntar, onGuardado });
     const territorios = useTerritorios({ activo: area === 'territorios', avisar, confirmar: preguntar, onGuardado });
 
@@ -162,7 +164,11 @@ export function Administracion({ avisar, confirmar, onGuardado }: Props) {
                             </button>
                         </div>
                     ) : (
-                        <PanelTerritorios borrador={territorios.borrador} cambiar={territorios.cambiar} />
+                        <PanelTerritorios
+                            borrador={territorios.borrador}
+                            cambiar={territorios.cambiar}
+                            educadores={rbac.borrador.usuarios}
+                        />
                     )}
                 </div>
             )}

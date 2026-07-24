@@ -207,6 +207,9 @@ export async function listarCompromisos(desdeISO, hastaISO) {
             inicio: ev.start?.dateTime || ev.start?.date || '',
             fin: ev.end?.dateTime || ev.end?.date || '',
             todoElDia: !ev.start?.dateTime,
-            url: ev.htmlLink || ''
+            url: ev.htmlLink || '',
+            descripcion: ev.description || '',
+            ubicacion: ev.location || '',
+            invitados: (ev.attendees || []).map(a => a.displayName || a.email).filter(Boolean)
         }));
 }

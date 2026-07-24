@@ -101,6 +101,16 @@ function CampoEstrategia({ visita, editar }: { visita: Visita; editar: Props['ed
     return (
         <label className="campo">
             <span className="campo-lbl">Estrategia</span>
+            {/* Recordatorio, no un candado: este cliente ya tiene un plan en Estrategias, y de
+                ahí también se puede generar la visita completa (cliente + sectores del plan de
+                un solo golpe). Vincular aquí sigue siendo válido — capturar primero y enlazar
+                después es un flujo tan legítimo como el otro. */}
+            <p className="ayuda">
+                {activas.length === 1
+                    ? 'Este cliente tiene una estrategia activa.'
+                    : `Este cliente tiene ${activas.length} estrategias activas.`}
+                {' '}También puedes generar la visita directamente desde Estrategias.
+            </p>
             <select
                 className="inp"
                 value={visita.id_estrategia || ''}

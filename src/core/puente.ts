@@ -81,6 +81,8 @@ export const buscarMateriales = _catalogos.buscarMateriales as (
     sector: string, consulta: string, limite?: number
 ) => MaterialCatalogo[];
 
+/** "1"/"01"/"001" → "001": mismo formato de 3 dígitos en toda la app. */
+export const normalizarZona = _catalogos.normalizarZona as (zona: string) => string;
 /** Zona del cliente (Clientes → "Gpo. vendedores"). Vacío si el cliente no está en el catálogo. */
 export const zonaDeCliente = _catalogos.zonaDeCliente as (cliente: string) => string;
 /** Ejecutivo que reporta esa zona (Ejecutivos: Zona → Ejecutivo). */
@@ -149,16 +151,20 @@ export const guardarFlujosAdmin = _sync.guardarFlujos as (cambios: {
     eliminar: string[];
 }) => Promise<unknown>;
 
-/** Titulares de zona + coberturas vigentes. Ver `js/sync.js: leerTerritorios`. */
+/** Titulares de zona + coberturas vigentes + excepciones de cliente. Ver `js/sync.js: leerTerritorios`. */
 export const leerTerritorios = _sync.leerTerritorios as () => Promise<{
     titulares: Array<{ zona: string; educador_correo: string }>;
     coberturas: Array<{
         id: string; zona: string; educador_correo: string;
         desde: string; hasta: string | null; motivo: string | null; creado_por: string;
     }>;
+    excepcionesCliente: Array<{
+        id: string; cliente: string; educador_correo: string;
+        desde: string; hasta: string | null; motivo: string | null; creado_por: string;
+    }>;
 }>;
 
-/** Asigna/quita titulares de zona y agrega/quita coberturas. */
+/** Asigna/quita titulares de zona, agrega/quita coberturas y excepciones de cliente. */
 export const guardarTerritorios = _sync.guardarTerritorios as (cambios: {
     asignar: Array<{ zona: string; educador_correo: string }>;
     quitar_zona: string[];
@@ -167,6 +173,11 @@ export const guardarTerritorios = _sync.guardarTerritorios as (cambios: {
         desde: string | null; hasta: string | null; motivo: string | null;
     }>;
     quitar_cobertura: string[];
+    agregar_excepcion_cliente: Array<{
+        cliente: string; educador_correo: string;
+        desde: string | null; hasta: string | null; motivo: string | null;
+    }>;
+    quitar_excepcion_cliente: string[];
 }) => Promise<unknown>;
 
 export const describirDispositivo = _geo.describirDispositivo as () => string;
@@ -400,6 +411,9 @@ export interface CompromisoCalendar {
     fin: string;
     todoElDia: boolean;
     url: string;
+    descripcion?: string;
+    ubicacion?: string;
+    invitados?: string[];
 }
 export const listarCompromisos = _calendar.listarCompromisos as (
     desdeISO: string, hastaISO: string

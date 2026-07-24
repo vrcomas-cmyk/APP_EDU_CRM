@@ -10,11 +10,14 @@
 
 import { test, describe, afterEach, vi } from 'vitest';
 import assert from 'node:assert/strict';
-import { render, cleanup } from '@testing-library/react';
+import { render, cleanup, fireEvent } from '@testing-library/react';
 import { act } from 'react';
 
 const compromisos = [
-    { id: 'c-1', titulo: 'Junta de zona', inicio: '', fin: '', todoElDia: false, url: 'https://calendar.google.com/x' },
+    {
+        id: 'c-1', titulo: 'Junta de zona', inicio: '', fin: '', todoElDia: false,
+        url: 'https://calendar.google.com/x', ubicacion: 'Piso 3', descripcion: 'Revisar el trimestre'
+    },
     { id: 'c-2', titulo: 'Capacitación anual', inicio: '', fin: '', todoElDia: true, url: '' }
 ];
 
@@ -50,7 +53,26 @@ describe('compromisos de Calendar en la rejilla', () => {
         const bloque = document.querySelector('.compromiso-externo');
         assert.ok(bloque, 'el compromiso con hora debe pintarse en la rejilla');
         assert.match(bloque!.textContent || '', /Junta de zona/);
-        assert.equal(bloque!.getAttribute('href'), 'https://calendar.google.com/x');
+        // Ya no es un enlace que navega a Calendar: es un botón que abre el resumen en la app.
+        assert.equal(bloque!.tagName, 'BUTTON');
+    });
+
+    test('clic en el compromiso abre el resumen en la app, sin salir a Calendar', async () => {
+        guardarVisitas([]);
+        await act(async () => {
+            render(
+                <Calendario version={1} onAbrirVisita={nada} onCrearEn={nada} onCambio={nada} avisar={nada} />
+            );
+        });
+
+        const bloque = document.querySelector('.compromiso-externo');
+        assert.ok(bloque);
+        await act(async () => { fireEvent.click(bloque!); });
+
+        assert.match(document.body.textContent || '', /Piso 3/);
+        assert.match(document.body.textContent || '', /Revisar el trimestre/);
+        const enlace = document.querySelector('a[href="https://calendar.google.com/x"]');
+        assert.ok(enlace, 'el resumen sigue ofreciendo el enlace a Calendar como acción secundaria');
     });
 
     test('un compromiso de todo el día NO se dibuja en la rejilla de horas', async () => {

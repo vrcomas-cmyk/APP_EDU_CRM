@@ -1439,7 +1439,8 @@ function leerTerritorios(identidad) {
     return {
         status: 'ok',
         titulares: (r.datos || {}).titulares || [],
-        coberturas: (r.datos || {}).coberturas || []
+        coberturas: (r.datos || {}).coberturas || [],
+        excepcionesCliente: (r.datos || {}).excepciones_cliente || []
     };
 }
 
@@ -1448,7 +1449,9 @@ function leerTerritorios(identidad) {
  *
  * Carga: { asignar: [{zona, educador_correo}], quitar_zona: ["001"],
  *          agregar_cobertura: [{zona, educador_correo, desde, hasta, motivo}],
- *          quitar_cobertura: ["uuid"] }
+ *          quitar_cobertura: ["uuid"],
+ *          agregar_excepcion_cliente: [{cliente, educador_correo, desde, hasta, motivo}],
+ *          quitar_excepcion_cliente: ["uuid"] }
  *
  * Igual que `guardarRoles`: no es atómico entre operaciones, se para en la primera que falle
  * y dice qué alcanzó a hacer — un error opaco tras el cual la mitad de los cambios sí están
@@ -1506,7 +1509,45 @@ function guardarTerritorios(body, identidad) {
         if (!qc.ok) return { status: 'error', message: qc.error, asignados: asignados, coberturas: coberturasAgregadas };
     }
 
-    return { status: 'ok', asignados: asignados, coberturas: coberturasAgregadas };
+    var excepcionesAgregadas = [];
+    var agregarExcepcion = body.agregar_excepcion_cliente || [];
+    for (var m = 0; m < agregarExcepcion.length; m++) {
+        var e = agregarExcepcion[m];
+        var ae = supabaseRPCEstricto('pdt_cliente_excepcion_agregar', {
+            p_actor: identidad.correo,
+            p_cliente: e.cliente,
+            p_educador_correo: e.educador_correo,
+            p_desde: e.desde || null,
+            p_hasta: e.hasta || null,
+            p_motivo: e.motivo || null
+        });
+        if (!ae.ok) {
+            return {
+                status: 'error', message: ae.error, asignados: asignados,
+                coberturas: coberturasAgregadas, excepciones: excepcionesAgregadas
+            };
+        }
+        excepcionesAgregadas.push((ae.datos || {}).id);
+    }
+
+    var quitarExcepcion = body.quitar_excepcion_cliente || [];
+    for (var n = 0; n < quitarExcepcion.length; n++) {
+        var qe = supabaseRPCEstricto('pdt_cliente_excepcion_quitar', {
+            p_actor: identidad.correo,
+            p_id: quitarExcepcion[n]
+        });
+        if (!qe.ok) {
+            return {
+                status: 'error', message: qe.error, asignados: asignados,
+                coberturas: coberturasAgregadas, excepciones: excepcionesAgregadas
+            };
+        }
+    }
+
+    return {
+        status: 'ok', asignados: asignados,
+        coberturas: coberturasAgregadas, excepciones: excepcionesAgregadas
+    };
 }
 
 /**

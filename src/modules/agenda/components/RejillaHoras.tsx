@@ -5,13 +5,14 @@
  * componente: duplicarlas garantizaría que un arreglo se aplicara solo a una de las dos.
  */
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
     claveHoy, desdeClave, etiquetaDiaLarga, DIAS_ABREV, repartirEnColumnas,
     type CompromisoCalendar
 } from '@core/puente';
 import { type Ventana, altoDeVentana } from '../services/ventana';
 import { TarjetaVisita } from './TarjetaVisita';
+import { ResumenCompromiso } from '@shared/components/ResumenCompromiso';
 import type { Visita } from '@core/tipos';
 
 interface Props {
@@ -36,6 +37,9 @@ export function RejillaHoras({
         () => Array.from({ length: altoDeVentana(ventana) }, (_, i) => ventana.desde + i),
         [ventana]
     );
+    // Un solo modal para toda la rejilla, no uno por columna: `.modal` se posiciona respecto al
+    // primer ancestro con position != static, y ese ancestro cubre la rejilla completa aquí.
+    const [compromisoAbierto, setCompromisoAbierto] = useState<CompromisoCalendar | null>(null);
 
     return (
         <div className={`grid ${clase}`}>
@@ -78,8 +82,13 @@ export function RejillaHoras({
                     onPointerDownCuerpo={onPointerDownCuerpo}
                     onPointerDownManija={onPointerDownManija}
                     onAbrir={onAbrir}
+                    onAbrirCompromiso={setCompromisoAbierto}
                 />
             ))}
+
+            {compromisoAbierto && (
+                <ResumenCompromiso compromiso={compromisoAbierto} onCerrar={() => setCompromisoAbierto(null)} />
+            )}
         </div>
     );
 }
@@ -96,15 +105,40 @@ interface PropsColumna {
     onPointerDownCuerpo: Props['onPointerDownCuerpo'];
     onPointerDownManija: Props['onPointerDownManija'];
     onAbrir: Props['onAbrir'];
+    onAbrirCompromiso: (c: CompromisoCalendar) => void;
 }
 
 function ColumnaDia({
     clave, esHoy, horas, ventana, visitas, compromisos, clase,
-    onPointerDownColumna, onPointerDownCuerpo, onPointerDownManija, onAbrir
+    onPointerDownColumna, onPointerDownCuerpo, onPointerDownManija, onAbrir, onAbrirCompromiso
 }: PropsColumna) {
     // Las que se pisan se reparten en columnas para dibujarse lado a lado. El grupo es una
     // CADENA de solapes: si A pisa a B y B pisa a C, las tres comparten ancho.
     const repartidas = useMemo(() => repartirEnColumnas(visitas), [visitas]);
+
+    // Mismo reparto para los compromisos de Calendar: antes todos llevaban --col:0/--cols:1 fijos,
+    // así que dos juntas empalmadas quedaban exactamente una encima de otra y solo se distinguía
+    // la de arriba al pasar el cursor (z-index del :hover). `repartirEnColumnas` solo necesita
+    // `.dia`/`.hora_inicio`/`.hora_fin` — un compromiso con hora ya tiene esa forma una vez
+    // convertido desde su `inicio`/`fin` en ISO.
+    const compromisosRepartidos = useMemo(() => {
+        const conHora = compromisos.filter(c => !c.todoElDia);
+        const comoVisitas = conHora.map(c => {
+            const inicio = new Date(c.inicio);
+            const fin = new Date(c.fin);
+            const dia = `${inicio.getFullYear()}-${String(inicio.getMonth() + 1).padStart(2, '0')}-${String(inicio.getDate()).padStart(2, '0')}`;
+            return {
+                id: c.id, dia,
+                hora_inicio: `${String(inicio.getHours()).padStart(2, '0')}:${String(inicio.getMinutes()).padStart(2, '0')}`,
+                hora_fin: `${String(fin.getHours()).padStart(2, '0')}:${String(fin.getMinutes()).padStart(2, '0')}`
+            } as unknown as Visita;
+        });
+        const columnas = new Map<string, { columna: number; columnas: number }>();
+        for (const { visita, columna, columnas: total } of repartirEnColumnas(comoVisitas)) {
+            columnas.set(visita.id, { columna, columnas: total });
+        }
+        return conHora.map(c => ({ compromiso: c, ...(columnas.get(c.id) ?? { columna: 0, columnas: 1 }) }));
+    }, [compromisos]);
 
     return (
         <div
@@ -118,8 +152,15 @@ function ColumnaDia({
 
             {/* Antes que las visitas: quedan por debajo (z-index más bajo) y nunca les roban
                 el gesto de arrastrar cuando se pisan en la pantalla. */}
-            {compromisos.map(c => (
-                <BloqueCompromiso key={c.id} compromiso={c} ventana={ventana} />
+            {compromisosRepartidos.map(({ compromiso, columna, columnas }) => (
+                <BloqueCompromiso
+                    key={compromiso.id}
+                    compromiso={compromiso}
+                    ventana={ventana}
+                    columna={columna}
+                    columnas={columnas}
+                    onAbrir={onAbrirCompromiso}
+                />
             ))}
 
             {repartidas.map(({ visita, columna, columnas }) => (
@@ -141,10 +182,17 @@ function ColumnaDia({
 
 /**
  * Lo que ya está en Google Calendar (junta, bloqueo). De solo lectura a propósito: no es una
- * visita, no se arrastra ni se abre en un drawer — clic la lleva a Calendar, que es donde de
- * verdad vive y se edita.
+ * visita, no se arrastra ni se abre en un drawer. El clic ya no manda directo a Calendar —abre
+ * un resumen en la propia app (`ResumenCompromiso`); ese resumen sigue ofreciendo "Abrir en
+ * Google Calendar" para quien de verdad necesite editarlo.
  */
-function BloqueCompromiso({ compromiso, ventana }: { compromiso: CompromisoCalendar; ventana: Ventana }) {
+function BloqueCompromiso({ compromiso, ventana, columna, columnas, onAbrir }: {
+    compromiso: CompromisoCalendar;
+    ventana: Ventana;
+    columna: number;
+    columnas: number;
+    onAbrir: (c: CompromisoCalendar) => void;
+}) {
     // Todo el día no tiene una hora que posicionar en la rejilla; se deja fuera aquí y ya se
     // ve en el resumen de "Mi día".
     if (compromiso.todoElDia) return null;
@@ -172,25 +220,19 @@ function BloqueCompromiso({ compromiso, ventana }: { compromiso: CompromisoCalen
 
     const clases = 'ev compromiso-externo' + (compacta ? ' compacta' : '');
     const estilo = {
-        '--s': desplazamiento.toFixed(3), '--dur': duracion.toFixed(3), '--col': 0, '--cols': 1
+        '--s': desplazamiento.toFixed(3), '--dur': duracion.toFixed(3), '--col': columna, '--cols': columnas
     } as React.CSSProperties;
-    const titulo = `${compromiso.titulo} · en Google Calendar`;
 
-    return compromiso.url ? (
-        <a
+    return (
+        <button
+            type="button"
             className={clases}
             style={estilo}
-            href={compromiso.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            title={titulo}
+            title={compromiso.titulo}
+            onClick={() => onAbrir(compromiso)}
         >
             {contenido}
-        </a>
-    ) : (
-        <div className={clases} style={estilo} title={compromiso.titulo}>
-            {contenido}
-        </div>
+        </button>
     );
 }
 

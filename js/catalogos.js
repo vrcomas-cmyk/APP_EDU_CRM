@@ -24,7 +24,7 @@
  */
 
 import { leerCatalogo } from './storage.js';
-import { misZonas } from './permisos.js';
+import { misZonas, misClientesExtra } from './permisos.js';
 
 // ---------- modos ----------
 
@@ -93,6 +93,20 @@ export function unidades()        { return delCatalogo('unidades', UNIDADES_POR_
 export function tiposEvidencia()  { return delCatalogo('tipos_evidencia', TIPOS_EVIDENCIA_POR_DEFECTO); }
 
 /**
+ * "1", "01", "001" son la misma zona escrita distinto según cómo la haya tecleado quien llenó
+ * la hoja de Clientes o de Ejecutivos. Se normaliza a 3 dígitos con ceros a la izquierda en
+ * cuanto el catálogo se descarga (`descargarCatalogo` en sync.js, el único lugar donde el
+ * payload crudo de Apps Script entra a la app), así que todo lo que lee `leerCatalogo()` de
+ * ahí en adelante ya ve zonas consistentes. Se exporta también para poder normalizar del
+ * mismo modo un valor suelto que venga de otro lado (p. ej. una zona ya guardada en Supabase
+ * antes de este cambio).
+ */
+export function normalizarZona(zona) {
+    const z = String(zona ?? '').trim();
+    return /^\d+$/.test(z) ? z.padStart(3, '0') : z;
+}
+
+/**
  * Zona del cliente ("Gpo. vendedores" en la hoja de Clientes) y Ejecutivo que le reporta a
  * esa zona ("Ejecutivos", columna Zona → columna Ejecutivo). Ninguna de las dos se escribe a
  * mano: la Zona sale de elegir el cliente, y el Ejecutivo sale de la Zona ya resuelta — dos
@@ -130,23 +144,31 @@ export function clientesDelCatalogo() {
 }
 
 /**
- * Solo los clientes de MIS zonas (titular + cobertura vigente, ver `misZonas` en permisos.js).
+ * Solo los clientes de MIS zonas (titular + cobertura vigente, ver `misZonas` en permisos.js)
+ * MÁS los clientes sueltos que se me prestaron por excepción puntual (`misClientesExtra`) —
+ * el caso de "necesito ver a este cliente que no es mío" sin que le presten la zona completa.
  * Es la restricción de territorio: cada educador busca y agenda dentro de sus clientes, no en
  * el catálogo completo de la compañía.
  *
- * Sin ninguna zona asignada, se cae al catálogo COMPLETO — es el lado seguro: un rol que no
- * captura (analista, gerente, administrador) o un educador todavía sin configurar no debe
- * quedarse sin poder buscar un cliente por una falta de configuración que no es suya.
+ * Sin ninguna zona asignada NI excepciones, se cae al catálogo COMPLETO — es el lado seguro: un
+ * rol que no captura (analista, gerente, administrador) o un educador todavía sin configurar no
+ * debe quedarse sin poder buscar un cliente por una falta de configuración que no es suya.
  */
 export function clientesEnMisZonas() {
     const zonas = misZonas();
+    // Sin zona asignada, el lado seguro sigue siendo el catálogo completo — una excepción
+    // puntual no tiene sentido sin una zona base a la que se agrega.
     if (zonas.length === 0) return clientesDelCatalogo();
+    const extra = misClientesExtra();
 
     const mapa = leerCatalogo()?.clientes_zona;
     if (!mapa || typeof mapa !== 'object') return clientesDelCatalogo();
 
     const propias = new Set(zonas);
-    return clientesDelCatalogo().filter(c => propias.has(String(mapa[c] || '').trim()));
+    const clientesExtra = new Set(extra);
+    return clientesDelCatalogo().filter(c =>
+        propias.has(String(mapa[c] || '').trim()) || clientesExtra.has(c)
+    );
 }
 
 /**

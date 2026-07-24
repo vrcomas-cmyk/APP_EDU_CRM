@@ -13,6 +13,7 @@ import {
     leerArchivo, borrarArchivo, todasLasActividades,
     leerEstrategias, guardarEstrategias as persistirEstrategias, fusionarEstrategiasEquipo
 } from './storage.js';
+import { normalizarZona } from './catalogos.js';
 import { eventosPendientes, marcarSincronizados } from './eventos.js';
 import {
     comentariosPendientes, marcarSincronizados as marcarComentarios
@@ -26,8 +27,34 @@ import { postear, leerCatalogos } from '../src/services/google/appsScript';
 
 export async function descargarCatalogo() {
     const datos = await leerCatalogos();
-    guardarCatalogo(datos);
+    guardarCatalogo(normalizarZonasDelCatalogo(datos));
     return datos;
+}
+
+/**
+ * "Gpo. vendedores" en la hoja de Clientes y "Zona" en la hoja de Ejecutivos son la misma zona
+ * escrita a mano en dos hojas distintas — "1", "01" y "001" conviven ahí sin que nadie lo note
+ * hasta que dejan de emparejar. Se normaliza aquí, en el único punto donde el catálogo crudo de
+ * Apps Script entra a la app, para que `zonaDeCliente`/`ejecutivoDeZona`/`zonasDelCatalogo`
+ * (catalogos.js) trabajen siempre sobre el mismo formato de 3 dígitos.
+ */
+function normalizarZonasDelCatalogo(datos) {
+    const clientesZona = datos?.clientes_zona;
+    const ejecutivos = datos?.ejecutivos;
+    if (!clientesZona && !ejecutivos) return datos;
+
+    const normalizado = { ...datos };
+    if (clientesZona && typeof clientesZona === 'object') {
+        normalizado.clientes_zona = Object.fromEntries(
+            Object.entries(clientesZona).map(([cliente, zona]) => [cliente, normalizarZona(zona)])
+        );
+    }
+    if (ejecutivos && typeof ejecutivos === 'object') {
+        normalizado.ejecutivos = Object.fromEntries(
+            Object.entries(ejecutivos).map(([zona, ejecutivo]) => [normalizarZona(zona), ejecutivo])
+        );
+    }
+    return normalizado;
 }
 
 // ---------- visitas ----------

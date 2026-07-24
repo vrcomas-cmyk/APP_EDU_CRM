@@ -7,10 +7,11 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { guardarTerritorios, leerTerritorios, type Avisar } from '@core/puente';
+import { guardarTerritorios, leerTerritorios, normalizarZona, type Avisar } from '@core/puente';
 import type { BorradorTerritorios } from '@core/tipos';
 import {
-    VACIO_TERRITORIOS, coberturasParaGuardar, problemasDeTerritorios, titularesParaGuardar
+    VACIO_TERRITORIOS, coberturasParaGuardar, excepcionesParaGuardar, problemasDeTerritorios,
+    titularesParaGuardar
 } from '../services/borradorTerritorios';
 
 interface Opciones {
@@ -46,9 +47,12 @@ export function useTerritorios({ activo, avisar, confirmar, onGuardado }: Opcion
         setError(null);
         try {
             const datos = await leerTerritorios();
+            // Defensa además del backfill en Supabase: una fila guardada antes de normalizar el
+            // formato de zona no debería dejar de emparejar contra `zonasDelCatalogo()` aquí.
             const b: BorradorTerritorios = {
-                titulares: datos.titulares,
-                coberturas: datos.coberturas.map(c => ({ ...c, hasta: c.hasta ?? null }))
+                titulares: datos.titulares.map(t => ({ ...t, zona: normalizarZona(t.zona) })),
+                coberturas: datos.coberturas.map(c => ({ ...c, zona: normalizarZona(c.zona), hasta: c.hasta ?? null })),
+                excepcionesCliente: (datos.excepcionesCliente || []).map(e => ({ ...e, hasta: e.hasta ?? null }))
             };
             setInicial(JSON.stringify(b));
             setBorrador(b);
@@ -92,7 +96,8 @@ export function useTerritorios({ activo, avisar, confirmar, onGuardado }: Opcion
             const fresco = await leerTerritorios();
             const enServidor = JSON.stringify({
                 titulares: fresco.titulares,
-                coberturas: fresco.coberturas.map(c => ({ ...c, hasta: c.hasta ?? null }))
+                coberturas: fresco.coberturas.map(c => ({ ...c, hasta: c.hasta ?? null })),
+                excepcionesCliente: (fresco.excepcionesCliente || []).map(e => ({ ...e, hasta: e.hasta ?? null }))
             });
             if (enServidor !== inicial) {
                 setInicial(enServidor);
@@ -106,10 +111,14 @@ export function useTerritorios({ activo, avisar, confirmar, onGuardado }: Opcion
 
             const { asignar, quitarZona } = titularesParaGuardar(original.titulares, borrador.titulares);
             const { agregarCobertura, quitarCobertura } = coberturasParaGuardar(original.coberturas, borrador.coberturas);
+            const { agregarExcepcion, quitarExcepcion } = excepcionesParaGuardar(
+                original.excepcionesCliente, borrador.excepcionesCliente
+            );
 
             const resp = await guardarTerritorios({
                 asignar, quitar_zona: quitarZona,
-                agregar_cobertura: agregarCobertura, quitar_cobertura: quitarCobertura
+                agregar_cobertura: agregarCobertura, quitar_cobertura: quitarCobertura,
+                agregar_excepcion_cliente: agregarExcepcion, quitar_excepcion_cliente: quitarExcepcion
             }) as { status?: string; message?: string };
             if (resp?.status === 'error') throw new Error(resp.message || 'No se pudieron guardar los territorios.');
 
