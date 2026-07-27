@@ -37,7 +37,11 @@ const PERMISOS_EDUCADOR = [
     'materiales.crear', 'materiales.consultar',
     'evidencias.subir', 'evidencias.consultar',
     'comentarios.crear', 'comentarios.leer', 'comentarios.responder',
-    'dashboards.personal'
+    'dashboards.personal',
+    // Qué módulos ve sin conexión: los mismos que el rol "educador" trae de serie
+    // (`20260727c_pdt_capacidades_modulos.sql`). Calendario no necesita entrada aquí — es
+    // incondicional, ver `modulos.ts`.
+    'mi_dia.ver', 'estrategias.ver'
 ];
 
 let perfil = null;

@@ -84,8 +84,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     pintarSesion(sesion);
     // El bloqueo cacheado se respeta desde el arranque: si ya se supo que no hay invitación,
-    // no tiene sentido armar la app entera para cerrarla medio segundo después.
-    if (accesoBloqueado()) mostrarSinInvitacion(sesion);
+    // no tiene sentido armar la app entera para cerrarla medio segundo después. Pero esa
+    // caché puede estar desactualizada —un administrador acaba de invitar a esta persona, o
+    // la invitación se aceptó desde otro dispositivo— así que de todos modos se reintenta
+    // contra el servidor en segundo plano: sin esto, quedarse una vez bloqueado era
+    // definitivo, y la única salida era "Usar otra cuenta" para forzar el olvido de la caché.
+    if (accesoBloqueado()) { mostrarSinInvitacion(sesion); refrescarPerfil(); }
     else { mostrarApp(); iniciarApp(); }
 });
 
@@ -176,6 +180,12 @@ function refrescarPerfil() {
         if (accesoBloqueado()) return mostrarSinInvitacion(sesionActual());
 
         aceptarInvitacion();      // trámite silencioso la primera vez
+
+        // Llega aquí desbloqueado. Si la app todavía no se había armado —se llegó bloqueado
+        // al arrancar y esto es el reintento en segundo plano—, se arma ahora: la persona
+        // pasa de "no tienes invitación" a la app sin tener que recargar a mano.
+        if (!appIniciada) { mostrarApp(); iniciarApp(); return; }
+
         pintarAccesos();
         cargarEquipo();
         cargarRevisiones();

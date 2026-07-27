@@ -182,7 +182,11 @@ async function arrancar() {
 const perfil = (extra: Record<string, unknown> = {}) => {
     localStorage.setItem('pdt_perfil_cache', JSON.stringify({
         correo: 'ana@x.com', nombre: 'Ana López', rol: 'educador',
-        es_admin: false, permisos: ['visitas.crear', 'visitas.consultar', 'dashboards.personal'],
+        es_admin: false,
+        permisos: [
+            'visitas.crear', 'visitas.consultar', 'dashboards.personal',
+            'mi_dia.ver', 'estrategias.ver', 'indicadores.ver'
+        ],
         alcance: ['ana@x.com'], invitado: true, origen: 'prueba', ...extra
     }));
 };
@@ -323,7 +327,7 @@ describe('cambiar de módulo', () => {
     test('Revisión es una vista, no un modal encima del calendario', async () => {
         perfil({
             permisos: ['visitas.crear', 'visitas.consultar', 'dashboards.personal',
-                       'evidencias.aprobar']
+                       'evidencias.aprobar', 'revision.ver']
         });
         await arrancar();
 

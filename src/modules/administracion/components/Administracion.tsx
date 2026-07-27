@@ -9,8 +9,8 @@
  * de que eso pase, en vez de subir cada tecla suelta.
  */
 
-import { useState } from 'react';
-import type { Avisar } from '@core/puente';
+import { useMemo, useState } from 'react';
+import { puede, type Avisar } from '@core/puente';
 import { useAdmin } from '../hooks/useAdmin';
 import { useRBAC } from '../hooks/useRBAC';
 import { useFlujos } from '../hooks/useFlujos';
@@ -55,7 +55,13 @@ interface Props {
 }
 
 export function Administracion({ avisar, confirmar, onGuardado }: Props) {
-    const [area, setArea] = useState<Area>('catalogos');
+    // Solo las áreas que este correo puede VER. Un administrador completo las tiene las 4 por
+    // el bypass de `puede()`; alguien designado por él puede tener solo una. Esto es
+    // visibilidad nada más — GUARDAR sigue exigiendo administrador completo del lado del
+    // servidor en las 4, exactamente igual que antes.
+    const areasDisponibles = useMemo(() => AREAS.filter(a => puede(a.id, 'ver')), []);
+
+    const [area, setArea] = useState<Area>(() => areasDisponibles[0]?.id ?? 'catalogos');
     const [pestana, setPestana] = useState<Pestana>('tipos');
     const preguntar = confirmar ?? ((m: string) => window.confirm(m));
 
@@ -88,7 +94,7 @@ export function Administracion({ avisar, confirmar, onGuardado }: Props) {
             </header>
 
             <div className="seg admin-area" role="group" aria-label="Área">
-                {AREAS.map(a => (
+                {areasDisponibles.map(a => (
                     <button
                         key={a.id}
                         type="button"

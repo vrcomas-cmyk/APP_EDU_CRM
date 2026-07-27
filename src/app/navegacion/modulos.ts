@@ -13,7 +13,7 @@
  * una promesa rota, y además revela que el módulo existe.
  */
 
-import { puede, esAdministrador, flujosDisponibles, conteoPendientes, hayRevisionesCargadas } from '@core/puente';
+import { puede, flujosDisponibles, conteoPendientes, hayRevisionesCargadas } from '@core/puente';
 
 export type ClaveModulo = 'calendario' | 'mi-dia' | 'estrategias' | 'dashboard' | 'revision' | 'administracion';
 
@@ -51,25 +51,21 @@ export const MODULOS: Modulo[] = [
         nombre: 'Mi día',
         corto: 'Hoy',
         icono: 'mi-dia',
-        // Mismo permiso que Indicadores: es la misma pregunta ("¿cómo voy?"), resuelta más
-        // rápido y acotada a hoy.
-        disponible: () => puede('dashboards', 'personal')
+        disponible: () => puede('mi_dia', 'ver')
     },
     {
         clave: 'estrategias',
         nombre: 'Estrategias',
         corto: 'Estrategia',
         icono: 'estrategias',
-        // Cliente × Sector × Grupo de Artículo: cualquiera que capture visitas la usa para
-        // planearlas, así que el mismo permiso que abre el calendario abre esto.
-        disponible: () => puede('visitas', 'crear')
+        disponible: () => puede('estrategias', 'ver')
     },
     {
         clave: 'dashboard',
         nombre: 'Indicadores',
         corto: 'Datos',
         icono: 'dashboard',
-        disponible: () => puede('dashboards', 'personal')
+        disponible: () => puede('indicadores', 'ver')
     },
     {
         clave: 'revision',
@@ -79,7 +75,7 @@ export const MODULOS: Modulo[] = [
         // Los dos permisos, y no solo los flujos: la cola sale de `consultarVisitas()`, que
         // devuelve vacío sin `visitas.consultar`. Con flujos pero sin consulta, la bandeja
         // está garantizadamente vacía y el botón solo promete trabajo que no se puede ver.
-        disponible: () => flujosDisponibles().length > 0 && puede('visitas', 'consultar'),
+        disponible: () => puede('revision', 'ver') && flujosDisponibles().length > 0 && puede('visitas', 'consultar'),
         insignia: () => {
             // Si el espejo de revisiones no bajó todavía, el 0 que devuelva
             // `conteoPendientes` es "no sé", no "no hay pendientes". Devolver `undefined`
@@ -99,7 +95,11 @@ export const MODULOS: Modulo[] = [
         nombre: 'Administración',
         corto: 'Admin',
         icono: 'administracion',
-        disponible: () => esAdministrador()
+        // Visible si puede ver AL MENOS una de las 4 áreas de adentro (Catálogos, Accesos,
+        // Flujos, Territorios) — un administrador completo las tiene todas por el bypass de
+        // `puede()`; alguien designado puede tener solo una.
+        disponible: () => puede('catalogos', 'ver') || puede('accesos', 'ver')
+            || puede('flujos', 'ver') || puede('territorios', 'ver')
     }
 ];
 

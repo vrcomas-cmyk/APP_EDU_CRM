@@ -68,6 +68,16 @@ beforeEach(() => {
     respuestaRoles = { status: 'ok' };
     respuestaUsuarios = { status: 'ok' };
     olvidarPerfil();
+    // `<Administracion>` ahora filtra sus 4 áreas por capacidad (`catalogos.ver`,
+    // `accesos.ver`, `flujos.ver`, `territorios.ver`): sin un perfil admin cacheado, ninguna
+    // área se ofrece y la pantalla queda vacía. `es_admin` las trae todas por el bypass de
+    // `puede()`, igual que en la app real. `perfilActual()` solo usa la caché si el correo
+    // coincide con la sesión — hace falta poner las dos.
+    localStorage.setItem('sesion', JSON.stringify({ correo: 'admin@x.com', nombre: 'Admin', id_token: 't' }));
+    localStorage.setItem('pdt_perfil_cache', JSON.stringify({
+        correo: 'admin@x.com', nombre: 'Admin', rol: 'administrador', es_admin: true,
+        permisos: [], alcance: ['admin@x.com'], invitado: true, origen: 'prueba'
+    }));
     // Un catálogo mínimo para que el área Catálogos no reviente al montar.
     guardarCatalogo({
         tipos_actividad: [{ nombre: 'Capacitación' }],
@@ -103,6 +113,38 @@ describe('el conmutador de área', () => {
     // El guardado de catálogos en sí no se vuelve a probar aquí: `tests/administracion.test.tsx`
     // ya lo cubre a fondo, y sigue en verde sin cambios — es la prueba de que el conmutador de
     // área no tocó ese camino.
+});
+
+describe('quién ve qué área', () => {
+    /** Un correo designado por el admin, con acceso a solo UNA de las 4 áreas. */
+    const comoDesignado = (areas: string[]) => {
+        localStorage.setItem('sesion', JSON.stringify({ correo: 'gerente@x.com', nombre: 'Gerente', id_token: 't' }));
+        localStorage.setItem('pdt_perfil_cache', JSON.stringify({
+            correo: 'gerente@x.com', nombre: 'Gerente', rol: 'gerente', es_admin: false,
+            permisos: areas.map(a => `${a}.ver`),
+            alcance: ['gerente@x.com'], invitado: true, origen: 'prueba'
+        }));
+    };
+
+    test('con acceso a una sola área, solo esa se ofrece — y arranca en ella', () => {
+        comoDesignado(['flujos']);
+        pintar();
+
+        assert.equal(screen.queryByRole('button', { name: 'Catálogos' }), null);
+        assert.equal(screen.queryByRole('button', { name: 'Accesos' }), null);
+        assert.ok(screen.getByRole('button', { name: 'Flujos' }));
+        assert.equal(screen.queryByRole('button', { name: 'Territorios' }), null);
+    });
+
+    test('con dos áreas, solo esas dos — y el resto de la pantalla no se cae', () => {
+        comoDesignado(['catalogos', 'territorios']);
+        pintar();
+
+        assert.ok(screen.getByRole('button', { name: 'Catálogos' }));
+        assert.ok(screen.getByRole('button', { name: 'Territorios' }));
+        assert.equal(screen.queryByRole('button', { name: 'Accesos' }), null);
+        assert.equal(screen.queryByRole('button', { name: 'Flujos' }), null);
+    });
 });
 
 describe('roles', () => {

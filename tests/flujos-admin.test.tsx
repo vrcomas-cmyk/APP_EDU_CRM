@@ -53,6 +53,16 @@ beforeEach(() => {
     guardadas.length = 0;
     respuesta = { status: 'ok' };
     olvidarPerfil();
+    // `<Administracion>` ahora filtra sus 4 áreas por capacidad (`catalogos.ver`,
+    // `accesos.ver`, `flujos.ver`, `territorios.ver`): sin un perfil admin cacheado, ninguna
+    // área se ofrece y la pantalla queda vacía. `es_admin` las trae todas por el bypass de
+    // `puede()`, igual que en la app real. `perfilActual()` solo usa la caché si el correo
+    // coincide con la sesión — hace falta poner las dos.
+    localStorage.setItem('sesion', JSON.stringify({ correo: 'admin@x.com', nombre: 'Admin', id_token: 't' }));
+    localStorage.setItem('pdt_perfil_cache', JSON.stringify({
+        correo: 'admin@x.com', nombre: 'Admin', rol: 'administrador', es_admin: true,
+        permisos: [], alcance: ['admin@x.com'], invitado: true, origen: 'prueba'
+    }));
     guardarCatalogo({
         tipos_actividad: [{ nombre: 'Capacitación' }],
         origenes: ['BI'], areas: ['Área'], unidades: ['Pieza'], tipos_evidencia: ['Foto'],
