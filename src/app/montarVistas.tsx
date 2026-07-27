@@ -19,6 +19,7 @@ import { Estrategias } from '@modules/estrategias/components/Estrategias';
 import { MiDia } from '@modules/midia/components/MiDia';
 import { Revision } from '@modules/revision/components/Revision';
 import { Administracion } from '@modules/administracion/components/Administracion';
+import { ReporteActividades } from '@modules/reporteActividades/components/ReporteActividades';
 import type { Avisar } from '@core/puente';
 
 export interface OpcionesVistas {
@@ -108,6 +109,8 @@ function Shell() {
                 {activo === 'estrategias' && <Estrategias avisar={opciones.onToast} />}
 
                 {activo === 'dashboard' && <Dashboard />}
+
+                {activo === 'reporte-actividades' && <ReporteActividades />}
 
                 {activo === 'revision' && (
                     <Revision

@@ -471,6 +471,44 @@ export interface BorradorRBAC {
     usuarios: UsuarioAdmin[];
 }
 
+// ---------- reporte de actividades ----------
+
+/** Qué Sector puede ver cada gerente en el reporte de Actividades. */
+export interface GerenteSector {
+    gerente_correo: string;
+    sectores: string[];
+}
+
+/** Una fila granular del reporte: el cliente arma la tabla mensual y el ranking con esto. */
+export interface FilaReporteActividad {
+    /** A quién se le atribuye, según quién llevaba a `educador_correo` EN LA FECHA de esta
+     *  fila — no el organigrama de hoy. `null` si nadie lo llevaba esa fecha (huérfano). */
+    jefe_correo: string | null;
+    jefe: string | null;
+    educador_correo: string;
+    educador: string;
+    tipo: string;
+    sector: string;
+    cliente: string;
+    /** 'YYYY-MM', para agrupar por mes en el cliente. */
+    mes: string;
+}
+
+export interface ReporteActividades {
+    total: number;
+    por_sector: Array<{ sector: string; n: number }>;
+    por_actividad: Array<{ tipo: string; n: number }>;
+    filas: FilaReporteActividad[];
+}
+
+export interface FiltroReporteActividades {
+    desde?: string;
+    hasta?: string;
+    sector?: string;
+    actividad?: string;
+    educador?: string;
+}
+
 // ---------- territorios ----------
 
 /** Una zona con su titular. Una zona, un titular — nunca ambigua. */

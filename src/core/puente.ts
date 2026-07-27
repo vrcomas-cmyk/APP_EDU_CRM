@@ -23,7 +23,8 @@ import type {
     Visita, Sector, Actividad, Marca, Sesion, SaludVisita, EstadoSector, ModoCampo,
     IndicadoresEducador, Revision, ResultadoRevision, FlujoRevision, Perfil,
     PendienteRevision, Comentario, CampoConfigurable, Catalogo, BorradorCatalogo,
-    ResultadoFlujo, RolAdmin, CapacidadAdmin, UsuarioAdmin, FlujoAdmin, Estrategia
+    ResultadoFlujo, RolAdmin, CapacidadAdmin, UsuarioAdmin, FlujoAdmin, Estrategia,
+    GerenteSector, ReporteActividades, FiltroReporteActividades
 } from './tipos';
 
 // ---------- estado (salud, ciclo de vida, tiempo) ----------
@@ -182,6 +183,23 @@ export const guardarTerritorios = _sync.guardarTerritorios as (cambios: {
     }>;
     quitar_excepcion_cliente: string[];
 }) => Promise<unknown>;
+
+// ---------- reporte de actividades ----------
+
+/** Peso % por sector/actividad, desglose mensual, atribuido al jefe de cada fecha. */
+export const leerReporteActividades = _sync.leerReporteActividades as (
+    filtros?: FiltroReporteActividades
+) => Promise<{ status?: string; reporte: ReporteActividades | null; espejo: boolean; mensaje?: string }>;
+
+/** Qué Sector puede ver cada gerente. Requiere ser admin: el servidor lo vuelve a revisar. */
+export const leerGerenteSector = _sync.leerGerenteSector as () => Promise<
+    { status?: string; message?: string; gerentes: GerenteSector[] }
+>;
+
+/** Reemplazo completo por gerente. Carga: `{ gerentes: [{gerente_correo, sectores}] }`. */
+export const guardarGerenteSector = _sync.guardarGerenteSector as (cambios: {
+    gerentes: GerenteSector[];
+}) => Promise<{ status?: string; message?: string }>;
 
 export const describirDispositivo = _geo.describirDispositivo as () => string;
 

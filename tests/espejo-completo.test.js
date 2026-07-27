@@ -61,11 +61,17 @@ const ESPEJOS = {
     // Igual que las tres de arriba: territorios (qué zona es de quién, y las coberturas
     // temporales) tampoco vive en una hoja — necesita fechas de vigencia y negarse a
     // asignaciones inválidas, que una celda de Sheets no puede sostener.
-    guardarTerritorios: 'pdt_zona_asignar'
+    guardarTerritorios: 'pdt_zona_asignar',
+
+    // Qué Sector puede ver cada gerente: tampoco tiene columna en ninguna hoja, es exclusivo
+    // del reporte de Actividades.
+    guardarGerenteSector: 'pdt_gerente_sector_guardar'
 };
 
 /** Las que escriben en Postgres SIN copia en la hoja: su fallo no se puede callar. */
-const SOLO_POSTGRES = ['guardarRoles', 'guardarUsuarios', 'guardarFlujos', 'guardarTerritorios'];
+const SOLO_POSTGRES = [
+    'guardarRoles', 'guardarUsuarios', 'guardarFlujos', 'guardarTerritorios', 'guardarGerenteSector'
+];
 
 /**
  * Estrategias no tiene alcance por jerarquía: es una referencia PLANA que ve todo el equipo

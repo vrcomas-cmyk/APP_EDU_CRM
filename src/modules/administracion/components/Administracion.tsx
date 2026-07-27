@@ -138,7 +138,7 @@ export function Administracion({ avisar, confirmar, onGuardado }: Props) {
                 </>
             )}
 
-            {area === 'accesos' && <GestionAccesos estado={rbac} confirmar={preguntar} />}
+            {area === 'accesos' && <GestionAccesos estado={rbac} confirmar={preguntar} avisar={avisar} />}
 
             {area === 'flujos' && (
                 <div className="panel-body">

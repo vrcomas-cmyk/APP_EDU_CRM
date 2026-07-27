@@ -333,6 +333,27 @@ export async function guardarFlujos(cambios) {
     return postear({ action: 'guardarFlujos', ...cambios });
 }
 
+// ---------- reporte de actividades ----------
+
+/**
+ * Peso % por sector/actividad, desglose mensual y a qué jefe se le atribuye cada fila EN LA
+ * FECHA de esa actividad (no el organigrama de hoy). `filtros`: { desde, hasta, sector,
+ * actividad, educador }, todos opcionales.
+ */
+export async function leerReporteActividades(filtros = {}) {
+    return postear({ action: 'leerReporteActividades', ...filtros });
+}
+
+/** Qué Sector puede ver cada gerente en el reporte de Actividades. Requiere ser admin. */
+export async function leerGerenteSector() {
+    return postear({ action: 'leerGerenteSector' });
+}
+
+/** Carga: { gerentes: [{gerente_correo, sectores: ["GASAS", ...]}] }. Reemplazo por gerente. */
+export async function guardarGerenteSector(cambios) {
+    return postear({ action: 'guardarGerenteSector', ...cambios });
+}
+
 // ---------- eventos ----------
 
 /** Bitácora de negocio. Va al final: referencia visitas y no bloquea nada si falla. */

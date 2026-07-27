@@ -75,6 +75,19 @@ const ICONOS: Record<ClaveIcono, { titulo: string; cuerpo: JSX.Element }> = {
             </>
         )
     },
+    // Actividades: documento con una barra de progreso — el reporte, no el tablero personal
+    // (`dashboard` ya usa las tres barras comparativas; esto lleva además el trazo del
+    // documento para no confundirse con él).
+    'reporte-actividades': {
+        titulo: 'Actividades',
+        cuerpo: (
+            <>
+                <path d="M6 2h9l4 4v16H6z" />
+                <path d="M15 2v4h4" />
+                <path d="M9 13h6M9 17h6M9 9h2" />
+            </>
+        )
+    },
     // Administración: engranaje. Sigue siendo el símbolo universal de "configuración".
     administracion: {
         titulo: 'Administración',

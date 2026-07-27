@@ -7,16 +7,20 @@
  */
 
 import { useState } from 'react';
+import type { Avisar } from '@core/puente';
 import type { EstadoRBAC } from '../hooks/useRBAC';
+import { useSectoresGerente } from '../hooks/useSectoresGerente';
 import { PanelJerarquia } from './PanelJerarquia';
 import { PanelRoles } from './PanelRoles';
 import { PanelUsuarios } from './PanelUsuarios';
 import { PanelSimular } from './PanelSimular';
+import { PanelSectoresGerente } from './PanelSectoresGerente';
 
 const SUBPESTANAS = [
     { id: 'roles', etiqueta: 'Roles' },
     { id: 'usuarios', etiqueta: 'Usuarios' },
     { id: 'jerarquia', etiqueta: 'Jerarquía' },
+    { id: 'sectores', etiqueta: 'Sectores' },
     { id: 'simular', etiqueta: 'Ver como' }
 ] as const;
 
@@ -25,10 +29,12 @@ type Subpestana = (typeof SUBPESTANAS)[number]['id'];
 interface Props {
     estado: EstadoRBAC;
     confirmar: (mensaje: string) => boolean;
+    avisar?: Avisar;
 }
 
-export function GestionAccesos({ estado, confirmar }: Props) {
+export function GestionAccesos({ estado, confirmar, avisar }: Props) {
     const [sub, setSub] = useState<Subpestana>('roles');
+    const sectoresGerente = useSectoresGerente({ activo: sub === 'sectores', avisar, confirmar });
     // Elevado aquí (y no dentro de PanelJerarquia) porque las sub-pestañas se desmontan al
     // cambiar: sin esto, entrar y salir de Jerarquía olvidaba a quién se estaba mirando y volvía
     // siempre al primero de la lista — parecía que "otra persona" se había vuelto el jefe.
@@ -77,6 +83,9 @@ export function GestionAccesos({ estado, confirmar }: Props) {
                         analista={analista}
                         elegirAnalista={setAnalista}
                     />
+                )}
+                {sub === 'sectores' && (
+                    <PanelSectoresGerente estado={sectoresGerente} usuarios={borrador.usuarios} />
                 )}
                 {sub === 'simular' && <PanelSimular borrador={borrador} />}
             </div>

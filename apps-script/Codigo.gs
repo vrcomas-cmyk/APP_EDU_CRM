@@ -408,14 +408,15 @@ var ACCIONES_CON_IDENTIDAD = ['guardarVisitas', 'subirEvidencia', 'guardarEvento
                               'leerRBAC', 'guardarRoles', 'guardarUsuarios',
                               'leerFlujos', 'guardarFlujos',
                               'guardarEstrategias', 'leerEstrategias',
-                              'leerTerritorios', 'guardarTerritorios'];
+                              'leerTerritorios', 'guardarTerritorios',
+                              'leerReporteActividades', 'leerGerenteSector', 'guardarGerenteSector'];
 
 // Acciones de solo LECTURA: no tocan ninguna hoja, así que no necesitan turnarse detrás del
 // candado global. Antes SÍ lo hacían —un `waitLock` compartido con las escrituras— y eso
 // significaba que una subida de evidencia grande (base64, puede tardar varios segundos)
 // bloqueaba hasta 30s la lectura de "Mi día"/Calendario de TODO el equipo, no solo de quien
 // subía. Separarlas es lo que de verdad resuelve la lentitud, más que el tamaño del payload.
-var ACCIONES_DE_LECTURA = ['leerVisitasEquipo', 'leerRevisiones', 'leerRBAC', 'leerFlujos', 'leerEstrategias', 'leerTerritorios'];
+var ACCIONES_DE_LECTURA = ['leerVisitasEquipo', 'leerRevisiones', 'leerRBAC', 'leerFlujos', 'leerEstrategias', 'leerTerritorios', 'leerReporteActividades', 'leerGerenteSector'];
 
 function doPost(e) {
     var lock = null;
@@ -470,6 +471,12 @@ function doPost(e) {
                 return json(leerTerritorios(identidad));
             case 'guardarTerritorios':
                 return json(guardarTerritorios(body, identidad));
+            case 'leerReporteActividades':
+                return json(leerReporteActividades(body, identidad));
+            case 'leerGerenteSector':
+                return json(leerGerenteSector(identidad));
+            case 'guardarGerenteSector':
+                return json(guardarGerenteSector(body, identidad));
             default:
                 return json({ status: 'error', message: 'action desconocida: ' + body.action });
         }
@@ -1254,6 +1261,79 @@ function reemplazarHoja(libro, nombre, encabezados, filas) {
  * solo tiene la clave anónima, que es pública. Con ella cualquiera podría concederse el rol
  * que quisiera, y la lectura expondría el organigrama completo a cualquier visitante.
  */
+
+/**
+ * El reporte de Actividades: réplica del dashboard externo (peso % por sector/actividad,
+ * desglose mensual por educador, y de qué gerente era cada fila EN LA FECHA de esa
+ * actividad — no del organigrama de hoy).
+ *
+ * Carga: { desde, hasta, sector, actividad, educador } — los cuatro filtros opcionales.
+ * `p_todas` lo decide este script contra la identidad YA VERIFICADA, nunca el cliente: un
+ * administrador real ve todo; cualquier otro, solo lo suyo y lo de su equipo en los sectores
+ * que tenga asignados (`pdt_gerente_sector`).
+ */
+function leerReporteActividades(body, identidad) {
+    var db = SpreadsheetApp.openById(SHEET_DB_ID);
+    var datos = supabaseRPC('pdt_reporte_actividades', {
+        p_correo: identidad.correo,
+        p_desde: body.desde || null,
+        p_hasta: body.hasta || null,
+        p_sector: body.sector || null,
+        p_actividad: body.actividad || null,
+        p_educador: body.educador || null,
+        p_todas: esAdmin(db, identidad.correo)
+    });
+
+    if (datos === null) {
+        return {
+            status: 'ok', reporte: null, espejo: false,
+            mensaje: 'El espejo no está configurado o no respondió.'
+        };
+    }
+    return { status: 'ok', reporte: datos, espejo: true };
+}
+
+/** Qué Sector puede ver cada gerente en el reporte de Actividades. Solo para administradores. */
+function leerGerenteSector(identidad) {
+    var db = SpreadsheetApp.openById(SHEET_DB_ID);
+    if (!esAdmin(db, identidad.correo)) {
+        return { status: 'error', message: 'Tu cuenta (' + identidad.correo + ') no tiene permisos de administrador.' };
+    }
+
+    var r = supabaseRPCEstricto('pdt_gerente_sector_listar', {});
+    if (!r.ok) return { status: 'error', message: r.error };
+
+    return { status: 'ok', gerentes: r.datos || [] };
+}
+
+/**
+ * Guarda la lista de sectores de uno o más gerentes.
+ * Carga: { gerentes: [ {gerente_correo, sectores: ["GASAS", ...]} ] }
+ * Reemplazo completo por gerente, igual que `pdt_jerarquia_guardar` con los subordinados de
+ * un jefe: cada entrada manda SU lista entera, no un cambio parcial.
+ */
+function guardarGerenteSector(body, identidad) {
+    var db = SpreadsheetApp.openById(SHEET_DB_ID);
+    if (!esAdmin(db, identidad.correo)) {
+        return { status: 'error', message: 'Tu cuenta (' + identidad.correo + ') no tiene permisos de administrador.' };
+    }
+
+    var guardados = [];
+    var gerentes = body.gerentes || [];
+    for (var i = 0; i < gerentes.length; i++) {
+        var r = supabaseRPCEstricto('pdt_gerente_sector_guardar', {
+            p_actor: identidad.correo,
+            p_gerente: gerentes[i].gerente_correo,
+            p_sectores: gerentes[i].sectores || []
+        });
+        if (!r.ok) {
+            return { status: 'error', message: r.error, guardados: guardados };
+        }
+        guardados.push(gerentes[i].gerente_correo);
+    }
+
+    return { status: 'ok', guardados: guardados };
+}
 
 /** Lo que necesita la pantalla de administración: roles, catálogo de capacidades y usuarios. */
 function leerRBAC(identidad) {

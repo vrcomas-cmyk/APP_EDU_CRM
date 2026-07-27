@@ -15,7 +15,9 @@
 
 import { puede, flujosDisponibles, conteoPendientes, hayRevisionesCargadas } from '@core/puente';
 
-export type ClaveModulo = 'calendario' | 'mi-dia' | 'estrategias' | 'dashboard' | 'revision' | 'administracion';
+export type ClaveModulo =
+    'calendario' | 'mi-dia' | 'estrategias' | 'dashboard' | 'revision'
+    | 'reporte-actividades' | 'administracion';
 
 export interface Modulo {
     clave: ClaveModulo;
@@ -89,6 +91,13 @@ export const MODULOS: Modulo[] = [
                 return undefined;
             }
         }
+    },
+    {
+        clave: 'reporte-actividades',
+        nombre: 'Actividades',
+        corto: 'Actividad',
+        icono: 'reporte-actividades',
+        disponible: () => puede('reporte_actividades', 'ver')
     },
     {
         clave: 'administracion',
