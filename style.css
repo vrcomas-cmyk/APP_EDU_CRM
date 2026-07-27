@@ -66,6 +66,18 @@
      confunde con el `.is-activo` de los nav-items). La idea es "soy lo que estás mirando",
      no "estoy seleccionado" — el hover no es selección. */
   --row-hover: color-mix(in srgb, var(--ink) 5%, transparent);
+
+  /* Paleta categórica — la ÚNICA excepción a "no hay acento de marca" de arriba. Existe
+     solo para reportes donde el color identifica una CATEGORÍA (sector, tipo de actividad),
+     no un estado — `--st-*` sigue siendo la única cromía para eso. Ocho tonos en orden fijo,
+     validados contra daltonismo (protanopia/deuteranopia, ΔE ≥ 8 adyacente) y contraste — ver
+     `node scripts/validate_palette.js` de la skill de dataviz. El orden importa: es lo que
+     garantiza que dos categorías vecinas nunca se confundan; no se reordena a mano. */
+  --cat-1: #2a78d6; --cat-2: #eb6834; --cat-3: #1baf7a; --cat-4: #eda100;
+  --cat-5: #e87ba4; --cat-6: #008300; --cat-7: #4a3aa7; --cat-8: #e34948;
+  /* La octava categoría de una serie más larga no es un noveno tono generado —eso rompería
+     la validación— es "Otros", en gris neutro. */
+  --cat-otros: var(--muted);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -77,6 +89,8 @@
     --st-plan-bg: #1B2223; --st-miss-bg: #2A1519; --st-part-bg: #10222D; --st-done-bg: #10241A;
     --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.7);
     --shadow-lg: 0 24px 60px -20px rgba(0,0,0,.8);
+    --cat-1: #3987e5; --cat-2: #d95926; --cat-3: #199e70; --cat-4: #c98500;
+    --cat-5: #d55181; --cat-6: #008300; --cat-7: #9085e9; --cat-8: #e66767;
   }
 }
 :root[data-theme="dark"] {
@@ -87,6 +101,8 @@
   --st-plan-bg: #1B2223; --st-miss-bg: #2A1519; --st-part-bg: #10222D; --st-done-bg: #10241A;
   --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.7);
   --shadow-lg: 0 24px 60px -20px rgba(0,0,0,.8);
+  --cat-1: #3987e5; --cat-2: #d95926; --cat-3: #199e70; --cat-4: #c98500;
+  --cat-5: #d55181; --cat-6: #008300; --cat-7: #9085e9; --cat-8: #e66767;
 }
 :root[data-theme="light"] {
   --paper: #F5F8F7; --surface: #FFFFFF; --surface-2: #EDF2F0;
@@ -1534,6 +1550,30 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
   font-size: 11px; color: var(--muted); white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
+
+/* ---------- dona (color categórico) ---------- */
+
+.dona-wrap { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
+.dona-svg { flex: none; }
+.dona-total-n { font-size: 22px; font-weight: 700; fill: var(--ink); font-family: var(--sans); }
+.dona-total-lbl {
+  font-size: 9px; letter-spacing: .1em; text-transform: uppercase; fill: var(--muted);
+  font-family: var(--mono);
+}
+
+.dona-leyenda {
+  display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 200px;
+  list-style: none; margin: 0; padding: 0;
+}
+.dona-item { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+.dona-swatch { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+/* El nombre lleva tinta de texto, NUNCA el color de la rebanada: un tono claro (amarillo,
+   aqua) sería ilegible como texto — la identidad la lleva el swatch de al lado. */
+.dona-nombre {
+  flex: 1; min-width: 0; color: var(--ink-2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.dona-valor { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
 
 .medida-fill.st-completa           { --st: var(--st-done); }
 .medida-fill.st-faltan-evidencias  { --st: var(--st-part); }

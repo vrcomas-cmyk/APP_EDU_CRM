@@ -1,13 +1,15 @@
 /**
- * Reporte de Actividades: réplica del dashboard externo (Looker Studio) dentro de la app.
+ * Reporte de Actividades: réplica del dashboard externo (Looker Studio) dentro de la app,
+ * mismas gráficas — donas para "Peso % Sector"/"Peso % Actividad", barras para los rankings.
  *
- * ── Por qué barras y no pasteles ──────────────────────────────────────────────────────────
+ * ── Las donas llevan tope y leyenda, no son un calco literal ──────────────────────────────
  *
- * El original usa gráficas de pastel para "Peso % Sector"/"Peso % Actividad". Aquí se
- * reutiliza `Medidas` (modo porcentaje) — el mismo componente que ya pinta "Estado de las
- * visitas" en Indicadores—: una barra por categoría, con su nombre y su % escritos, en vez de
- * separar por color un pastel de 8-10 rebanadas que en daltonismo rojo-verde se vuelve
- * ilegible. Mismo dato, más fácil de leer.
+ * El original pinta hasta 10-11 rebanadas de un pastel. Eso es exactamente el caso que la
+ * guía de accesibilidad de gráficas marca como ilegible bajo daltonismo rojo-verde —vecinas
+ * se confunden de un vistazo—, así que `Dona` se limita a 6 rebanadas propias y funde el
+ * resto en "Otros", con la paleta categórica validada (`--cat-1..8` en `style.css`, ΔE ≥ 8
+ * bajo protanopia/deuteranopia) y una leyenda con nombre + valor + % siempre visible — la
+ * leyenda hace de "vista de tabla": el dato nunca depende solo del color.
  *
  * ── Por qué se filtra en el cliente y no se vuelve a pedir al servidor ────────────────────
  *
@@ -21,6 +23,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { leerReporteActividades } from '@core/puente';
 import type { FilaReporteActividad } from '@core/tipos';
 import { Medidas, Barras, type Medida } from '../../dashboard/components/Medidas';
+import { Dona } from '@shared/components/Dona';
 
 const HOY = () => new Date().toISOString().slice(0, 10);
 const PRIMER_DIA_MES = () => {
@@ -209,11 +212,11 @@ function Resumen({ porSector, porActividad, filas }: {
             </div>
 
             <Seccion titulo="Peso % Sector">
-                <Medidas modo="porcentaje" medidas={porSector} />
+                <Dona datos={porSector} />
             </Seccion>
 
             <Seccion titulo="Peso % Actividad">
-                <Medidas modo="porcentaje" medidas={porActividad} />
+                <Dona datos={porActividad} />
             </Seccion>
 
             <Seccion titulo="Desglose mensual">
