@@ -7,7 +7,9 @@
  */
 
 import { obtenerVisita, actualizarVisita, nuevoId } from './storage.js';
-import { ESTADOS, estadoDe, tieneCheckIn, tieneCheckOut, permanenciaMinutos } from './estado.js';
+import {
+    ESTADOS, estadoDe, tieneCheckIn, tieneCheckOut, permanenciaMinutos, esVisitaCliente
+} from './estado.js';
 import { obtenerUbicacion, describirDispositivo } from './geo.js';
 import { registrar, TIPOS } from './eventos.js';
 
@@ -185,8 +187,11 @@ export function bloqueoParaActividades(visita) {
 }
 
 export function puedeIniciar(visita) {
-    return !!visita && estadoDe(visita) !== ESTADOS.CANCELADA && !tieneCheckIn(visita)
-        && !!visita.cliente?.trim();
+    // El check-in afirma "llegué y empecé". Para una visita a cliente eso exige tener a QUIÉN
+    // —de ahí que pida `cliente`—; para Administrativo/Evento el tiempo mismo es lo que se
+    // registra, así que no hay nada más que exigir.
+    if (!visita || estadoDe(visita) === ESTADOS.CANCELADA || tieneCheckIn(visita)) return false;
+    return esVisitaCliente(visita) ? !!visita.cliente?.trim() : true;
 }
 
 export function puedeFinalizar(visita) {

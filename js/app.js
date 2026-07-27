@@ -195,9 +195,17 @@ function refrescarPerfil() {
 /**
  * Trae las visitas del equipo al espejo en memoria. Solo para quien tenga a alguien a cargo:
  * pedirlas para un educador sería una petición que siempre vuelve con lo que ya tiene.
+ *
+ * En simulación ("ver como") se pide SIEMPRE, aunque la persona simulada no tenga equipo
+ * propio. `tieneEquipo()` mira el perfil ACTUAL —el simulado, mientras se está simulando—, así
+ * que sin esto la app decidía "esta persona no tiene equipo, no vale la pena pedir nada" y el
+ * espejo se quedaba vacío: el admin real "veía como" alguien pero sin sus registros, aunque sí
+ * existieran. `descargarVisitasEquipo()` pide con la identidad REAL (Apps Script la verifica,
+ * no la simulación) y un administrador real trae TODO el espejo — de ahí sale lo que
+ * `visiblePara()` va a recortar después al alcance de la persona simulada.
  */
 function cargarEquipo() {
-    if (!tieneEquipo()) return;
+    if (!tieneEquipo() && !enSimulacion()) return;
 
     descargarVisitasEquipo().then(({ visitas, espejo }) => {
         if (!espejo) return;      // el espejo no está configurado: se sigue con lo local

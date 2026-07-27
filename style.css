@@ -774,6 +774,15 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 
 .ayuda { font-size: 11.5px; color: var(--muted); line-height: 1.4; }
 
+/* Casilla suelta junto a un campo (ej. "Es un prospecto"): sin el gap vertical de `.campo`,
+   que es para columnas de campos completos, no para una sola línea con checkbox. */
+.campo-check {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 12.5px; color: var(--ink-2); line-height: 1.4;
+  margin-top: -2px;
+}
+.campo-check input[type="checkbox"] { flex: none; width: 15px; height: 15px; accent-color: var(--ink); }
+
 /* Avisa, no bloquea: a veces las visitas se solapan de verdad. */
 .aviso {
   font-size: 12px; line-height: 1.4;

@@ -66,7 +66,10 @@ export function etiquetaTipoVisita(visita) {
  * bloque administrativo se leía como una visita a un cliente que no existe.
  */
 export function etiquetaVisita(visita) {
-    if (esVisitaCliente(visita)) return visita.cliente || 'Sin cliente';
+    if (esVisitaCliente(visita)) {
+        const nombre = visita.cliente || 'Sin cliente';
+        return visita.es_prospecto ? `${nombre} (prospecto)` : nombre;
+    }
     const etiquetaTipo = etiquetaTipoVisita(visita) || 'Otro';
     return visita.motivo ? `${etiquetaTipo} · ${visita.motivo}` : etiquetaTipo;
 }

@@ -321,7 +321,10 @@ const ENCABEZADOS_VISITAS = [
     'zona', 'ejecutivo', 'notas', 'id_estrategia',
     // 'tipo' distingue una visita a cliente de tiempo administrativo o un evento; 'motivo' es
     // lo que dice qué es cuando 'tipo' no es 'cliente' (cliente/hospital no aplican ahí).
-    'tipo', 'motivo'
+    'tipo', 'motivo',
+    // 'es_prospecto': el nombre en 'cliente' es texto libre, no del catálogo — alguien que
+    // todavía no está dado de alta pero al que ya se le puede visitar.
+    'es_prospecto'
 ];
 
 const ENCABEZADOS_ACTIVIDADES = [
@@ -812,7 +815,8 @@ function guardarVisitas(visitas, identidad) {
                     (sector.guardado || {}).momento || '', (sector.guardado || {}).usuario || '',
                     visita.zona || '', visita.ejecutivo || '', visita.notas || '',
                     visita.id_estrategia || '',
-                    visita.tipo || 'cliente', visita.motivo || ''
+                    visita.tipo || 'cliente', visita.motivo || '',
+                    visita.es_prospecto === true
                 ]
             });
 
@@ -963,13 +967,21 @@ function guardarEventos(eventos, identidad) {
  * anónima, que es pública —viaja en su propio JavaScript—. Con ella, cualquiera podría pedir
  * las visitas de cualquier correo. Aquí la identidad ya fue verificada contra Google, así que
  * el correo que se le pasa a Postgres es real y el recorte por jerarquía significa algo.
+ *
+ * Un administrador REAL ve TODO, no solo su jerarquía (`pdt_alcance` es puramente jerárquico:
+ * sin esto, alguien que nunca se puso como subordinado del admin en Jerarquía quedaba
+ * invisible, incluso simulándolo con "Ver como"). `esAdmin` se evalúa aquí, contra la
+ * identidad YA VERIFICADA por Google —nunca contra lo que la PWA diga que está simulando—,
+ * así que esto es de lectura únicamente y no abre ninguna puerta de escritura de más.
  */
 function leerVisitasEquipo(body, identidad) {
+    var db = SpreadsheetApp.openById(SHEET_DB_ID);
     var datos = supabaseRPC('pdt_visitas_en_alcance', {
         p_correo: identidad.correo,
         p_desde: body.desde || null,
         p_hasta: body.hasta || null,
-        p_limite: body.limite || 2000
+        p_limite: body.limite || 2000,
+        p_todas: esAdmin(db, identidad.correo)
     });
 
     if (datos === null) {

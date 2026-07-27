@@ -140,6 +140,11 @@ export interface Visita {
      *  reemplaza como lo que identifica el bloque de tiempo. */
     motivo?: string;
     cliente?: string;
+    /** El nombre en `cliente` es texto libre, no del catálogo: alguien que todavía no está
+     *  dado de alta pero al que ya se le puede visitar y generar actividades. Por eso no
+     *  tiene Zona/Ejecutivo ni Estrategia — esas dependen del catálogo, que un prospecto
+     *  todavía no tiene. */
+    es_prospecto?: boolean;
     hospital?: string;
     /** "Gpo. vendedores" del cliente (hoja Clientes). Se resuelve solo al elegir el cliente;
      *  el campo queda editable por si el catálogo no trae ese cliente todavía. */

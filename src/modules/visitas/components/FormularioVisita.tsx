@@ -235,23 +235,47 @@ function CampoCliente({ visita, editar }: { visita: Visita; editar: Props['edita
         [clientes, clientesLower]
     );
 
+    const prospecto = Boolean(visita.es_prospecto);
+
     return (
-        <Combo
-            etiqueta="Cliente"
-            valor={visita.cliente || ''}
-            placeholder="Busca N° o razón social…"
-            opciones={opciones}
-            total={clientes.length}
-            onElegir={(c) => editar(v => {
-                v.cliente = c;
-                // Zona y Ejecutivo se resuelven solos al ELEGIR un cliente real del catálogo:
-                // escribir texto libre (abajo) no dispara la búsqueda, porque todavía no es
-                // un cliente que exista en la hoja de Clientes.
-                v.zona = zonaDeCliente(c);
-                v.ejecutivo = ejecutivoDeZona(v.zona);
-            })}
-            onEscribir={(texto) => editar(v => { v.cliente = texto; })}
-        />
+        <>
+            <Combo
+                etiqueta="Cliente"
+                valor={visita.cliente || ''}
+                placeholder={prospecto ? 'Nombre del prospecto…' : 'Busca N° o razón social…'}
+                opciones={opciones}
+                total={clientes.length}
+                onElegir={(c) => editar(v => {
+                    v.cliente = c;
+                    // Zona y Ejecutivo se resuelven solos al ELEGIR un cliente real del
+                    // catálogo: escribir texto libre (abajo) no dispara la búsqueda, porque
+                    // todavía no es un cliente que exista en la hoja de Clientes. Elegir uno
+                    // real desmarca "prospecto" — contradiría lo que se acaba de elegir.
+                    v.es_prospecto = false;
+                    v.zona = zonaDeCliente(c);
+                    v.ejecutivo = ejecutivoDeZona(v.zona);
+                })}
+                onEscribir={(texto) => editar(v => { v.cliente = texto; })}
+            />
+
+            <label className="campo-check">
+                <input
+                    type="checkbox"
+                    checked={prospecto}
+                    onChange={(e) => editar(v => {
+                        v.es_prospecto = e.target.checked;
+                        // Un prospecto no está en el catálogo: Zona/Ejecutivo/Estrategia son
+                        // datos QUE VIENEN de ahí, así que no hay nada honesto que resolver.
+                        if (e.target.checked) {
+                            v.zona = undefined;
+                            v.ejecutivo = undefined;
+                            v.id_estrategia = undefined;
+                        }
+                    })}
+                />
+                Es un prospecto (aún no está dado de alta en el catálogo)
+            </label>
+        </>
     );
 }
 
@@ -369,8 +393,10 @@ export function PanelInformacion({ visita, editar }: { visita: Visita; editar?: 
     const filas: Array<[string, string]> = cliente
         ? [
             ['Educador', visita.educador || '—'],
-            ['Cliente', visita.cliente || '—'],
-            ['Zona · Ejecutivo', `${visita.zona || '—'} · ${visita.ejecutivo || '—'}`],
+            ['Cliente', (visita.cliente || '—') + (visita.es_prospecto ? ' (prospecto)' : '')],
+            ['Zona · Ejecutivo', visita.es_prospecto
+                ? 'No aplica — prospecto, sin catálogo'
+                : `${visita.zona || '—'} · ${visita.ejecutivo || '—'}`],
             ['Hospital', visita.hospital || '—'],
             ['Fecha', etiquetaDiaLarga(visita.dia)],
             ['Horario', `${visita.hora_inicio}–${visita.hora_fin}`],

@@ -10,7 +10,7 @@ import { useState } from 'react';
 import {
     tieneCheckIn, tieneCheckOut, puedeIniciar, iniciarVisita, finalizarVisita,
     permanenciaTexto, duracionTexto, describirUbicacion, precisionDudosa,
-    reactivarVisita, minutosDeRetraso, type Resultado, type Avisar
+    reactivarVisita, minutosDeRetraso, esVisitaCliente, type Resultado, type Avisar
 } from '@core/puente';
 import type { Visita, Marca } from '@core/tipos';
 
@@ -47,7 +47,8 @@ export function BloqueCheck({ visita, avisar, alTerminar, soloLectura }: Props) 
         }
 
         if (r.permanencia_min != null && r.visita) {
-            avisar(`Visita finalizada · ${permanenciaTexto(r.visita)} en el cliente.`,
+            const donde = esVisitaCliente(r.visita) ? 'en el cliente' : 'en el bloque';
+            avisar(`Visita finalizada · ${permanenciaTexto(r.visita)} ${donde}.`,
                 { estado: 'completa' });
         }
 
@@ -60,11 +61,14 @@ export function BloqueCheck({ visita, avisar, alTerminar, soloLectura }: Props) 
         }
 
         const listo = puedeIniciar(visita);
+        const cliente = esVisitaCliente(visita);
         return (
             <div className="check">
                 <p className="ayuda">
                     {listo
-                        ? 'Al llegar con el cliente, inicia la visita. Se registra la hora y tu ubicación.'
+                        ? (cliente
+                            ? 'Al llegar con el cliente, inicia la visita. Se registra la hora y tu ubicación.'
+                            : 'Inicia cuando empieces. Se registra la hora y tu ubicación.')
                         : 'Falta el cliente para poder iniciar la visita.'}
                 </p>
                 <button
@@ -109,7 +113,9 @@ export function BloqueCheck({ visita, avisar, alTerminar, soloLectura }: Props) 
                     </button>
                     {/* El educador tiene que poder irse sin haber terminado de escribir. */}
                     <p className="ayuda">
-                        Finalizar marca tu salida del cliente. Puedes seguir capturando actividades después.
+                        {esVisitaCliente(visita)
+                            ? 'Finalizar marca tu salida del cliente. Puedes seguir capturando actividades después.'
+                            : 'Finalizar marca el fin de este bloque de tiempo.'}
                     </p>
                 </>
             )}
