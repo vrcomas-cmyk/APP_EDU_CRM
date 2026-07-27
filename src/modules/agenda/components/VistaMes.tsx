@@ -8,7 +8,8 @@
 
 import { useMemo } from 'react';
 import {
-    claveHoy, desdeClave, diasDeCuadriculaMes, DIAS_ABREV, saludDe, inicioDe, sesionActual
+    claveHoy, desdeClave, diasDeCuadriculaMes, DIAS_ABREV, saludDe, inicioDe, sesionActual,
+    etiquetaVisita
 } from '@core/puente';
 import { PuntoSalud } from '@shared/components/Indicadores';
 import type { Visita } from '@core/tipos';
@@ -76,15 +77,16 @@ function LineaMes({ visita }: { visita: Visita }) {
     const dueno = (visita.educador_correo || '').trim().toLowerCase();
     const esDelEquipo = Boolean(dueno && yo && dueno !== yo);
 
+    const etiqueta = etiquetaVisita(visita);
     const titulo = esDelEquipo
-        ? `${visita.hora_inicio || ''} · ${visita.cliente || 'Sin cliente'} · ${visita.educador || visita.educador_correo}`
-        : `${visita.hora_inicio || ''} · ${visita.cliente || 'Sin cliente'}`;
+        ? `${visita.hora_inicio || ''} · ${etiqueta} · ${visita.educador || visita.educador_correo}`
+        : `${visita.hora_inicio || ''} · ${etiqueta}`;
 
     return (
         <span className={`mes-ev st-${salud}` + (esDelEquipo ? ' es-equipo' : '')} title={titulo}>
             <PuntoSalud salud={salud} />
             <span className="t">{visita.hora_inicio || ''}</span>
-            <span className="c">{visita.cliente || 'Sin cliente'}</span>
+            <span className="c">{etiqueta}</span>
         </span>
     );
 }

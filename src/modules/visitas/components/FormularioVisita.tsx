@@ -9,8 +9,9 @@
 import { useCallback, useMemo } from 'react';
 import { Combo, filtrar } from '@shared/components/Combo';
 import {
-    etiquetaDiaLarga, buscarSolapes, estadoDe, ESTADOS, consultarVisitas,
-    zonaDeCliente, ejecutivoDeZona, clientesEnMisZonas, leerEstrategias, type Avisar
+    etiquetaDiaLarga, buscarSolapes, estadoDe, ESTADOS, consultarVisitas, esVisitaCliente,
+    etiquetaVisita, zonaDeCliente, ejecutivoDeZona, clientesEnMisZonas, leerEstrategias,
+    type Avisar
 } from '@core/puente';
 import { moverInicio, cambiarFin } from '../services/horario';
 import * as repo from '../repository/visitasRepo';
@@ -24,14 +25,24 @@ interface Props {
 }
 
 export function FormularioVisita({ visita, editar, avisar }: Props) {
+    const cliente = esVisitaCliente(visita);
+
     return (
         <>
             <CampoEducador visita={visita} />
-            <CampoCliente visita={visita} editar={editar} />
-            <SubindiceZonaEjecutivo visita={visita} />
-            <CampoEstrategia visita={visita} editar={editar} />
-            <CampoHospital visita={visita} editar={editar} />
-            <HistoricoCliente visita={visita} />
+            <CampoTipo visita={visita} editar={editar} />
+
+            {cliente ? (
+                <>
+                    <CampoCliente visita={visita} editar={editar} />
+                    <SubindiceZonaEjecutivo visita={visita} />
+                    <CampoEstrategia visita={visita} editar={editar} />
+                    <CampoHospital visita={visita} editar={editar} />
+                    <HistoricoCliente visita={visita} />
+                </>
+            ) : (
+                <CampoMotivo visita={visita} editar={editar} />
+            )}
 
             <label className="campo">
                 <span className="campo-lbl">Fecha</span>
@@ -146,6 +157,68 @@ function CampoEducador({ visita }: { visita: Visita }) {
                     No se pudo leer tu nombre de la sesión. Vuelve a entrar antes de agendar.
                   </p>}
         </div>
+    );
+}
+
+const TIPOS_VISITA = [
+    { valor: 'cliente' as const, etiqueta: 'Cliente' },
+    { valor: 'administrativo' as const, etiqueta: 'Administrativo' },
+    { valor: 'evento' as const, etiqueta: 'Evento' }
+];
+
+/**
+ * A qué se dedica el tiempo. Cliente es el default —lo que la app hace desde siempre— y
+ * cambiarlo reemplaza Cliente/Hospital/Sectores por un solo campo de Motivo: no hay a quién
+ * visitar, así que pedir esos datos no tendría sentido.
+ */
+function CampoTipo({ visita, editar }: { visita: Visita; editar: Props['editar'] }) {
+    const actual = visita.tipo || 'cliente';
+
+    return (
+        <div className="campo">
+            <span className="campo-lbl">Tipo</span>
+            <div className="seg" role="group" aria-label="Tipo de visita">
+                {TIPOS_VISITA.map(t => (
+                    <button
+                        key={t.valor}
+                        type="button"
+                        aria-pressed={actual === t.valor}
+                        onClick={() => editar(v => {
+                            v.tipo = t.valor;
+                            // Cambiar de tipo no debe dejar a medias lo del tipo anterior: un
+                            // administrativo con un `cliente` colgado de un cambio de opinión
+                            // seguiría contando como visita a ese cliente en los indicadores.
+                            if (t.valor === 'cliente') {
+                                v.motivo = undefined;
+                            } else {
+                                v.cliente = undefined;
+                                v.hospital = undefined;
+                                v.zona = undefined;
+                                v.ejecutivo = undefined;
+                                v.id_estrategia = undefined;
+                            }
+                        })}
+                    >
+                        {t.etiqueta}
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+function CampoMotivo({ visita, editar }: { visita: Visita; editar: Props['editar'] }) {
+    return (
+        <label className="campo">
+            <span className="campo-lbl">Motivo</span>
+            <input
+                type="text"
+                className="inp"
+                placeholder={visita.tipo === 'evento' ? 'Ej. Congreso anual de la zona' : 'Ej. Papeleo mensual, capacitación interna…'}
+                value={visita.motivo || ''}
+                onChange={(e) => editar(v => { v.motivo = e.target.value; })}
+            />
+        </label>
     );
 }
 
@@ -275,7 +348,7 @@ function AvisoSolape({ visita }: { visita: Visita }) {
     if (choques.length === 0) return null;
 
     const quien = choques
-        .map(v => `${v.hora_inicio}–${v.hora_fin} ${v.cliente || 'Sin cliente'}`)
+        .map(v => `${v.hora_inicio}–${v.hora_fin} ${etiquetaVisita(v)}`)
         .join(', ');
 
     return (
@@ -289,20 +362,30 @@ function AvisoSolape({ visita }: { visita: Visita }) {
 
 /** Lo que identifica a la visita, en frío. Reemplaza al formulario una vez guardada. */
 export function PanelInformacion({ visita, editar }: { visita: Visita; editar?: Props['editar'] }) {
+    const cliente = esVisitaCliente(visita);
+
     // Zona y Ejecutivo van pegados al Cliente, como en el formulario: son un dato derivado
     // de él (Cliente → Zona → Ejecutivo), no dos campos independientes que buscar aparte.
-    const filas: Array<[string, string]> = [
-        ['Educador', visita.educador || '—'],
-        ['Cliente', visita.cliente || '—'],
-        ['Zona · Ejecutivo', `${visita.zona || '—'} · ${visita.ejecutivo || '—'}`],
-        ['Hospital', visita.hospital || '—'],
-        ['Fecha', etiquetaDiaLarga(visita.dia)],
-        ['Horario', `${visita.hora_inicio}–${visita.hora_fin}`],
-        ['Sectores', String((visita.sectores || []).length)]
-    ];
+    const filas: Array<[string, string]> = cliente
+        ? [
+            ['Educador', visita.educador || '—'],
+            ['Cliente', visita.cliente || '—'],
+            ['Zona · Ejecutivo', `${visita.zona || '—'} · ${visita.ejecutivo || '—'}`],
+            ['Hospital', visita.hospital || '—'],
+            ['Fecha', etiquetaDiaLarga(visita.dia)],
+            ['Horario', `${visita.hora_inicio}–${visita.hora_fin}`],
+            ['Sectores', String((visita.sectores || []).length)]
+        ]
+        : [
+            ['Educador', visita.educador || '—'],
+            ['Tipo', visita.tipo === 'evento' ? 'Evento' : 'Administrativo'],
+            ['Motivo', visita.motivo || '—'],
+            ['Fecha', etiquetaDiaLarga(visita.dia)],
+            ['Horario', `${visita.hora_inicio}–${visita.hora_fin}`]
+        ];
 
     // Solo si esta visita quedó vinculada a una — la mayoría de los clientes no tienen plan.
-    if (visita.id_estrategia) {
+    if (cliente && visita.id_estrategia) {
         const estrategia = leerEstrategias().find(e => e.id === visita.id_estrategia);
         filas.splice(3, 0, ['Estrategia', estrategia
             ? [estrategia.sector, estrategia.grupo_articulo, estrategia.proyecto].filter(Boolean).join(' · ') || 'Sin detalle'

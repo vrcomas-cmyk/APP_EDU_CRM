@@ -10,10 +10,17 @@
  */
 
 import type { Visita } from '@core/tipos';
+import { esVisitaCliente } from '@core/puente';
 
 export const CAMPOS_REQUERIDOS = [
     'Educador', 'Cliente', 'Hospital', 'Fecha', 'Hora de inicio', 'Hora de término',
     'Al menos un sector'
+] as const;
+
+/** Lo mismo, para una visita administrativa o de evento: Cliente/Hospital/Sector no aplican
+ *  —no hay a quién visitar—, y en su lugar el motivo es lo que dice qué es. */
+export const CAMPOS_REQUERIDOS_NO_CLIENTE = [
+    'Educador', 'Motivo', 'Fecha', 'Hora de inicio', 'Hora de término'
 ] as const;
 
 const lleno = (v: string | undefined) => Boolean(v && v.trim());
@@ -26,10 +33,18 @@ const lleno = (v: string | undefined) => Boolean(v && v.trim());
  */
 export function faltaParaGuardar(visita: Visita): string[] {
     const falta: string[] = [];
+    const cliente = esVisitaCliente(visita);
 
     if (!lleno(visita.educador)) falta.push('Educador');
-    if (!lleno(visita.cliente)) falta.push('Cliente');
-    if (!lleno(visita.hospital)) falta.push('Hospital');
+
+    if (cliente) {
+        if (!lleno(visita.cliente)) falta.push('Cliente');
+        if (!lleno(visita.hospital)) falta.push('Hospital');
+    } else {
+        // Nada que visitar: lo que identifica el bloque es por qué existe, no a quién.
+        if (!lleno(visita.motivo)) falta.push('Motivo');
+    }
+
     if (!visita.dia) falta.push('Fecha');
     if (!visita.hora_inicio) falta.push('Hora de inicio');
     if (!visita.hora_fin) falta.push('Hora de término');
@@ -44,7 +59,9 @@ export function faltaParaGuardar(visita: Visita): string[] {
         falta.push('Un horario válido (el término debe ser posterior al inicio)');
     }
 
-    if (!(visita.sectores || []).length) falta.push('Al menos un sector');
+    // Solo la visita a cliente exige sector: una administrativa o de evento nace con el suyo
+    // propio al guardar (ver `sellarVisita`), sin catálogo que elegir.
+    if (cliente && !(visita.sectores || []).length) falta.push('Al menos un sector');
 
     return falta;
 }
@@ -64,6 +81,7 @@ export function tieneCapturaPerdible(visita: Visita): boolean {
     return Boolean(
         lleno(visita.cliente) ||
         lleno(visita.hospital) ||
+        lleno(visita.motivo) ||
         visita.dia ||
         (visita.sectores || []).length
     );

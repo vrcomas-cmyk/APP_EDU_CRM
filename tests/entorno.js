@@ -26,10 +26,15 @@ class AlmacenLocal {
 }
 
 globalThis.localStorage = new AlmacenLocal();
+// Misma forma que `localStorage`; la simulación ("ver como") la usa a propósito en vez de
+// `localStorage` para que muera con la pestaña. Un almacén separado, no un alias del mismo,
+// para que una prueba no confunda uno con otro.
+globalThis.sessionStorage = new AlmacenLocal();
 
 /** Deja el almacén como recién instalado. Cada prueba arranca de cero. */
 export function limpiarAlmacen() {
     globalThis.localStorage.clear();
+    globalThis.sessionStorage.clear();
 }
 
 // ---------- DOM ----------

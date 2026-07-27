@@ -318,7 +318,10 @@ const ENCABEZADOS_VISITAS = [
     // que las columnas ya existentes coincidan en nombre Y posición: meter una en medio haría
     // tronar la sincronización de todas las hojas que ya están en producción.
     'solicitado_por', 'sector_guardado_momento', 'sector_guardado_usuario',
-    'zona', 'ejecutivo', 'notas', 'id_estrategia'
+    'zona', 'ejecutivo', 'notas', 'id_estrategia',
+    // 'tipo' distingue una visita a cliente de tiempo administrativo o un evento; 'motivo' es
+    // lo que dice qué es cuando 'tipo' no es 'cliente' (cliente/hospital no aplican ahí).
+    'tipo', 'motivo'
 ];
 
 const ENCABEZADOS_ACTIVIDADES = [
@@ -808,7 +811,8 @@ function guardarVisitas(visitas, identidad) {
                     sector.solicitado_por || '',
                     (sector.guardado || {}).momento || '', (sector.guardado || {}).usuario || '',
                     visita.zona || '', visita.ejecutivo || '', visita.notas || '',
-                    visita.id_estrategia || ''
+                    visita.id_estrategia || '',
+                    visita.tipo || 'cliente', visita.motivo || ''
                 ]
             });
 

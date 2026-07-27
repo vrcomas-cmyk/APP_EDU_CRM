@@ -186,7 +186,8 @@ function Tiles({ ind }: { ind: Indicadores }) {
         ['Evidencias pendientes', ind.evidencias_pendientes, ''],
         ['Sectores distintos', ind.sectores_distintos, ''],
         ['Material entregado', ind.piezas ? redondear(ind.piezas) : 0, `${ind.materiales} registros`],
-        ['Horas efectivas', ind.horas_efectivas, 'en cliente'],
+        ['Horas efectivas', ind.horas_efectivas, 'total, con check-out'],
+        ['Horas admin. / evento', ind.horas_no_cliente, 'de esas, fuera del cumplimiento'],
         ['Retrasos', ind.retrasos, 'más de 15 min'],
         ['Reagendaciones', ind.reagendaciones, ''],
         ['Cancelaciones', ind.canceladas, '']

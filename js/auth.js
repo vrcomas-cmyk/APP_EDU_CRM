@@ -22,6 +22,34 @@ const CLAVE_SESION = 'sesion';
 let alCambiarSesion = () => {};
 let gsiListo = false;
 let gsiPromesa = null;
+let inicializado = false;
+
+/**
+ * Inicializa el cliente de Google Identity UNA sola vez.
+ *
+ * Google solo respeta la PRIMERA llamada a `initialize()` en la página; cualquier llamada
+ * posterior la ignora en silencio (con una advertencia en consola). Antes había dos: esta y
+ * otra dentro de `pintarBotonEntrada`, con configuraciones distintas —esa segunda no traía
+ * `auto_select`—, y cuál de las dos "ganaba" dependía del orden en que resolvían dos promesas
+ * async. Cuando ganaba la del botón, el inicio de sesión de un solo clic (auto_select) quedaba
+ * anulado sin que nada lo avisara, y quien volvía a la app tenía que elegir cuenta a mano en
+ * vez de entrar directo. Con un único punto de inicialización, eso deja de depender del azar.
+ */
+function asegurarInicializado() {
+    if (inicializado || !window.google?.accounts?.id) return;
+    google.accounts.id.initialize({
+        client_id: CLIENT_ID,
+        callback: manejarCredencial,
+        auto_select: true,
+        hd: DOMINIO,
+        // Requerido por Google para que `prompt()` (el One Tap) funcione en navegadores que ya
+        // no permiten la vía anterior sin FedCM; sin esto el refresco silencioso puede fallar
+        // callado en vez de simplemente no ofrecerlo.
+        use_fedcm_for_prompt: true
+    });
+    inicializado = true;
+    gsiListo = true;
+}
 
 export function initAuth({ onSesion } = {}) {
     alCambiarSesion = onSesion || (() => {});
@@ -33,13 +61,7 @@ export function initAuth({ onSesion } = {}) {
         // justamente el arranque más común de esta app.
         if (!window.google?.accounts?.id) return;
 
-        google.accounts.id.initialize({
-            client_id: CLIENT_ID,
-            callback: manejarCredencial,
-            auto_select: true,
-            hd: DOMINIO
-        });
-        gsiListo = true;
+        asegurarInicializado();
         // Sesión ya en caché: se intenta refrescar el token en silencio para que el
         // próximo sync no lo encuentre vencido. Si falla, no pasa nada — se reintenta
         // la próxima vez que haya conexión (ver alCambiarConexion en app.js).
@@ -97,7 +119,7 @@ export function pintarBotonEntrada(contenedor) {
             contenedor.textContent = 'Sin conexión. Conéctate para iniciar sesión.';
             return;
         }
-        google.accounts.id.initialize({ client_id: CLIENT_ID, callback: manejarCredencial, hd: DOMINIO });
+        asegurarInicializado();
         google.accounts.id.renderButton(contenedor, {
             theme: 'outline', size: 'large', text: 'signin_with', shape: 'pill', locale: 'es'
         });

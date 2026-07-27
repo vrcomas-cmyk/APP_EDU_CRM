@@ -9,7 +9,7 @@
 
 import {
     saludDe, detalleEstado, estadoDe, ESTADOS, duracionHoras, duracionTexto, inicioDe,
-    tieneCheckOut, sesionActual, hora as formatearHora
+    tieneCheckOut, sesionActual, hora as formatearHora, esVisitaCliente, etiquetaVisita
 } from '@core/puente';
 import { BanderasVisita } from '@shared/components/Indicadores';
 import type { Ventana } from '../services/ventana';
@@ -67,9 +67,10 @@ export function TarjetaVisita({
 
     // La columna de Semana es angosta y el texto se recorta con "…": el tooltip lleva TODO,
     // para poder leer la visita completa sin abrirla.
+    const cliente = esVisitaCliente(visita);
     const tooltip = [
-        `${visita.hora_inicio || ''}–${visita.hora_fin || ''} · ${visita.cliente || 'Sin cliente'}`,
-        visita.hospital || '',
+        `${visita.hora_inicio || ''}–${visita.hora_fin || ''} · ${etiquetaVisita(visita)}`,
+        cliente ? (visita.hospital || '') : '',
         esDelEquipo ? `Educador: ${visita.educador || visita.educador_correo}` : '',
         detalleEstado(visita)
     ].filter(Boolean).join('\n');
@@ -100,7 +101,7 @@ export function TarjetaVisita({
                     : visita.hora_inicio || ''}
             </span>
 
-            <span className="ev-client">{visita.cliente || 'Sin cliente'}</span>
+            <span className="ev-client">{etiquetaVisita(visita)}</span>
 
             {/* De quién es, cuando no es propia: primero que el hospital, porque para quien
                 mira la agenda del equipo "¿de quién?" va antes que "¿dónde?". */}
@@ -108,11 +109,11 @@ export function TarjetaVisita({
                 <span className="ev-educador">{visita.educador || visita.educador_correo}</span>
             )}
 
-            {duracion >= 0.75 && (
+            {cliente && duracion >= 0.75 && (
                 <span className="ev-hosp">{visita.hospital || 'Sin hospital'}</span>
             )}
 
-            {duracion >= 1.5 && modo === 'dia' && sectores.length > 0 && (
+            {cliente && duracion >= 1.5 && modo === 'dia' && sectores.length > 0 && (
                 <span className="ev-sectores">
                     {sectores.map(s => <span key={s.id}>{s.nombre}</span>)}
                 </span>

@@ -132,6 +132,13 @@ export interface Visita {
     id: string;
     educador?: string;
     educador_correo?: string;
+    /** Si no es 'cliente', el tiempo no se dedica a un cliente sino a otra cosa —trabajo
+     *  interno, una capacitación, un evento—. Ausente equivale a 'cliente': las visitas de
+     *  siempre no cambian de significado. */
+    tipo?: 'cliente' | 'administrativo' | 'evento';
+    /** Qué es, cuando `tipo` no es 'cliente'. Cliente y Hospital no aplican; esto los
+     *  reemplaza como lo que identifica el bloque de tiempo. */
+    motivo?: string;
     cliente?: string;
     hospital?: string;
     /** "Gpo. vendedores" del cliente (hoja Clientes). Se resuelve solo al elegir el cliente;

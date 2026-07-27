@@ -11,11 +11,13 @@ import type { EstadoRBAC } from '../hooks/useRBAC';
 import { PanelJerarquia } from './PanelJerarquia';
 import { PanelRoles } from './PanelRoles';
 import { PanelUsuarios } from './PanelUsuarios';
+import { PanelSimular } from './PanelSimular';
 
 const SUBPESTANAS = [
     { id: 'roles', etiqueta: 'Roles' },
     { id: 'usuarios', etiqueta: 'Usuarios' },
-    { id: 'jerarquia', etiqueta: 'Jerarquía' }
+    { id: 'jerarquia', etiqueta: 'Jerarquía' },
+    { id: 'simular', etiqueta: 'Ver como' }
 ] as const;
 
 type Subpestana = (typeof SUBPESTANAS)[number]['id'];
@@ -76,6 +78,7 @@ export function GestionAccesos({ estado, confirmar }: Props) {
                         elegirAnalista={setAnalista}
                     />
                 )}
+                {sub === 'simular' && <PanelSimular borrador={borrador} />}
             </div>
         </>
     );

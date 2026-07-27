@@ -73,6 +73,31 @@ describe('faltaParaGuardar', () => {
     });
 });
 
+describe('faltaParaGuardar — administrativo y evento', () => {
+    const noCliente = (campos: Partial<Visita> = {}): Visita => completa({
+        tipo: 'administrativo', cliente: undefined, hospital: undefined, sectores: undefined,
+        motivo: 'Papeleo mensual',
+        ...campos
+    });
+
+    test('con motivo, sin cliente/hospital/sector, no falta nada', () => {
+        assert.deepEqual(faltaParaGuardar(noCliente()), []);
+        assert.equal(sePuedeGuardar(noCliente()), true);
+    });
+
+    test('sin motivo, falta Motivo — y NO Cliente/Hospital/Sector', () => {
+        assert.deepEqual(faltaParaGuardar(noCliente({ motivo: '' })), ['Motivo']);
+    });
+
+    test('lo mismo aplica a evento', () => {
+        assert.deepEqual(faltaParaGuardar(noCliente({ tipo: 'evento', motivo: '' })), ['Motivo']);
+    });
+
+    test('el horario y la fecha se siguen exigiendo igual', () => {
+        assert.deepEqual(faltaParaGuardar(noCliente({ dia: '' })), ['Fecha']);
+    });
+});
+
 describe('tieneCapturaPerdible', () => {
     test('un formulario recién abierto no pregunta al cerrar', () => {
         const recien = nuevaVisita({}, sesion, contadorDeIds());

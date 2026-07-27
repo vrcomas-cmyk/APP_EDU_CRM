@@ -23,6 +23,10 @@
 
 import { sesionActual } from './auth.js';
 import { rpc, rpcEstricto } from '../src/services/supabase/rpc';
+import {
+    simulacionActiva, estadoSimulacion, perfilSimulado,
+    simularUsuario, simularRol, salirSimulacion
+} from './simulacion.js';
 
 const CLAVE_CACHE = 'pdt_perfil_cache';
 
@@ -135,7 +139,22 @@ export async function actualizarPerfil() {
     }
 }
 
+/**
+ * El perfil con el que se pinta la app. Si hay una simulación activa ("ver como"), es la del
+ * rol o usuario simulado; si no, es el de la sesión real. Todo lo demás en este archivo —
+ * `puede`, `rolActual`, `alcance`…— pasa por aquí, así que interceptar en un solo punto basta
+ * para que la simulación cubra la app entera.
+ */
 export function perfilActual() {
+    if (simulacionActiva()) {
+        const simulado = perfilSimulado();
+        if (simulado) return simulado;
+    }
+    return perfilReal();
+}
+
+/** El perfil de la sesión real, ignorando cualquier simulación en curso. */
+export function perfilReal() {
     if (!perfil) initPermisos();
     return perfil;
 }
@@ -143,7 +162,44 @@ export function perfilActual() {
 export function olvidarPerfil() {
     perfil = null;
     try { localStorage.removeItem(CLAVE_CACHE); } catch { /* da igual */ }
+    // El perfil cacheado es de quien se va: una simulación puesta por esa persona no debe
+    // sobrevivir a su cierre de sesión ni prestarle sus permisos a quien entre después.
+    salirSimulacion();
 }
+
+// ---------- simulación ("ver como") ----------
+
+/**
+ * ¿Hay una simulación activa? Se expone además de `simulacionActiva()` de `simulacion.js` para
+ * que quien solo importe `permisos.js` no tenga que conocer ese módulo aparte.
+ */
+export function enSimulacion() {
+    return simulacionActiva();
+}
+
+/** Metadata para el banner: a quién se está viendo, sin exponer el perfil completo. */
+export function detalleSimulacion() {
+    return estadoSimulacion();
+}
+
+/**
+ * Entra en modo "ver como" un correo real. El gate se evalúa SIEMPRE contra el perfil real
+ * —nunca contra uno ya simulado—: encadenar una simulación sobre otra dejaría el permiso de
+ * entrada decidido por un perfil que ni siquiera es el de quien está sentado frente a la
+ * pantalla.
+ */
+export async function entrarSimulacionUsuario(correo) {
+    if (!perfilReal()?.es_admin) throw new Error('Solo un administrador puede usar "ver como".');
+    return simularUsuario(correo);
+}
+
+/** Entra en modo "ver como" un rol suelto (sin persona detrás). Mismo gate que por usuario. */
+export function entrarSimulacionRol(rol) {
+    if (!perfilReal()?.es_admin) throw new Error('Solo un administrador puede usar "ver como".');
+    return simularRol(rol);
+}
+
+export { salirSimulacion };
 
 // ---------- preguntas ----------
 

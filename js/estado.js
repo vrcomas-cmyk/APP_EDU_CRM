@@ -46,6 +46,31 @@ export function etiquetaEstado(estado) {
 export function tieneCheckIn(visita) { return !!visita.check_in; }
 export function tieneCheckOut(visita) { return !!visita.check_out; }
 
+// ---------- tipo de visita ----------
+
+/** `tipo` ausente equivale a 'cliente': las visitas de siempre no cambian de significado. */
+export function esVisitaCliente(visita) {
+    return !visita.tipo || visita.tipo === 'cliente';
+}
+
+const ETIQUETAS_TIPO = { administrativo: 'Administrativo', evento: 'Evento' };
+
+export function etiquetaTipoVisita(visita) {
+    return ETIQUETAS_TIPO[visita.tipo] || null;
+}
+
+/**
+ * Qué identifica el bloque en el calendario y en los tooltips: el cliente si lo es, o
+ * "Tipo · motivo" si es tiempo administrativo o un evento. Único punto de esta regla —antes
+ * cada tarjeta del calendario decidía `visita.cliente || 'Sin cliente'` por su cuenta, y un
+ * bloque administrativo se leía como una visita a un cliente que no existe.
+ */
+export function etiquetaVisita(visita) {
+    if (esVisitaCliente(visita)) return visita.cliente || 'Sin cliente';
+    const etiquetaTipo = etiquetaTipoVisita(visita) || 'Otro';
+    return visita.motivo ? `${etiquetaTipo} · ${visita.motivo}` : etiquetaTipo;
+}
+
 // ---------- color (salud del registro) ----------
 
 export const SALUD = {

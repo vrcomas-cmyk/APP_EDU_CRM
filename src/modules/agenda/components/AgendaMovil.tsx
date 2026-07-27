@@ -9,7 +9,8 @@
 import { useMemo } from 'react';
 import {
     claveDia, claveHoy, desdeClave, diasDeSemana, etiquetaDiaLarga, inicialesDias,
-    saludDe, detalleEstado, estadoDe, ESTADOS, inicioDe, sesionActual
+    saludDe, detalleEstado, estadoDe, ESTADOS, inicioDe, sesionActual,
+    esVisitaCliente, etiquetaVisita
 } from '@core/puente';
 import { BanderasVisita } from '@shared/components/Indicadores';
 import type { Visita } from '@core/tipos';
@@ -120,12 +121,14 @@ export function FilaAgenda({ visita, onAbrir }: { visita: Visita; onAbrir: (id: 
 
             <span className="arow-body">
                 <span className="arow-client">
-                    {visita.cliente || 'Sin cliente'}
+                    {etiquetaVisita(visita)}
                     {esDelEquipo && (
                         <span className="arow-educador"> · {visita.educador || visita.educador_correo}</span>
                     )}
                 </span>
-                <span className="arow-hosp">{visita.hospital || 'Sin hospital'}</span>
+                {esVisitaCliente(visita) && (
+                    <span className="arow-hosp">{visita.hospital || 'Sin hospital'}</span>
+                )}
                 <BanderasVisita
                     clase="arow-meta"
                     salud={salud}

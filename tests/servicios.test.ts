@@ -15,6 +15,7 @@ import { pedirJSON, ErrorDeRed, hayConexion } from '@services/http';
 import { postear, leerCatalogos, configurarToken } from '@services/google/appsScript';
 import { rpc, rpcEstricto } from '@services/supabase/rpc';
 import { APPS_SCRIPT_URL } from '@services/config';
+import { simularRol, salirSimulacion } from '../js/simulacion.js';
 
 /** Respuesta de mentira con la forma mínima que consume la capa de servicios. */
 function respuesta(cuerpo: unknown, { ok = true, status = 200, statusText = 'OK' } = {}) {
@@ -138,7 +139,32 @@ describe('ErrorDeRed.esTransitorio — de esto depende que una cola vacíe', () 
 });
 
 describe('Apps Script', () => {
-    beforeEach(() => configurarToken(() => 'token-de-prueba'));
+    beforeEach(() => { configurarToken(() => 'token-de-prueba'); salirSimulacion(); });
+    afterEach(() => salirSimulacion());
+
+    describe('"ver como" (simulación)', () => {
+        test('una acción de escritura se rechaza SIN tocar la red', async () => {
+            const { espia } = espiarFetch(async () => respuesta({ status: 'ok' }));
+            simularRol({ clave: 'educador', nombre: 'Educador', efectivas: [] });
+
+            await assert.rejects(() => postear({ action: 'guardarVisitas' }), /solo lectura/,
+                'guardarVisitas empieza con "guardar": debe cortarse antes del fetch');
+            assert.equal(espia.mock.calls.length, 0,
+                'un fetch de menos es la diferencia entre bloquear de verdad y solo aparentarlo');
+        });
+
+        test('una acción de lectura sí pasa', async () => {
+            espiarFetch(async () => respuesta({ status: 'ok' }));
+            simularRol({ clave: 'educador', nombre: 'Educador', efectivas: [] });
+
+            await assert.doesNotReject(() => postear({ action: 'leerRBAC' }));
+        });
+
+        test('sin simulación activa, escribir funciona como siempre', async () => {
+            espiarFetch(async () => respuesta({ status: 'ok' }));
+            await assert.doesNotReject(() => postear({ action: 'guardarVisitas' }));
+        });
+    });
 
     test('declara text/plain para no disparar el preflight', async () => {
         const { llamada } = espiarFetch(async () => respuesta({ status: 'ok' }));

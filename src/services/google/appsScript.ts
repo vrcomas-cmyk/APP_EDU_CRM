@@ -22,6 +22,7 @@
 
 import { APPS_SCRIPT_URL, TIMEOUT_MS } from '../config';
 import { ErrorDeRed } from '../http';
+import { simulacionActiva } from '../../../js/simulacion.js';
 
 export interface RespuestaAppsScript {
     status?: 'ok' | 'error';
@@ -55,6 +56,18 @@ export function configurarToken(proveedor: ProveedorDeToken): void {
 export async function postear<T extends RespuestaAppsScript = RespuestaAppsScript>(
     cuerpo: Record<string, unknown>
 ): Promise<T> {
+    // "Ver como" es de solo lectura: toda acción de escritura empieza con `guardar` o `subir`
+    // (`guardarVisitas`, `subirEvidencia`…), las de lectura con `leer` (`leerRBAC`…). Cortar
+    // aquí, y no solo escondiendo botones en la UI, es lo que hace la regla real: un botón
+    // deshabilitado es cosmética, esta es la puerta de verdad hacia Apps Script.
+    const accion = String(cuerpo.action || '');
+    if (simulacionActiva() && !accion.startsWith('leer')) {
+        throw new ErrorDeRed(
+            'Estás viendo la app como otro rol o usuario: esto es solo lectura. Sal de "ver como" para guardar cambios de verdad.',
+            APPS_SCRIPT_URL
+        );
+    }
+
     const control = new AbortController();
     const reloj = setTimeout(() => control.abort(), TIMEOUT_MS);
 

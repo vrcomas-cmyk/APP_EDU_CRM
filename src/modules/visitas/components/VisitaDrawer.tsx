@@ -16,7 +16,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     saludDe, detalleEstado, estadoDe, ESTADOS, duracionTexto, etiquetaDiaLarga,
     sesionActual, registrar, TIPOS_EVENTO, cancelarVisita, reactivarVisita,
-    hiloComentarios, AMBITOS, type Avisar
+    hiloComentarios, AMBITOS, esVisitaCliente, etiquetaVisita, type Avisar
 } from '@core/puente';
 
 import { useVisita } from '../hooks/useVisita';
@@ -197,8 +197,23 @@ export function VisitaDrawer({
 
     /** Aquí nace la visita: se valida, se le quita el borrador y se sellan sus sectores. */
     function guardarVisita() {
-        const actual = repo.obtenerVisita(visitaId);
+        let actual = repo.obtenerVisita(visitaId);
         if (!actual) return;
+
+        // Administrativo/Evento no pasa por el catálogo de sectores —no hay a quién
+        // visitar—, así que nace con el suyo propio al guardar. Esto es lo único que hace
+        // falta para que el resto de la tubería (validación, Sheets, indicadores por sector)
+        // no necesite saber que este tipo de visita existe: para ella, es un sector más.
+        if (!esVisitaCliente(actual) && !(actual.sectores || []).length) {
+            const tipoActual = actual.tipo;
+            actual = editar(v => {
+                v.sectores = [{
+                    id: repo.nuevoId('s'),
+                    nombre: tipoActual === 'evento' ? 'Evento' : 'Administrativo',
+                    objetivo: '', origen: [], actividades: []
+                }];
+            }, { silencioso: true }) ?? actual;
+        }
 
         const falta = faltaParaGuardar(actual);
         if (falta.length > 0) {
@@ -399,8 +414,10 @@ export function VisitaDrawer({
                             )}
 
                             {/* En el borrador los sectores siguen en raíz: su "Venana"
-                                todavía los edita, no los exhibe. */}
-                            {visita.borrador && (
+                                todavía los edita, no los exhibe. Administrativo/Evento no pasa
+                                por aquí: nace con su propio sector al guardar (ver
+                                `guardarVisita`), sin catálogo que elegir. */}
+                            {visita.borrador && esVisitaCliente(visita) && (
                                 <ListaSectores
                                     visita={visita}
                                     soloLectura={soloLectura}
@@ -464,7 +481,7 @@ function ModalCancelacion({ visita, onCancelar, onConfirmar }: {
                     <div className="drawer-head-txt">
                         <h3>¿Cancelar la visita?</h3>
                         <span className="eyebrow">
-                            {visita.cliente || 'Este cliente'} · no se borra, queda en el calendario como registro
+                            {etiquetaVisita(visita)} · no se borra, queda en el calendario como registro
                         </span>
                     </div>
                     <button type="button" className="icon-btn" aria-label="Cerrar" onClick={onCancelar}>✕</button>
@@ -508,13 +525,13 @@ function CabeceraVisita({ visita, onCerrar }: { visita: Visita; onCerrar: () => 
                 desliza hacia abajo" sin carteles. En escritorio no pinta nada. */}
             <div className="drawer-agarre" ref={agarre} aria-hidden="true" />
             <div className="drawer-head-txt">
-                <h3>{visita.borrador ? 'Nueva visita' : (visita.hospital || visita.cliente || 'Visita')}</h3>
+                <h3>{visita.borrador ? 'Nueva visita' : (visita.hospital || etiquetaVisita(visita) || 'Visita')}</h3>
 
                 {visita.borrador ? (
                     <span className="eyebrow">{etiquetaDiaLarga(visita.dia)}</span>
                 ) : (
                     <>
-                        <p className="drawer-sub">{visita.cliente || 'Sin cliente'}</p>
+                        <p className="drawer-sub">{etiquetaVisita(visita)}</p>
                         <p className="drawer-cuando mono">
                             {etiquetaDiaLarga(visita.dia)} · {visita.hora_inicio}–{visita.hora_fin} · {duracionTexto(visita)}
                         </p>

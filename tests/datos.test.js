@@ -212,6 +212,24 @@ describe('calcularIndicadores', () => {
         assert.equal(ind.minutos_efectivos, 210);
         assert.equal(ind.horas_efectivas, 3.5);
     });
+
+    test('administrativo/evento no cuenta como visita ni afecta cumplimiento, pero sí suma horas', () => {
+        const ind = calcularIndicadores([
+            visita({ estado: 'finalizada', check_in: checkIn() }),
+            visita({
+                tipo: 'administrativo', motivo: 'Papeleo mensual', cliente: undefined,
+                check_in: checkIn('09:00'), check_out: checkOut('11:00')
+            })
+        ]);
+
+        assert.equal(ind.visitas, 1, 'el bloque administrativo no es una "visita" que cumplir');
+        assert.equal(ind.realizadas, 1);
+        assert.equal(ind.cumplimiento, 100,
+            'una sola visita a cliente, realizada: el administrativo no debe diluir esto');
+
+        assert.equal(ind.horas_efectivas, 2, 'las horas administrativas sí suman al total');
+        assert.equal(ind.horas_no_cliente, 2, 'y quedan visibles aparte, sin mezclarse');
+    });
 });
 
 describe('indicadoresPorEducador', () => {

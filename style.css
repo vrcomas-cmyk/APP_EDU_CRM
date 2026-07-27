@@ -191,6 +191,24 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 .gate-sub { font-size: 13.5px; color: var(--muted); line-height: 1.5; }
 #gate-boton { min-height: 40px; }
 
+/* "Ver como": mientras dure la simulación, tiene que ser imposible olvidar que está puesta —
+   por eso vive fija arriba de todo, con el color de estado más llamativo, y no dentro de un
+   menú que se pueda cerrar sin querer. */
+.banner-simulacion {
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  padding: 8px 14px;
+  background: var(--st-miss-bg); color: var(--st-miss);
+  border-bottom: 1px solid var(--st-miss);
+  font-size: 13px; font-weight: 600;
+  flex: none;
+}
+/* La regla de arriba y `[hidden]` de la hoja del navegador tienen la MISMA especificidad —
+   gana la que se declara después—, así que sin esto `hidden` en el elemento no hace nada y el
+   banner queda siempre visible, aunque no haya ninguna simulación activa. Mismo patrón que
+   `.fab[hidden]`, `.seg[hidden]`, etc. más abajo en este archivo. */
+.banner-simulacion[hidden] { display: none; }
+.banner-simulacion .btn-txt { color: var(--st-miss); text-decoration: underline; }
+
 .appbar {
   position: relative;
   display: flex; align-items: center; gap: 12px;

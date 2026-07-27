@@ -40,6 +40,9 @@ export const tieneCheckOut = _estado.tieneCheckOut as (v: Visita) => boolean;
 export const estaGuardada = _estado.estaGuardada as (a: Actividad) => boolean;
 export const estadoSector = _estado.estadoSector as (v: Visita, s: Sector) => EstadoSector;
 export const etiquetaSector = _estado.etiquetaSector as (e: string) => string;
+export const esVisitaCliente = _estado.esVisitaCliente as (v: Visita) => boolean;
+export const etiquetaTipoVisita = _estado.etiquetaTipoVisita as (v: Visita) => string | null;
+export const etiquetaVisita = _estado.etiquetaVisita as (v: Visita) => string;
 export const buscarSolapes = _estado.buscarSolapes as (
     visitas: Visita[], candidata: Visita, ignorarId?: string | null
 ) => Visita[];
@@ -263,6 +266,10 @@ export interface Indicadores {
     evidencias_pendientes: number; evidencias_subidas: number;
     reagendaciones: number; retrasos: number;
     minutos_efectivos: number; horas_efectivas: number; cumplimiento: number;
+    /** Parte de `horas_efectivas` que NO es de cliente (administrativo/evento). No afecta
+     *  `cumplimiento` —eso sigue siendo solo sobre visitas a cliente— pero sí se refleja aquí
+     *  para que ese tiempo no quede invisible. */
+    horas_no_cliente: number;
     por_educador: Record<string, number>; por_tipo: Record<string, number>;
     por_sector: Record<string, number>; por_cliente: Record<string, number>;
     por_dia: Record<string, number>;
@@ -375,6 +382,25 @@ export const puede = _permisos.puede as (modulo: string, accion: string) => bool
 export const perfilActual = _permisos.perfilActual as () => Perfil | null;
 export const tieneEquipo = _permisos.tieneEquipo as () => boolean;
 export const esAdministrador = _permisos.esAdministrador as () => boolean;
+
+// ---------- "ver como" (simulación de rol/usuario para probar permisos) ----------
+
+/** El perfil de la sesión real, ignorando cualquier simulación en curso. */
+export const perfilReal = _permisos.perfilReal as () => Perfil | null;
+export const enSimulacion = _permisos.enSimulacion as () => boolean;
+/** Quién se está simulando, para el banner. `null` si no hay simulación activa. */
+export const detalleSimulacion = _permisos.detalleSimulacion as () => {
+    tipo: 'usuario' | 'rol'; ref: string; nombre: string;
+} | null;
+/** Lanza si quien llama no es admin de verdad, o si el correo no tiene perfil. */
+export const entrarSimulacionUsuario = _permisos.entrarSimulacionUsuario as (
+    correo: string
+) => Promise<Perfil>;
+/** Lanza si quien llama no es admin de verdad. `efectivas` ya trae la herencia resuelta. */
+export const entrarSimulacionRol = _permisos.entrarSimulacionRol as (
+    rol: { clave: string; nombre: string; efectivas: string[] }
+) => Perfil;
+export const salirSimulacion = _permisos.salirSimulacion as () => void;
 
 // ---------- estrategias ----------
 

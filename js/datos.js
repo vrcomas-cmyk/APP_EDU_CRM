@@ -23,7 +23,7 @@ import { leerVisitas } from './storage.js';
 import { alcance, puede } from './permisos.js';
 import {
     estadoDe, ESTADOS, actividadesDe,
-    evidenciasPendientesDe, tieneCheckIn, tieneCheckOut, permanenciaMinutos
+    evidenciasPendientesDe, tieneCheckIn, tieneCheckOut, permanenciaMinutos, esVisitaCliente
 } from './estado.js';
 
 // ---------- fuentes ----------
@@ -216,7 +216,11 @@ export function calcularIndicadores(visitas) {
         materiales: 0, piezas: 0,
         evidencias_pendientes: 0, evidencias_subidas: 0,
         reagendaciones: 0, retrasos: 0,
-        minutos_efectivos: 0,
+        minutos_efectivos: 0, minutos_no_cliente: 0,
+        // Se calculan al final de la función, pero se declaran aquí también: sin esto, tsc
+        // infiere el tipo de retorno solo del literal inicial y `puente.ts` deja de poder
+        // castearlo a `Indicadores` porque "no se solapan lo suficiente".
+        horas_efectivas: 0, horas_no_cliente: 0, cumplimiento: 0,
         por_educador: {}, por_tipo: {}, por_sector: {},
         por_cliente: {}, por_dia: {}
     };
@@ -228,6 +232,18 @@ export function calcularIndicadores(visitas) {
     };
 
     for (const v of visitas) {
+        // El tiempo administrativo/de evento suma a las horas totales —es tiempo de verdad
+        // del educador— pero no es una "visita" que cumplir: no cuenta para ninguno de los
+        // demás indicadores, que son todos sobre el trabajo CON CLIENTES.
+        if (!esVisitaCliente(v)) {
+            if (tieneCheckOut(v)) {
+                const min = permanenciaMinutos(v) || 0;
+                ind.minutos_efectivos += min;
+                ind.minutos_no_cliente += min;
+            }
+            continue;
+        }
+
         ind.visitas++;
 
         const estado = estadoDe(v);
@@ -291,6 +307,7 @@ export function calcularIndicadores(visitas) {
     const exigibles = ind.visitas - ind.canceladas;
     ind.cumplimiento = exigibles > 0 ? Math.round((ind.realizadas / exigibles) * 100) : 0;
     ind.horas_efectivas = Math.round(ind.minutos_efectivos / 6) / 10;
+    ind.horas_no_cliente = Math.round(ind.minutos_no_cliente / 6) / 10;
 
     return ind;
 }
@@ -319,14 +336,20 @@ export function indicadoresPorEducador(visitas) {
         }
         const e = porCorreo.get(clave);
 
+        // Las horas suman TODO —incluido tiempo administrativo/de evento—, pero visitas,
+        // realizadas y canceladas son solo sobre clientes: mismo criterio que
+        // `calcularIndicadores`, para que "Cumplimiento por educador" siga siendo sobre lo
+        // único que tiene sentido cumplir.
+        if (tieneCheckOut(v)) e.minutos += permanenciaMinutos(v) || 0;
+        if (!esVisitaCliente(v)) continue;
+
         e.visitas++;
-        // Mismo criterio que `calcularIndicadores`: una cancelada no cuenta como realizada
-        // aunque tenga check-in, o el cumplimiento pasaría de 100%.
+        // Una cancelada no cuenta como realizada aunque tenga check-in, o el cumplimiento
+        // pasaría de 100%.
         const cancelada = estadoDe(v) === ESTADOS.CANCELADA;
         if (cancelada) e.canceladas++;
         else if (tieneCheckIn(v)) e.realizadas++;
         e.reagendaciones += (v.reagendas || []).length;
-        if (tieneCheckOut(v)) e.minutos += permanenciaMinutos(v) || 0;
         e.evidencias_pendientes += evidenciasPendientesDe(v).length;
 
         for (const s of v.sectores || []) {

@@ -19,7 +19,8 @@ import { initPaleta, abrirPaleta, hayPaletaAbierta } from '../src/modules/paleta
 import { configurarToken } from '../src/services/google/appsScript';
 import {
     initPermisos, actualizarPerfil, olvidarPerfil,
-    accesoBloqueado, aceptarInvitacion, tieneEquipo
+    accesoBloqueado, aceptarInvitacion, tieneEquipo,
+    enSimulacion, detalleSimulacion, salirSimulacion
 } from './permisos.js';
 import { ponerVisitasEquipo, olvidarVisitasEquipo } from './datos.js';
 import { ponerFlujos, ponerRevisiones, olvidarRevisiones } from './revisiones.js';
@@ -38,6 +39,9 @@ document.addEventListener('DOMContentLoaded', () => {
         sinInvitacionSalir: document.getElementById('sin-invitacion-salir'),
         gateBoton: document.getElementById('gate-boton'),
         app: document.getElementById('app'),
+        bannerSimulacion: document.getElementById('banner-simulacion'),
+        bannerSimulacionTexto: document.getElementById('banner-simulacion-texto'),
+        bannerSimulacionSalir: document.getElementById('banner-simulacion-salir'),
         sync: document.getElementById('btn-sync'),
         syncTxt: document.getElementById('sync-txt'),
         deuda: document.getElementById('btn-deuda'),
@@ -63,9 +67,15 @@ document.addEventListener('DOMContentLoaded', () => {
         cerrarSesion();
     });
 
+    el.bannerSimulacionSalir.addEventListener('click', () => {
+        salirSimulacion();
+        location.reload();
+    });
+
     initTema(document.getElementById('tema-switch'));
 
     initPermisos();
+    pintarBannerSimulacion();
     initAuth({ onSesion: alCambiarSesion });
     pintarBotonEntrada(el.gateBoton);
 
@@ -114,6 +124,25 @@ function mostrarSinInvitacion(sesion) {
     el.app.hidden = true;
     el.sinInvitacion.hidden = false;
     el.sinInvitacionCorreo.textContent = sesion?.correo || '';
+}
+
+/**
+ * El banner de "ver como" tiene que quedar fijo mientras dure la simulación: es la única
+ * defensa contra olvidarse de que se está viendo la app como otra identidad. Entrar y salir de
+ * la simulación recargan la página (ver `PanelSimular.tsx`), así que pintar una vez al arrancar
+ * basta — no hace falta refrescarlo en cada re-render.
+ */
+function pintarBannerSimulacion() {
+    const activa = enSimulacion();
+    el.bannerSimulacion.hidden = !activa;
+    // El corte real de escritura está en `postear` (appsScript.ts); esto es solo que el botón
+    // no invite a una acción que de todos modos va a ser rechazada.
+    el.fab.hidden = activa;
+    if (!activa) return;
+
+    const detalle = detalleSimulacion();
+    const quien = detalle?.nombre || detalle?.ref || 'otra identidad';
+    el.bannerSimulacionTexto.textContent = `Viendo como ${quien} — solo lectura`;
 }
 
 function pintarSesion(sesion) {
