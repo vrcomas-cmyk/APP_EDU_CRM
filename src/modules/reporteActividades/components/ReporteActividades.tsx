@@ -261,12 +261,17 @@ function Resumen({ filas }: { filas: FilaReporteActividad[] }) {
                 </div>
             </div>
 
-            <Seccion titulo="Peso % Sector">
-                <Dona datos={porSector} />
-            </Seccion>
-
-            <Seccion titulo="Peso % Actividad">
-                <Dona datos={porActividad} />
+            <Seccion titulo="Peso %">
+                <div className="donas-fila">
+                    <div className="dona-col">
+                        <p className="dona-subtitulo">Sector</p>
+                        <Dona datos={porSector} tam={112} />
+                    </div>
+                    <div className="dona-col">
+                        <p className="dona-subtitulo">Actividad</p>
+                        <Dona datos={porActividad} tam={112} />
+                    </div>
+                </div>
             </Seccion>
 
             <Seccion titulo="Desglose mensual">
@@ -287,6 +292,8 @@ function Resumen({ filas }: { filas: FilaReporteActividad[] }) {
  * origen aparece rota ("Configuración no válida") — no se replica un error.
  */
 function Resultado({ filas }: { filas: FilaReporteActividad[] }) {
+    const [sectorAbierto, setSectorAbierto] = useState<string | null>(null);
+
     const sectorPorCliente = useMemo<FilaApilada[]>(() => {
         const mapa = new Map<string, number>();
         for (const f of filas) {
@@ -308,16 +315,218 @@ function Resultado({ filas }: { filas: FilaReporteActividad[] }) {
                 <BarraApilada filas={sectorPorCliente} />
             </Seccion>
 
-            <Seccion titulo="Desglose de actividades por Sector">
-                <TablaCruzada filas={filas} agrupador={f => f.sector} etiquetaGrupo="Sector"
-                              subagrupador={f => f.cliente} etiquetaSubgrupo="ID Cliente" />
+            <Seccion titulo="Desglose de actividades por Sector" ayuda="Clic en un sector para ver sus clientes.">
+                <TablaSectorClic filas={filas} onAbrir={setSectorAbierto} />
             </Seccion>
 
             <Seccion titulo="Desglose de actividades por Cliente">
-                <TablaCruzada filas={filas} agrupador={f => f.cliente} etiquetaGrupo="ID Cliente"
-                              subagrupador={f => f.sector} etiquetaSubgrupo="Sector" />
+                <TablaClientesFiltrable filas={filas} />
             </Seccion>
+
+            {sectorAbierto && (
+                <ModalDesgloseSector sector={sectorAbierto} filas={filas} onCerrar={() => setSectorAbierto(null)} />
+            )}
         </div>
+    );
+}
+
+/** Un renglón por Sector (sin desglosar cliente todavía) — clic abre ese desglose en modal. */
+function TablaSectorClic({ filas, onAbrir }: {
+    filas: FilaReporteActividad[]; onAbrir: (sector: string) => void;
+}) {
+    const tipos = useMemo(() => [...new Set(filas.map(f => f.tipo))].filter(Boolean).sort(), [filas]);
+
+    const filasAgrupadas = useMemo(() => {
+        const mapa = new Map<string, { sector: string; porTipo: Map<string, number>; total: number }>();
+        for (const f of filas) {
+            const sector = f.sector || '(sin dato)';
+            if (!mapa.has(sector)) mapa.set(sector, { sector, porTipo: new Map(), total: 0 });
+            const fila = mapa.get(sector)!;
+            fila.porTipo.set(f.tipo, (fila.porTipo.get(f.tipo) || 0) + 1);
+            fila.total++;
+        }
+        return [...mapa.values()].sort((a, b) => b.total - a.total || a.sector.localeCompare(b.sector, 'es'));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [filas, tipos.join(',')]);
+
+    return (
+        <div className="tabla-scroll">
+            <table className="tabla">
+                <thead>
+                    <tr>
+                        <th>Sector</th>
+                        {tipos.map(t => <th className="num" key={t}>{t}</th>)}
+                        <th className="num">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {filasAgrupadas.map(f => (
+                        <tr key={f.sector} className="fila-clicable" tabIndex={0} role="button"
+                            aria-label={`Ver clientes de ${f.sector}`}
+                            onClick={() => onAbrir(f.sector)}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onAbrir(f.sector); } }}>
+                            <td>{f.sector}</td>
+                            {tipos.map(t => <td className="num mono" key={t}>{f.porTipo.get(t) || '–'}</td>)}
+                            <td className="num mono"><strong>{f.total}</strong></td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+    );
+}
+
+/** El desglose de clientes de UN sector, en una ventana aparte — misma tabla filtrable. */
+function ModalDesgloseSector({ sector, filas, onCerrar }: {
+    sector: string; filas: FilaReporteActividad[]; onCerrar: () => void;
+}) {
+    const propias = useMemo(
+        () => filas.filter(f => (f.sector || '(sin dato)') === sector), [filas, sector]
+    );
+
+    return (
+        <div className="modal" onClick={(e) => { if (e.target === e.currentTarget) onCerrar(); }}>
+            <div className="modal-caja es-actividad">
+                <div className="modal-head">
+                    <div className="drawer-head-txt">
+                        <h3>Clientes de este sector</h3>
+                        <span className="eyebrow">{sector}</span>
+                    </div>
+                    <button type="button" className="icon-btn" aria-label="Cerrar" onClick={onCerrar}>✕</button>
+                </div>
+                <div className="modal-body">
+                    <TablaClientesFiltrable filas={propias} ocultarSector />
+                </div>
+            </div>
+        </div>
+    );
+}
+
+/**
+ * Cliente × Sector (u opcionalmente solo Cliente, dentro del modal de un sector ya fijo), con
+ * filtro propio por columna y orden por clic en el encabezado. El "por Cliente" es la lista
+ * que más va a crecer con el tiempo —a diferencia de Sector, que es un catálogo acotado—, así
+ * que a diferencia de los demás filtros de este reporte (que filtran en memoria sobre lo ya
+ * traído) esta tabla lleva su PROPIO filtro de texto/número por columna: es la única que
+ * necesita poder acotarse a un cliente puntual entre cientos.
+ */
+function TablaClientesFiltrable({ filas, ocultarSector = false }: {
+    filas: FilaReporteActividad[]; ocultarSector?: boolean;
+}) {
+    const tipos = useMemo(() => [...new Set(filas.map(f => f.tipo))].filter(Boolean).sort(), [filas]);
+
+    const filasCruzadas = useMemo(() => {
+        const mapa = new Map<string, { cliente: string; sector: string; porTipo: Map<string, number>; total: number }>();
+        for (const f of filas) {
+            const cliente = f.cliente || '(sin dato)';
+            const sector = f.sector || '(sin dato)';
+            const clave = `${cliente}··${sector}`;
+            if (!mapa.has(clave)) mapa.set(clave, { cliente, sector, porTipo: new Map(), total: 0 });
+            const fila = mapa.get(clave)!;
+            fila.porTipo.set(f.tipo, (fila.porTipo.get(f.tipo) || 0) + 1);
+            fila.total++;
+        }
+        return [...mapa.values()];
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [filas, tipos.join(',')]);
+
+    const [fCliente, setFCliente] = useState('');
+    const [fSector, setFSector] = useState('');
+    const [fMinTotal, setFMinTotal] = useState('');
+    const [fMinTipo, setFMinTipo] = useState<Record<string, string>>({});
+    const [orden, setOrden] = useState<{ col: string; dir: 1 | -1 }>({ col: 'total', dir: -1 });
+
+    const cambiarOrden = (col: string) =>
+        setOrden(o => (o.col === col ? { col, dir: (o.dir * -1) as 1 | -1 } : { col, dir: -1 }));
+
+    const valorDe = (f: typeof filasCruzadas[number], col: string): string | number =>
+        col === 'cliente' ? f.cliente : col === 'sector' ? f.sector
+            : col === 'total' ? f.total : (f.porTipo.get(col) || 0);
+
+    const filtradas = useMemo(() => {
+        const r = filasCruzadas.filter(f =>
+            (!fCliente || f.cliente.toLowerCase().includes(fCliente.toLowerCase()))
+            && (!fSector || f.sector.toLowerCase().includes(fSector.toLowerCase()))
+            && (!fMinTotal || f.total >= Number(fMinTotal))
+            && tipos.every(t => !fMinTipo[t] || (f.porTipo.get(t) || 0) >= Number(fMinTipo[t]))
+        );
+        return [...r].sort((a, b) => {
+            const va = valorDe(a, orden.col), vb = valorDe(b, orden.col);
+            return typeof va === 'string'
+                ? orden.dir * va.localeCompare(vb as string, 'es')
+                : orden.dir * ((va as number) - (vb as number));
+        });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [filasCruzadas, fCliente, fSector, fMinTotal, fMinTipo, tipos, orden]);
+
+    const activos = [fCliente, fSector, fMinTotal, ...Object.values(fMinTipo)].filter(Boolean).length;
+    const limpiar = () => { setFCliente(''); setFSector(''); setFMinTotal(''); setFMinTipo({}); };
+
+    return (
+        <>
+            <div className="filtros-pie">
+                <span className="sector-cuenta">
+                    {filtradas.length} de {filasCruzadas.length} fila{filasCruzadas.length === 1 ? '' : 's'}
+                </span>
+                {activos > 0 && (
+                    <button type="button" className="btn-txt" onClick={limpiar}>
+                        Limpiar {activos} filtro{activos === 1 ? '' : 's'}
+                    </button>
+                )}
+            </div>
+
+            <div className="tabla-scroll">
+                <table className="tabla">
+                    <thead>
+                        <tr>
+                            <th className="col-clic" onClick={() => cambiarOrden('cliente')}>Cliente</th>
+                            {!ocultarSector && (
+                                <th className="col-clic" onClick={() => cambiarOrden('sector')}>Sector</th>
+                            )}
+                            {tipos.map(t => (
+                                <th className="num col-clic" key={t} onClick={() => cambiarOrden(t)}>{t}</th>
+                            ))}
+                            <th className="num col-clic" onClick={() => cambiarOrden('total')}>Total</th>
+                        </tr>
+                        <tr className="fila-filtro">
+                            <th>
+                                <input className="inp" placeholder="Filtrar…" value={fCliente}
+                                       onChange={(e) => setFCliente(e.target.value)} />
+                            </th>
+                            {!ocultarSector && (
+                                <th>
+                                    <input className="inp" placeholder="Filtrar…" value={fSector}
+                                           onChange={(e) => setFSector(e.target.value)} />
+                                </th>
+                            )}
+                            {tipos.map(t => (
+                                <th key={t}>
+                                    <input className="inp" type="number" min={0} placeholder="≥"
+                                           value={fMinTipo[t] || ''}
+                                           onChange={(e) => setFMinTipo(m => ({ ...m, [t]: e.target.value }))} />
+                                </th>
+                            ))}
+                            <th>
+                                <input className="inp" type="number" min={0} placeholder="≥"
+                                       value={fMinTotal} onChange={(e) => setFMinTotal(e.target.value)} />
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {filtradas.map((f, i) => (
+                            <tr key={i}>
+                                <td>{f.cliente}</td>
+                                {!ocultarSector && <td>{f.sector}</td>}
+                                {tipos.map(t => <td className="num mono" key={t}>{f.porTipo.get(t) || '–'}</td>)}
+                                <td className="num mono"><strong>{f.total}</strong></td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+
+            {filtradas.length === 0 && <p className="ayuda">Nada con esos filtros.</p>}
+        </>
     );
 }
 
@@ -335,12 +544,17 @@ function Evaluacion({ filas }: { filas: FilaReporteActividad[] }) {
                 </div>
             </div>
 
-            <Seccion titulo="% Participación Sector">
-                <Dona datos={porSector} />
-            </Seccion>
-
-            <Seccion titulo="% Participación Cliente">
-                <Dona datos={porCliente} />
+            <Seccion titulo="% Participación">
+                <div className="donas-fila">
+                    <div className="dona-col">
+                        <p className="dona-subtitulo">Sector</p>
+                        <Dona datos={porSector} tam={112} />
+                    </div>
+                    <div className="dona-col">
+                        <p className="dona-subtitulo">Cliente</p>
+                        <Dona datos={porCliente} tam={112} />
+                    </div>
+                </div>
             </Seccion>
 
             <p className="ayuda">
@@ -419,78 +633,3 @@ function TablaMensual({ filas }: { filas: FilaReporteActividad[] }) {
     );
 }
 
-/**
- * Tabla cruzada genérica: grupo → subgrupo, una columna por tipo de actividad, más Total.
- * Sirve tanto para "por Sector" (grupo=sector, subgrupo=cliente) como para "por Cliente"
- * (al revés) — es la misma pregunta mirada desde el otro lado.
- */
-function TablaCruzada({ filas, agrupador, etiquetaGrupo, subagrupador, etiquetaSubgrupo }: {
-    filas: FilaReporteActividad[];
-    agrupador: (f: FilaReporteActividad) => string;
-    etiquetaGrupo: string;
-    subagrupador: (f: FilaReporteActividad) => string;
-    etiquetaSubgrupo: string;
-}) {
-    const tipos = useMemo(() => [...new Set(filas.map(f => f.tipo))].filter(Boolean).sort(), [filas]);
-
-    const filasCruzadas = useMemo(() => {
-        const mapa = new Map<string, {
-            grupo: string; subgrupo: string; porTipo: Map<string, number>; total: number;
-        }>();
-
-        for (const f of filas) {
-            const grupo = agrupador(f) || '(sin dato)';
-            const subgrupo = subagrupador(f) || '(sin dato)';
-            const clave = `${grupo}··${subgrupo}`;
-            if (!mapa.has(clave)) mapa.set(clave, { grupo, subgrupo, porTipo: new Map(), total: 0 });
-            const fila = mapa.get(clave)!;
-            fila.porTipo.set(f.tipo, (fila.porTipo.get(f.tipo) || 0) + 1);
-            fila.total++;
-        }
-
-        // Grupos por su propio total (el sector/cliente más grande primero), y dentro de cada
-        // grupo, el subgrupo más grande primero — mismo orden que trae el original.
-        const totalDeGrupo = new Map<string, number>();
-        for (const f of mapa.values()) totalDeGrupo.set(f.grupo, (totalDeGrupo.get(f.grupo) || 0) + f.total);
-
-        return [...mapa.values()].sort((a, b) =>
-            (totalDeGrupo.get(b.grupo)! - totalDeGrupo.get(a.grupo)!)
-            || a.grupo.localeCompare(b.grupo, 'es')
-            || b.total - a.total
-        );
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [filas, tipos.join(',')]);
-
-    let grupoAnterior: string | null = null;
-
-    return (
-        <div className="tabla-scroll">
-            <table className="tabla">
-                <thead>
-                    <tr>
-                        <th>{etiquetaGrupo}</th>
-                        <th>{etiquetaSubgrupo}</th>
-                        {tipos.map(t => <th className="num" key={t}>{t}</th>)}
-                        <th className="num">Total</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {filasCruzadas.map((f, i) => {
-                        const mismoGrupo = f.grupo === grupoAnterior;
-                        grupoAnterior = f.grupo;
-                        return (
-                            <tr key={i}>
-                                <td>{mismoGrupo ? '' : f.grupo}</td>
-                                <td>{f.subgrupo}</td>
-                                {tipos.map(t => (
-                                    <td className="num mono" key={t}>{f.porTipo.get(t) || '–'}</td>
-                                ))}
-                                <td className="num mono"><strong>{f.total}</strong></td>
-                            </tr>
-                        );
-                    })}
-                </tbody>
-            </table>
-        </div>
-    );
-}

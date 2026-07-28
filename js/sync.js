@@ -349,6 +349,18 @@ export async function leerGerenteSector() {
     return postear({ action: 'leerGerenteSector' });
 }
 
+/**
+ * Histórico pre-AppSheet, solo lectura. `correo` solo tiene efecto si quien pide es admin
+ * (si no, el servidor ya lo acota a lo propio sin importar lo que se mande aquí).
+ */
+export async function leerHistoricoActividades(correo) {
+    return postear({ action: 'leerHistoricoActividades', correo: correo || null });
+}
+
+export async function leerHistoricoPlanTrabajo(correo) {
+    return postear({ action: 'leerHistoricoPlanTrabajo', correo: correo || null });
+}
+
 /** Carga: { gerentes: [{gerente_correo, sectores: ["GASAS", ...]}] }. Reemplazo por gerente. */
 export async function guardarGerenteSector(cambios) {
     return postear({ action: 'guardarGerenteSector', ...cambios });

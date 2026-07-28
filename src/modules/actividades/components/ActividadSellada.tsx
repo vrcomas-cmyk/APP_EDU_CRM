@@ -10,7 +10,7 @@
  * respalda. Por eso sigue viva después del sello y puede cargarse días después.
  */
 
-import { campoVisible } from '@core/puente';
+import { campoVisible, fechaCorta } from '@core/puente';
 import { NodoVanilla } from '@shared/components/NodoVanilla';
 import { textoDelSello } from '../services/fabricas';
 import type { Actividad, Sector, Visita, Material } from '@core/tipos';
@@ -48,7 +48,7 @@ export function ActividadSellada({
                 <Dato etiqueta="Cliente" valor={visita.cliente} />
                 <Dato etiqueta="Hospital" valor={visita.hospital} />
                 {actividad.fecha_documento && (
-                    <Dato etiqueta="Fecha del documento" valor={actividad.fecha_documento} />
+                    <Dato etiqueta="Fecha del documento" valor={fechaCorta(actividad.fecha_documento)} />
                 )}
                 {actividad.evidencia?.tipo && (
                     <Dato etiqueta="Tipo de evidencia" valor={actividad.evidencia.tipo} />

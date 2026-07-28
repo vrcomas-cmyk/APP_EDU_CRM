@@ -24,7 +24,8 @@ import type {
     IndicadoresEducador, Revision, ResultadoRevision, FlujoRevision, Perfil,
     PendienteRevision, Comentario, CampoConfigurable, Catalogo, BorradorCatalogo,
     ResultadoFlujo, RolAdmin, CapacidadAdmin, UsuarioAdmin, FlujoAdmin, Estrategia,
-    GerenteSector, ReporteActividades, FiltroReporteActividades
+    GerenteSector, ReporteActividades, FiltroReporteActividades,
+    FilaHistoricoActividad, FilaHistoricoPlanTrabajo
 } from './tipos';
 
 // ---------- estado (salud, ciclo de vida, tiempo) ----------
@@ -196,6 +197,17 @@ export const leerGerenteSector = _sync.leerGerenteSector as () => Promise<
     { status?: string; message?: string; gerentes: GerenteSector[] }
 >;
 
+// ---------- histórico pre-AppSheet ----------
+
+/** `correo` solo tiene efecto si quien pide es admin; el servidor lo vuelve a revisar. */
+export const leerHistoricoActividades = _sync.leerHistoricoActividades as (
+    correo?: string | null
+) => Promise<{ status?: string; message?: string; filas: FilaHistoricoActividad[] }>;
+
+export const leerHistoricoPlanTrabajo = _sync.leerHistoricoPlanTrabajo as (
+    correo?: string | null
+) => Promise<{ status?: string; message?: string; filas: FilaHistoricoPlanTrabajo[] }>;
+
 /** Reemplazo completo por gerente. Carga: `{ gerentes: [{gerente_correo, sectores}] }`. */
 export const guardarGerenteSector = _sync.guardarGerenteSector as (cambios: {
     gerentes: GerenteSector[];
@@ -233,6 +245,8 @@ export const bloqueoParaActividades = _visita.bloqueoParaActividades as (v: Visi
 // ---------- fechas, ubicación, sesión ----------
 
 export const etiquetaDiaLarga = _fechas.etiquetaDiaLarga as (dia?: string) => string;
+/** 'YYYY-MM-DD' (o cualquier cadena que empiece así) → 'DD/MM/YYYY'. Cadena vacía si no hay fecha. */
+export const fechaCorta = _fechas.fechaCorta as (fecha?: string | null) => string;
 export const claveDia = _fechas.claveDia as (d: Date | string) => string;
 export const claveHoy = _fechas.claveHoy as () => string;
 export const desdeClave = _fechas.desdeClave as (clave: string) => Date;

@@ -6,7 +6,7 @@
  */
 
 import {
-    comentariosDeVisita, historialDe, miniaturaEvidencia, minutosDeRetraso
+    comentariosDeVisita, historialDe, miniaturaEvidencia, minutosDeRetraso, fechaCorta
 } from '@core/puente';
 import type { FlujoRevision, PendienteRevision } from '@core/tipos';
 import { Dato } from '@shared/components/Dato';
@@ -75,7 +75,7 @@ function Contexto({ flujo, item }: { flujo: FlujoRevision; item: PendienteRevisi
         <div className="datos revision-datos">
             <Dato etiqueta="Educador" valor={v.educador} />
             <Dato etiqueta="Cliente" valor={v.cliente} />
-            <Dato etiqueta="Fecha" valor={v.dia} />
+            <Dato etiqueta="Fecha" valor={fechaCorta(v.dia)} />
 
             {item.actividad ? (
                 <>

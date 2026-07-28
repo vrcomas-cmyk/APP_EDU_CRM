@@ -7,7 +7,7 @@
  */
 
 import { useState } from 'react';
-import { reagendarVisita, type Avisar } from '@core/puente';
+import { reagendarVisita, fechaCorta, type Avisar } from '@core/puente';
 import { moverInicio } from '../services/horario';
 import { reflejarEnCalendar } from '../services/calendarSync';
 import * as repo from '../repository/visitasRepo';
@@ -101,9 +101,9 @@ export function HistorialReagendas({ visita }: { visita: Visita }) {
             {[...reagendas].reverse().map((r, i) => (
                 <div className="historial-item" key={`${r.momento}-${i}`}>
                     <p className="mono">
-                        {r.antes.dia} {r.antes.hora_inicio}–{r.antes.hora_fin}
+                        {fechaCorta(r.antes.dia)} {r.antes.hora_inicio}–{r.antes.hora_fin}
                         {'  →  '}
-                        {r.despues.dia} {r.despues.hora_inicio}–{r.despues.hora_fin}
+                        {fechaCorta(r.despues.dia)} {r.despues.hora_inicio}–{r.despues.hora_fin}
                     </p>
                     <p className="historial-meta">
                         {r.motivo} · {r.usuario || 'Sin usuario'} · {new Date(r.momento).toLocaleString('es-MX')}

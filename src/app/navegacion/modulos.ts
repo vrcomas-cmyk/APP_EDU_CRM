@@ -17,7 +17,7 @@ import { puede, flujosDisponibles, conteoPendientes, hayRevisionesCargadas } fro
 
 export type ClaveModulo =
     'calendario' | 'mi-dia' | 'estrategias' | 'dashboard' | 'revision'
-    | 'reporte-actividades' | 'administracion';
+    | 'reporte-actividades' | 'historico' | 'administracion';
 
 export interface Modulo {
     clave: ClaveModulo;
@@ -98,6 +98,13 @@ export const MODULOS: Modulo[] = [
         corto: 'Actividad',
         icono: 'reporte-actividades',
         disponible: () => puede('reporte_actividades', 'ver')
+    },
+    {
+        clave: 'historico',
+        nombre: 'Histórico',
+        corto: 'Histórico',
+        icono: 'historico',
+        disponible: () => puede('historico', 'ver')
     },
     {
         clave: 'administracion',

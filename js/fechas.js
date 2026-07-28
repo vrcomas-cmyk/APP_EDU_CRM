@@ -38,6 +38,18 @@ export function desdeClave(clave) {
     return new Date(a, m - 1, d);
 }
 
+/**
+ * 'YYYY-MM-DD' (o cualquier cadena que empiece así, p. ej. un datetime-local) → 'DD/MM/YYYY'.
+ * Corta la cadena en vez de pasar por `Date`: igual que `claveDia`, evitar `Date`/`toISOString`
+ * aquí es lo que evita que una zona horaria corra la fecha un día.
+ */
+export function fechaCorta(fecha) {
+    if (!fecha) return '';
+    const [a, m, d] = String(fecha).slice(0, 10).split('-');
+    if (!a || !m || !d) return String(fecha);
+    return `${d}/${m}/${a}`;
+}
+
 export function sumarDias(fecha, dias) {
     const salida = new Date(fecha);
     salida.setDate(salida.getDate() + dias);

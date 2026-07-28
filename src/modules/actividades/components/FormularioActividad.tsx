@@ -9,7 +9,7 @@
 import { useMemo } from 'react';
 import {
     MODOS, configuracionCampos, campoEditable, camposExtra,
-    tiposActividad, areas, tiposEvidencia
+    tiposActividad, areas, tiposEvidencia, fechaCorta
 } from '@core/puente';
 import type { Actividad, Sector, Visita, ModoCampo } from '@core/tipos';
 
@@ -76,7 +76,7 @@ export function FormularioActividad({
                             onChange={(e) => editar(a => { a.fecha_documento = e.target.value; })}
                         />
                     ) : (
-                        <span className="dato-val">{actividad.fecha_documento || '—'}</span>
+                        <span className="dato-val">{fechaCorta(actividad.fecha_documento) || '—'}</span>
                     )}
                 </Campo>
             )}

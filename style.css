@@ -784,6 +784,18 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--ink) 12%, transparent);
 }
 
+/*
+ * Fecha de una visita: el texto de abajo (`-dd-texto`) es lo único que se VE — siempre en
+ * dd/mm/aaaa, sin importar el idioma del navegador. El `<input type="date">` real va encima,
+ * invisible, capturando clic/teclado/calendario nativo — ver la nota en FormularioVisita.tsx.
+ */
+.campo-fecha-dd { position: relative; }
+.campo-fecha-dd-texto { display: block; cursor: pointer; }
+.campo-fecha-dd-real {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  opacity: 0; cursor: pointer; border: 0; padding: 0;
+}
+
 .horas { display: flex; align-items: center; gap: 8px; }
 .horas .inp { flex: 1; min-width: 0; }
 .guion { color: var(--muted); flex: none; }
@@ -1574,6 +1586,28 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .dona-valor { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+
+/* Dos donas lado a lado en vez de apiladas: mismo espacio horizontal, la mitad de alto. */
+.donas-fila {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px;
+}
+.dona-col { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.dona-subtitulo {
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: .09em; text-transform: uppercase;
+  color: var(--muted); margin: 0;
+}
+.donas-fila .dona-wrap { gap: 12px; }
+.donas-fila .dona-leyenda { min-width: 0; max-height: 130px; overflow-y: auto; }
+
+/* Encabezado ordenable en una tabla: mismo gesto visual que un botón de texto, sin serlo. */
+.tabla th.col-clic { cursor: pointer; user-select: none; }
+.tabla th.col-clic:hover { color: var(--ink); }
+
+/* Fila de filtros por columna, pegada debajo del encabezado. */
+.tabla tr.fila-filtro th {
+  padding: 4px 6px; background: var(--surface); position: sticky; top: 22px;
+}
+.tabla tr.fila-filtro input.inp { padding: 4px 7px; font-size: 11.5px; width: 100%; min-width: 64px; }
 
 /* ---------- barra apilada (color categórico) ---------- */
 

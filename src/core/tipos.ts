@@ -509,6 +509,59 @@ export interface FiltroReporteActividades {
     educador?: string;
 }
 
+// ---------- histórico pre-AppSheet ----------
+
+/** Fila de `pdt_historico_actividades` — Excel "Registro Actividades_Educador Clínico". */
+export interface FilaHistoricoActividad {
+    no_doc: number | null;
+    fecha_carga: string | null;
+    fecha_documento: string | null;
+    educador_nombre: string | null;
+    educador_correo: string | null;
+    tipo_actividad: string | null;
+    cliente_no: string | null;
+    cliente_razon_social: string | null;
+    hospital: string | null;
+    sector: string | null;
+    grupo_articulo: string | null;
+    articulo_codigo: string | null;
+    articulo: string | null;
+    resultado: string | null;
+    folio: string | null;
+    contacto_responsable: string | null;
+    contacto_cargo: string | null;
+    servicio: string | null;
+    gerencia_marca: string | null;
+}
+
+/** Fila de `pdt_historico_plan_trabajo` — Excel "Registro Plan de Trabajo - Educador Clínico". */
+export interface FilaHistoricoPlanTrabajo {
+    anio: number | null;
+    mes: string | null;
+    semana: number | null;
+    dia_semana: string | null;
+    fecha: string | null;
+    educador_nombre: string | null;
+    educador_correo: string | null;
+    gerencia_marca: string | null;
+    hora_inicio: string | null;
+    hora_llegada: string | null;
+    puntualidad: string | null;
+    justificacion: string | null;
+    zona: string | null;
+    cliente_no: string | null;
+    cliente: string | null;
+    hospital: string | null;
+    area_visitada: string | null;
+    sector: string | null;
+    objetivo: string | null;
+    efectividad: string | null;
+    origen_actividad: string | null;
+    solicitante: string | null;
+    notas: string | null;
+    comentarios: string | null;
+}
+
 // ---------- territorios ----------
 
 /** Una zona con su titular. Una zona, un titular — nunca ambigua. */

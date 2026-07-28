@@ -11,7 +11,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     consultarVisitas, claveHoy, etiquetaDiaLarga, calcularIndicadores, indicadoresPorEducador,
     tieneEquipo, flujosDisponibles, conteoPendientes, opcionesDeFiltro, aplicarFiltro,
-    listarCompromisos, tieneCheckIn, saludDe, SALUD, detalleEstado,
+    listarCompromisos, tieneCheckIn, saludDe, SALUD, detalleEstado, fechaCorta,
     type CompromisoCalendar, type Filtro
 } from '@core/puente';
 import type { Visita } from '@core/tipos';
@@ -233,7 +233,7 @@ function FilaPorResolver({ visita, onAbrir }: { visita: Visita; onAbrir: (id: st
                 <span className="fila-porresolver-txt">
                     <strong>{visita.cliente || 'Sin cliente'}</strong>
                     {tieneEquipo() && visita.educador && <span className="mono"> · {visita.educador}</span>}
-                    <span className="ayuda"> · {visita.dia}</span>
+                    <span className="ayuda"> · {fechaCorta(visita.dia)}</span>
                 </span>
                 <BanderasVisita clase="fila-porresolver-flags" salud={salud} detalle={detalleEstado(visita)} />
             </button>

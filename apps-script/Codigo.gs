@@ -409,14 +409,15 @@ var ACCIONES_CON_IDENTIDAD = ['guardarVisitas', 'subirEvidencia', 'guardarEvento
                               'leerFlujos', 'guardarFlujos',
                               'guardarEstrategias', 'leerEstrategias',
                               'leerTerritorios', 'guardarTerritorios',
-                              'leerReporteActividades', 'leerGerenteSector', 'guardarGerenteSector'];
+                              'leerReporteActividades', 'leerGerenteSector', 'guardarGerenteSector',
+                              'leerHistoricoActividades', 'leerHistoricoPlanTrabajo'];
 
 // Acciones de solo LECTURA: no tocan ninguna hoja, así que no necesitan turnarse detrás del
 // candado global. Antes SÍ lo hacían —un `waitLock` compartido con las escrituras— y eso
 // significaba que una subida de evidencia grande (base64, puede tardar varios segundos)
 // bloqueaba hasta 30s la lectura de "Mi día"/Calendario de TODO el equipo, no solo de quien
 // subía. Separarlas es lo que de verdad resuelve la lentitud, más que el tamaño del payload.
-var ACCIONES_DE_LECTURA = ['leerVisitasEquipo', 'leerRevisiones', 'leerRBAC', 'leerFlujos', 'leerEstrategias', 'leerTerritorios', 'leerReporteActividades', 'leerGerenteSector'];
+var ACCIONES_DE_LECTURA = ['leerVisitasEquipo', 'leerRevisiones', 'leerRBAC', 'leerFlujos', 'leerEstrategias', 'leerTerritorios', 'leerReporteActividades', 'leerGerenteSector', 'leerHistoricoActividades', 'leerHistoricoPlanTrabajo'];
 
 function doPost(e) {
     var lock = null;
@@ -475,6 +476,10 @@ function doPost(e) {
                 return json(leerReporteActividades(body, identidad));
             case 'leerGerenteSector':
                 return json(leerGerenteSector(identidad));
+            case 'leerHistoricoActividades':
+                return json(leerHistoricoActividades(body, identidad));
+            case 'leerHistoricoPlanTrabajo':
+                return json(leerHistoricoPlanTrabajo(body, identidad));
             case 'guardarGerenteSector':
                 return json(guardarGerenteSector(body, identidad));
             default:
@@ -1291,6 +1296,32 @@ function leerReporteActividades(body, identidad) {
         };
     }
     return { status: 'ok', reporte: datos, espejo: true };
+}
+
+/**
+ * Histórico pre-AppSheet, solo lectura (ver 20260728f_pdt_historico_educadores.sql). Un
+ * administrador ve de cualquiera; cualquier otro, solo lo propio — el filtro `p_correo` que
+ * mande el cliente se IGNORA en ese caso, igual que `p_todas` en `leerReporteActividades`.
+ */
+function leerHistoricoActividades(body, identidad) {
+    var db = SpreadsheetApp.openById(SHEET_DB_ID);
+    var esAdministrador = esAdmin(db, identidad.correo);
+    var r = supabaseRPCEstricto('pdt_historico_actividades_listar', {
+        p_correo: esAdministrador ? (body.correo || null) : identidad.correo
+    });
+    if (!r.ok) return { status: 'error', message: r.error };
+    return { status: 'ok', filas: r.datos || [] };
+}
+
+/** Ídem para el histórico de plan de trabajo. */
+function leerHistoricoPlanTrabajo(body, identidad) {
+    var db = SpreadsheetApp.openById(SHEET_DB_ID);
+    var esAdministrador = esAdmin(db, identidad.correo);
+    var r = supabaseRPCEstricto('pdt_historico_plan_trabajo_listar', {
+        p_correo: esAdministrador ? (body.correo || null) : identidad.correo
+    });
+    if (!r.ok) return { status: 'error', message: r.error };
+    return { status: 'ok', filas: r.datos || [] };
 }
 
 /** Qué Sector puede ver cada gerente en el reporte de Actividades. Solo para administradores. */

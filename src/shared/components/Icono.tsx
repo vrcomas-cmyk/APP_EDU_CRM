@@ -88,6 +88,19 @@ const ICONOS: Record<ClaveIcono, { titulo: string; cuerpo: JSX.Element }> = {
             </>
         )
     },
+    // Histórico: caja de archivo con un reloj — datos guardados de antes de esta app, no una
+    // línea de tiempo en vivo.
+    historico: {
+        titulo: 'Histórico',
+        cuerpo: (
+            <>
+                <rect x="3" y="7" width="18" height="14" rx="2" />
+                <path d="M3 7l2-4h14l2 4" />
+                <circle cx="12" cy="14" r="3.2" />
+                <path d="M12 12.3v1.9l1.3 1.1" />
+            </>
+        )
+    },
     // Administración: engranaje. Sigue siendo el símbolo universal de "configuración".
     administracion: {
         titulo: 'Administración',
