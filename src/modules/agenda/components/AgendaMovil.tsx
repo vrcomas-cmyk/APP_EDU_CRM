@@ -6,13 +6,14 @@
  * puntos — que se lee de un vistazo sin abrir nada.
  */
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
     claveDia, claveHoy, desdeClave, diasDeSemana, etiquetaDiaLarga, inicialesDias,
     saludDe, detalleEstado, estadoDe, ESTADOS, inicioDe, sesionActual,
-    esVisitaCliente, etiquetaVisita
+    esVisitaCliente, etiquetaVisita, type CompromisoCalendar
 } from '@core/puente';
 import { BanderasVisita } from '@shared/components/Indicadores';
+import { ResumenCompromiso } from '@shared/components/ResumenCompromiso';
 import type { Visita } from '@core/tipos';
 
 /** Más de cuatro puntos no se distinguen; el número deja de leerse como cantidad. */
@@ -21,19 +22,32 @@ const MAX_PUNTOS = 4;
 interface Props {
     cursor: Date;
     visitasDe: (clave: string) => Visita[];
+    /** Lo que ya está en Google Calendar — de solo lectura, se lee, no se agenda desde aquí. */
+    compromisosDe?: (clave: string) => CompromisoCalendar[];
     onElegirDia: (fecha: Date) => void;
     onAbrir: (id: string) => void;
 }
 
-export function AgendaMovil({ cursor, visitasDe, onElegirDia, onAbrir }: Props) {
+export function AgendaMovil({ cursor, visitasDe, compromisosDe, onElegirDia, onAbrir }: Props) {
     const clave = claveDia(cursor);
     const hoy = claveHoy();
+    const [compromisoAbierto, setCompromisoAbierto] = useState<CompromisoCalendar | null>(null);
 
     const delDia = useMemo(
         () => [...visitasDe(clave)]
             .sort((a, b) => (inicioDe(a)?.getTime() ?? 0) - (inicioDe(b)?.getTime() ?? 0)),
         [visitasDe, clave]
     );
+
+    const compromisosDia = useMemo(
+        () => compromisosDe?.(clave) ?? [],
+        [compromisosDe, clave]
+    );
+
+    const filas = useMemo(() => [
+        ...delDia.map(v => ({ tipo: 'visita' as const, hora: inicioDe(v)?.getTime() ?? 0, visita: v })),
+        ...compromisosDia.map(c => ({ tipo: 'compromiso' as const, hora: new Date(c.inicio).getTime(), compromiso: c }))
+    ].sort((a, b) => a.hora - b.hora), [delDia, compromisosDia]);
 
     return (
         <>
@@ -47,18 +61,57 @@ export function AgendaMovil({ cursor, visitasDe, onElegirDia, onAbrir }: Props) 
                     </span>
                 </div>
 
-                {delDia.length === 0 ? (
+                {filas.length === 0 ? (
                     <p className="empty">
                         <strong>{clave === hoy ? 'Día libre' : 'Sin visitas'}</strong>
                         Toca "Nueva visita" para agendar una.
                     </p>
                 ) : (
                     <div className="agenda-list">
-                        {delDia.map(v => <FilaAgenda visita={v} key={v.id} onAbrir={onAbrir} />)}
+                        {filas.map(f => f.tipo === 'visita'
+                            ? <FilaAgenda visita={f.visita} key={f.visita.id} onAbrir={onAbrir} />
+                            : (
+                                <FilaCompromiso
+                                    compromiso={f.compromiso}
+                                    key={f.compromiso.id}
+                                    onAbrir={setCompromisoAbierto}
+                                />
+                            ))}
                     </div>
                 )}
             </div>
+
+            {compromisoAbierto && (
+                <ResumenCompromiso compromiso={compromisoAbierto} onCerrar={() => setCompromisoAbierto(null)} />
+            )}
         </>
+    );
+}
+
+function horaCorta(iso: string): string {
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? '' : d.toTimeString().slice(0, 5);
+}
+
+/** Misma forma de fila que una visita, para que la lista del día se lea de un vistazo. */
+function FilaCompromiso({ compromiso, onAbrir }: {
+    compromiso: CompromisoCalendar;
+    onAbrir: (c: CompromisoCalendar) => void;
+}) {
+    return (
+        <button
+            type="button"
+            className="arow es-compromiso"
+            onClick={() => onAbrir(compromiso)}
+        >
+            <span className="arow-time">
+                {compromiso.todoElDia ? 'Todo el día' : horaCorta(compromiso.inicio)}
+            </span>
+            <span className="arow-body">
+                <span className="arow-client">{compromiso.titulo}</span>
+                <span className="arow-hosp">Google Calendar</span>
+            </span>
+        </button>
     );
 }
 

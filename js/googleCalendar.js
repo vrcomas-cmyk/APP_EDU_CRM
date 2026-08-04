@@ -26,6 +26,8 @@
  * se ven como visita en la propia app, mostrarlos dos veces confundiría más de lo que ayuda.
  */
 
+import { etiquetaVisita, esVisitaCliente } from './estado.js';
+
 const CALENDAR_API = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
 const SCOPE_CALENDAR = 'https://www.googleapis.com/auth/calendar.events';
 const MARCA_ORIGEN = 'pdt-visita';
@@ -133,14 +135,23 @@ function encabezados() {
     };
 }
 
-/** Cuerpo del evento a partir de la visita. Un solo lugar que sabe traducir uno al otro. */
-function eventoDeVisita(visita) {
+/**
+ * Cuerpo del evento a partir de la visita. Un solo lugar que sabe traducir uno al otro.
+ *
+ * El título sale de `etiquetaVisita` —la misma regla que nombra la visita en el calendario
+ * propio y en los tooltips— en vez de armar "cliente · hospital" a mano: antes, sin hospital
+ * quedaba "CLIENTE ·" (el `.trim()` no quita el separador) y una visita administrativa o un
+ * evento salía literalmente "Visita ·".
+ */
+export function eventoDeVisita(visita) {
     const zona = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const hospital = esVisitaCliente(visita) ? (visita.hospital || '') : '';
+    const sectores = (visita.sectores || []).map(s => s.nombre).join(', ');
     return {
-        summary: `${visita.cliente || 'Visita'} · ${visita.hospital || ''}`.trim(),
-        location: visita.hospital || '',
-        description: `Plan de Trabajo · ${visita.educador || ''}\nSector(es): `
-            + (visita.sectores || []).map(s => s.nombre).join(', '),
+        summary: [etiquetaVisita(visita), hospital].filter(Boolean).join(' · '),
+        location: hospital,
+        description: `Plan de Trabajo · ${visita.educador || ''}`
+            + (sectores ? `\nSector(es): ${sectores}` : ''),
         start: { dateTime: `${visita.dia}T${visita.hora_inicio || '09:00'}:00`, timeZone: zona },
         end: { dateTime: `${visita.dia}T${visita.hora_fin || '10:00'}:00`, timeZone: zona },
         extendedProperties: { private: { origen: MARCA_ORIGEN, id_visita: visita.id } }

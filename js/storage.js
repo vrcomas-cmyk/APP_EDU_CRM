@@ -89,6 +89,9 @@ export function leerVisitas() {
 
 export function guardarVisitas(visitas) {
     localStorage.setItem(CLAVE_VISITAS, JSON.stringify(visitas));
+    // Un evento y no un import de sync.js: ese módulo ya importa este, y llamarlo al revés
+    // sería un ciclo. app.js escucha esto para subir solo, sin esperar al botón manual.
+    window.dispatchEvent(new CustomEvent('pdt:visitas-guardadas'));
 }
 
 export function obtenerVisita(id) {

@@ -30,6 +30,11 @@ import { initTema } from './tema.js';
 let el = {};
 let sincronizando = false;
 let appIniciada = false;
+// Si el último intento falló, el auto-sync deja de insistir hasta que vuelva la señal o
+// alguien pulse el botón a mano: martillar cada pocos segundos contra un servidor caído
+// no arregla nada y solo gasta batería y datos.
+let sincronizarFallo = false;
+let relojAutoSync = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     el = {
@@ -268,11 +273,24 @@ function iniciarApp() {
     document.addEventListener('keydown', atajoPaleta);
     window.addEventListener('online', alCambiarConexion);
     window.addEventListener('offline', alCambiarConexion);
+    // "Ingresar" en el celular casi siempre es retomar la pestaña, no un arranque nuevo:
+    // sin esto, volver de otra app podía dejar horas de trabajo sin subir hasta el próximo
+    // toque manual del chip de sync.
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') sincronizar();
+    });
+    // Cada guardado (visita, evidencia, check-in/out) pasa por `guardarVisitas` en
+    // storage.js, que emite esto — así sube solo sin esperar al botón.
+    window.addEventListener('pdt:visitas-guardadas', alGuardarVisitas);
 
     refrescarTodo();
     alCambiarConexion();
     // La línea de "ahora" se queda quieta si nadie la mueve.
     setInterval(refrescarCalendario, 60000);
+    // Red de seguridad para la app abierta en primer plano toda la tarde con señal
+    // intermitente: sin esto, entre guardados espaciados y sin cambiar de pestaña nada
+    // reintentaba subir lo pendiente.
+    relojAutoSync = setInterval(() => sincronizar(), 5 * 60000);
 }
 
 if ('serviceWorker' in navigator) {
@@ -398,6 +416,8 @@ export function toast(texto, { estado = null, accion = null, ms } = {}) {
 
 function alCambiarConexion() {
     if (navigator.onLine) {
+        // Recuperar señal es la única señal clara de que vale la pena reintentar solo.
+        sincronizarFallo = false;
         // Antes de mandar nada: si el token de sesión ya venció (posible tras horas
         // offline), esto lo renueva en silencio para que el sync no lo rechace.
         intentarRefresco();
@@ -407,6 +427,18 @@ function alCambiarConexion() {
     } else {
         pintarSync('is-off', 'Sin conexión');
     }
+}
+
+let relojDebounceSync = null;
+
+/**
+ * Auto-sync tras guardar: agrupa la ráfaga de escrituras de un mismo guardado (visita,
+ * evidencia, check-in/out) en un solo envío en vez de uno por escritura.
+ */
+function alGuardarVisitas() {
+    if (sincronizando || sincronizarFallo) return;
+    clearTimeout(relojDebounceSync);
+    relojDebounceSync = setTimeout(() => sincronizar(), 2000);
 }
 
 function pintarSync(clase, texto) {
@@ -445,9 +477,12 @@ async function sincronizar({ manual = false } = {}) {
     } catch (error) {
         console.error('Error al sincronizar:', error);
         pintarSync('is-error', 'Error');
+        // El auto-sync se detiene hasta recuperar señal o un reintento explícito: sin esto
+        // seguiría llamando cada 2s (por guardado) o cada 5 min contra el mismo error.
+        sincronizarFallo = true;
         toast(`No se pudo sincronizar: ${error.message}`, {
             estado: 'sin-registrar',
-            accion: { texto: 'Reintentar', fn: () => sincronizar({ manual: true }) },
+            accion: { texto: 'Reintentar', fn: () => { sincronizarFallo = false; sincronizar({ manual: true }); } },
             ms: 8000
         });
         sincronizando = false;

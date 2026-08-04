@@ -102,6 +102,20 @@ if (!hayDOMReal) globalThis.document = {
 
 if (!hayDOMReal) globalThis.window = globalThis;
 
+// `storage.js` avisa por evento cuando guarda (para el auto-sync); Node no trae
+// `CustomEvent`/`dispatchEvent` por defecto. No hace falta que escuche nadie, solo que no
+// reviente al emitirlo.
+if (typeof globalThis.CustomEvent === 'undefined') {
+    globalThis.CustomEvent = class CustomEvent {
+        constructor(tipo, detalle) { this.type = tipo; this.detail = detalle?.detail; }
+    };
+}
+if (typeof globalThis.window.dispatchEvent !== 'function') {
+    globalThis.window.dispatchEvent = () => true;
+    globalThis.window.addEventListener = globalThis.window.addEventListener || (() => {});
+    globalThis.window.removeEventListener = globalThis.window.removeEventListener || (() => {});
+}
+
 // Node ya define `navigator`, y solo con getter: no se puede reasignar. Se le agrega `onLine`
 // encima, que es lo único que la app le pide.
 if (!('onLine' in globalThis.navigator)) {

@@ -206,13 +206,33 @@ export function Calendario({
         <FiltrosCalendario filtro={filtro} opciones={opciones} onCambiar={setFiltro} />
     );
 
+    // Antes vivía solo en la rama de Día/Semana: en el celular, que siempre cae en la rama
+    // `movil`, esto la dejaba inalcanzable y Google Calendar no existía ahí ni para conectar
+    // ni para ver los compromisos. Es el único punto de la app donde se conecta Calendar sin
+    // depender del permiso de "Mi día".
+    const barraConectarCalendar = !calendarConectado && (
+        <div className="calendar-conectar-barra">
+            <span>
+                {conectando
+                    ? 'Conectando con Google Calendar…'
+                    : 'Conecta Google Calendar para ver tus juntas en la rejilla.'}
+            </span>
+            <button type="button" className="btn-txt" disabled={conectando} onClick={conectarCalendarBtn}>
+                Conectar Google Calendar
+            </button>
+            {errorCalendar && <span className="aviso">{errorCalendar}</span>}
+        </div>
+    );
+
     if (movil) {
         return (
             <>
                 {barraFiltros}
+                {barraConectarCalendar}
                 <AgendaMovil
                     cursor={cursor}
                     visitasDe={visitasDe}
+                    compromisosDe={compromisosDe}
                     onElegirDia={setCursor}
                     onAbrir={onAbrirVisita}
                 />
@@ -231,6 +251,7 @@ export function Calendario({
         return (
             <>
                 {barraFiltros}
+                {barraConectarCalendar}
                 <VistaMes cursor={cursor} visitasDe={visitasDe} onElegirDia={irADia} />
                 {pendiente && (
                     <ModalMotivo
@@ -246,19 +267,7 @@ export function Calendario({
     return (
         <>
             {barraFiltros}
-            {!calendarConectado && (
-                <div className="calendar-conectar-barra">
-                    <span>
-                        {conectando
-                            ? 'Conectando con Google Calendar…'
-                            : 'Conecta Google Calendar para ver tus juntas en la rejilla.'}
-                    </span>
-                    <button type="button" className="btn-txt" disabled={conectando} onClick={conectarCalendarBtn}>
-                        Conectar Google Calendar
-                    </button>
-                    {errorCalendar && <span className="aviso">{errorCalendar}</span>}
-                </div>
-            )}
+            {barraConectarCalendar}
             <RejillaHoras
                 claves={claves}
                 clase={modo === 'semana' ? 'semana' : 'dia'}

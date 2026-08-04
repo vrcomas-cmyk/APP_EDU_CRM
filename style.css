@@ -664,6 +664,11 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 .arow-hosp { font-size: 12px; color: var(--muted); }
 .arow-meta { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; margin-top: 3px; }
 
+/* Compromiso de Google Calendar en la agenda móvil: misma fila que una visita para leerse
+   de un vistazo, pero sin el color de salud (no es una visita, no se juzga como una). */
+.arow.es-compromiso { --st: var(--rule); background: var(--surface-2); }
+.arow.es-compromiso .arow-client { font-style: italic; color: var(--ink-2); }
+
 /* ---------- vacío ---------- */
 .empty {
   text-align: center; color: var(--muted); font-size: 13.5px;
@@ -1424,8 +1429,14 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 }
 
 @media (max-width: 720px) {
-  .appbar { padding: 8px 12px; gap: 8px; }
-  .appbar-mark { font-size: 10px; }
+  /* Sin esto la fila no cabe: `.seg`, `.sync`, `.deuda` y `.sesion-chip` son todos
+     `flex: none`, y a 360px sus anchos mínimos suman más de lo disponible. Sin `wrap` ni
+     scroll, `.app { overflow: hidden }` recortaba silenciosamente los últimos botones del
+     DOM —sync y sesión— dejándolos inalcanzables en vez de solo apretados. */
+  .appbar { padding: 8px 12px; gap: 8px; flex-wrap: wrap; }
+  /* No es funcionalidad, solo el nombre de la app: el ícono de la PWA ya identifica la
+     pantalla, y liberar su ancho es lo que evita el salto de línea en el caso común. */
+  .appbar-mark { display: none; }
   .datenav-label { min-width: 0; font-size: 12.5px; }
   /* `bottom` depende de `--nav-alto`, declarada junto con `.nav-modulos` más abajo: la
      relación queda explícita en vez de un número que se desincroniza si cambia el riel. */
@@ -1437,6 +1448,16 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
   /* Objetivo táctil mínimo (~44px) para las acciones destructivas de Administración: a 26px
      eran el botón más fácil de tocar por error de toda la app. */
   .icon-btn, .btn-buscar { width: 40px; height: 40px; }
+
+  /* El chip de sync puede decir "Sin conexión" o "12 en cola": sin un tope, ese texto por sí
+     solo empujaba al resto de la fila fuera de línea. */
+  .sync { flex: 0 1 auto; min-width: 0; }
+  #sync-txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* El nombre completo no cabe ni hace falta para reconocer la cuenta activa; la foto sola,
+     a tamaño de objetivo táctil, sigue cerrando sesión igual que antes. */
+  .sesion-chip { max-width: none; flex: none; padding: 3px; }
+  .sesion-chip #sesion-nombre { display: none; }
 }
 
 /* ============================================================
