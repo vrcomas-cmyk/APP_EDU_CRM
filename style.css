@@ -256,6 +256,17 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
   transition: background-color .15s var(--ease);
 }
 .arrow:hover { background: var(--surface-2); }
+
+/* Único disparador táctil de la paleta de comandos: en el celular Ctrl+K no existe, y sin
+   este botón la búsqueda global de visitas por cliente/hospital era inalcanzable ahí. */
+.btn-buscar {
+  width: 26px; height: 26px; flex: none;
+  border: 1px solid var(--rule); border-radius: 6px;
+  background: transparent; color: var(--ink-2); font-size: 13px;
+  cursor: pointer; line-height: 1;
+  transition: background-color .15s var(--ease);
+}
+.btn-buscar:hover { background: var(--surface-2); }
 .datenav-label {
   font-size: 13.5px; font-weight: 600; letter-spacing: -.01em;
   min-width: 132px; text-transform: capitalize;
@@ -1416,8 +1427,16 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
   .appbar { padding: 8px 12px; gap: 8px; }
   .appbar-mark { font-size: 10px; }
   .datenav-label { min-width: 0; font-size: 12.5px; }
-  .fab { right: 14px; bottom: 14px; }
+  /* `bottom` depende de `--nav-alto`, declarada junto con `.nav-modulos` más abajo: la
+     relación queda explícita en vez de un número que se desincroniza si cambia el riel. */
+  .fab { right: 14px; bottom: calc(var(--nav-alto, 56px) + 12px + env(safe-area-inset-bottom, 0px)); }
+  /* El atajo de teclado que anuncia no existe en el celular. */
+  .fab kbd { display: none; }
   .tema-switch button { padding: 5px; }
+
+  /* Objetivo táctil mínimo (~44px) para las acciones destructivas de Administración: a 26px
+     eran el botón más fácil de tocar por error de toda la app. */
+  .icon-btn, .btn-buscar { width: 40px; height: 40px; }
 }
 
 /* ============================================================
@@ -2036,9 +2055,16 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 }
 
 @media (max-width: 720px) {
+    /* En `:root` y no en `.nav-modulos`: `.fab` es hermano de `.app`, no descendiente del
+       riel, y una variable solo se ve dentro del subárbol donde se declara. */
+    :root {
+        --nav-alto: 56px;
+    }
+
     .main { flex-direction: column-reverse; }
 
     .nav-modulos {
+        min-height: var(--nav-alto);
         flex-direction: row;
         justify-content: space-around;
         gap: 0;

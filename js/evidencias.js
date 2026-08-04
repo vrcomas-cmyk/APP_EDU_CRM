@@ -229,7 +229,9 @@ function selectorArchivo(actividad, alCambiar, alToast) {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = TIPOS_ACEPTADOS;
-    input.capture = 'environment';
+    // Sin `capture`: con él, Android fuerza abrir la cámara y quita la opción de elegir una
+    // foto ya tomada de la galería o un PDF del almacenamiento, aunque `accept` los permita.
+    // Sin `capture` el mismo diálogo ofrece cámara y archivos, con la cámara a un toque.
     input.hidden = true;
 
     input.addEventListener('change', async () => {

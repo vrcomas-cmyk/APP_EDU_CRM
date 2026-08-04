@@ -121,6 +121,45 @@ export function eliminarVisita(id) {
     guardarVisitas(leerVisitas().filter(v => v.id !== id));
 }
 
+const normCorreo = (s) => String(s || '').trim().toLowerCase();
+
+/**
+ * Adopta en este dispositivo las visitas PROPIAS que trajo el espejo del equipo.
+ *
+ * Es lo que hace posible seguir trabajando desde otro dispositivo: sin esto, el espejo solo
+ * sirve para MIRAR (vive en memoria, `datos.js`), no para editar —una visita ajena a
+ * localStorage no aparece en "mis pendientes" ni se puede hacer check-in/out sobre ella.
+ *
+ * Misma regla que `fusionarEstrategiasEquipo`: el servidor manda, salvo lo que este mismo
+ * dispositivo ya haya tocado y todavía no subió (`sincronizado === false`) o esté a medio
+ * capturar (`borrador === true`) — eso el servidor ni siquiera lo vio; pisarlo lo borraría.
+ * También se respetan las visitas locales de OTRO correo (no debería haberlas, pero adoptar
+ * no es el lugar para decidir borrarlas).
+ */
+export function adoptarVisitasPropias(remotas, correo) {
+    const propio = normCorreo(correo);
+    if (!propio) return 0;
+
+    const remotasPropias = (remotas || []).filter(v => normCorreo(v.educador_correo) === propio);
+    if (remotasPropias.length === 0) return 0;
+
+    const locales = leerVisitas();
+    const protegidas = new Set(
+        locales.filter(v => v.sincronizado === false || v.borrador).map(v => v.id)
+    );
+    const ajenas = locales.filter(v => normCorreo(v.educador_correo) !== propio);
+    const propiasProtegidas = locales.filter(
+        v => normCorreo(v.educador_correo) === propio && protegidas.has(v.id)
+    );
+
+    const adoptadas = remotasPropias
+        .filter(v => !protegidas.has(v.id))
+        .map(v => ({ ...v, sincronizado: true }));
+
+    guardarVisitas([...ajenas, ...propiasProtegidas, ...adoptadas]);
+    return adoptadas.length;
+}
+
 // ---------- estrategias ----------
 //
 // Cliente × Sector × Grupo de Artículo: qué plan se va a trabajar ahí. Cualquier educador o

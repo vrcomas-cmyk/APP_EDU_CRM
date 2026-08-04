@@ -114,6 +114,14 @@ export default defineConfig({
     },
 
     test: {
+        // El default de vitest (5000ms) no mide el código, mide la velocidad del transform de
+        // Vite en la máquina donde corre: `js/app.js` es la raíz de toda la app —arrastra React
+        // y cada módulo— y la PRIMERA vez que algo lo importa en frío (el primer test de
+        // `arranque.test.tsx`, o `app.js` dentro de `modulos.test.js` por ser alfabéticamente
+        // el primero) ese transform solo ya cuesta ~5-6s. Sin este piso, esos dos tests quedan
+        // en rojo por ruido de máquina, no por un bug, y eso enseña a ignorar la suite.
+        testTimeout: 30000,
+
         // Node por defecto: la mayoría de las pruebas son de dominio y no necesitan DOM.
         // Las de componentes piden `happy-dom` con una anotación al inicio del archivo.
         environment: 'node',

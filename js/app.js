@@ -6,7 +6,7 @@
  * haciendo — al agendar, la pregunta real es "¿dónde cabe esto?".
  */
 
-import { migrarSiHaceFalta, leerCatalogo } from './storage.js';
+import { migrarSiHaceFalta, leerCatalogo, adoptarVisitasPropias } from './storage.js';
 import {
     descargarCatalogo, sincronizarTodo, descargarVisitasEquipo, descargarRevisiones
 } from './sync.js';
@@ -19,7 +19,7 @@ import { initPaleta, abrirPaleta, hayPaletaAbierta } from '../src/modules/paleta
 import { configurarToken } from '../src/services/google/appsScript';
 import {
     initPermisos, actualizarPerfil, olvidarPerfil,
-    accesoBloqueado, aceptarInvitacion, tieneEquipo,
+    accesoBloqueado, aceptarInvitacion,
     enSimulacion, detalleSimulacion, salirSimulacion
 } from './permisos.js';
 import { ponerVisitasEquipo, olvidarVisitasEquipo } from './datos.js';
@@ -45,6 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
         sync: document.getElementById('btn-sync'),
         syncTxt: document.getElementById('sync-txt'),
         deuda: document.getElementById('btn-deuda'),
+        buscar: document.getElementById('btn-buscar'),
         deudaN: document.getElementById('deuda-n'),
         sesion: document.getElementById('btn-sesion'),
         sesionFoto: document.getElementById('sesion-foto'),
@@ -193,23 +194,26 @@ function refrescarPerfil() {
 }
 
 /**
- * Trae las visitas del equipo al espejo en memoria. Solo para quien tenga a alguien a cargo:
- * pedirlas para un educador sería una petición que siempre vuelve con lo que ya tiene.
+ * Trae las visitas del equipo al espejo en memoria. Se pide SIEMPRE, tenga o no tenga equipo
+ * la persona: es también cómo un educador sin nadie a cargo recupera, en OTRO dispositivo, lo
+ * que capturó en el primero —su propio correo puede tener visitas en el espejo aunque
+ * `pdt_alcance` no le devuelva a nadie más—. Pedirla de menos aquí significa que esa persona
+ * abre la app en el celular y no ve nada de lo que hizo en la compu.
  *
- * En simulación ("ver como") se pide SIEMPRE, aunque la persona simulada no tenga equipo
- * propio. `tieneEquipo()` mira el perfil ACTUAL —el simulado, mientras se está simulando—, así
- * que sin esto la app decidía "esta persona no tiene equipo, no vale la pena pedir nada" y el
- * espejo se quedaba vacío: el admin real "veía como" alguien pero sin sus registros, aunque sí
- * existieran. `descargarVisitasEquipo()` pide con la identidad REAL (Apps Script la verifica,
- * no la simulación) y un administrador real trae TODO el espejo — de ahí sale lo que
- * `visiblePara()` va a recortar después al alcance de la persona simulada.
+ * `descargarVisitasEquipo()` pide con la identidad REAL (Apps Script la verifica, no la
+ * simulación) y un administrador real trae TODO el espejo — de ahí sale lo que `visiblePara()`
+ * va a recortar después al alcance de la persona simulada. Eso ya cubre "ver como" sin nada
+ * especial aquí.
+ *
+ * De lo que llega, se ADOPTA a este disco la parte que es del correo real de la sesión —para
+ * que sea editable, no solo visible—, salvo en simulación: un admin "viendo como" alguien no
+ * debe terminar con las visitas de esa persona en su propio localStorage.
  */
 function cargarEquipo() {
-    if (!tieneEquipo() && !enSimulacion()) return;
-
     descargarVisitasEquipo().then(({ visitas, espejo }) => {
         if (!espejo) return;      // el espejo no está configurado: se sigue con lo local
         ponerVisitasEquipo(visitas);
+        if (!enSimulacion()) adoptarVisitasPropias(visitas, sesionActual()?.correo);
         refrescarTodo();
     });
 }
@@ -257,6 +261,8 @@ function iniciarApp() {
     el.fab.addEventListener('click', () => abrirNuevaVisita());
     el.sync.addEventListener('click', () => sincronizar({ manual: true }));
     el.deuda.addEventListener('click', () => toast('La bandeja de evidencias llega en el paso siguiente.'));
+    // Único disparador táctil de la paleta: sin esto, Ctrl+K la deja inalcanzable en el celular.
+    el.buscar.addEventListener('click', () => abrirPaleta());
 
     document.addEventListener('keydown', atajos);
     document.addEventListener('keydown', atajoPaleta);
@@ -451,6 +457,12 @@ async function sincronizar({ manual = false } = {}) {
     sincronizando = false;
     refrescarTodo();
     estadoSyncEnReposo();
+
+    // Con lo propio ya subido, se vuelve a bajar el espejo: así lo que otro dispositivo
+    // acaba de sincronizar aparece aquí sin esperar a recargar la página. El orden importa —
+    // primero subir, luego bajar— para que `adoptarVisitasPropias` no tenga nada pendiente
+    // que proteger de esta misma sesión.
+    cargarEquipo();
 }
 
 // ---------- catálogo ----------
