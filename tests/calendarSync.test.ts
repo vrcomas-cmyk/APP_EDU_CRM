@@ -1,9 +1,13 @@
 /**
  * Puente visita ↔ Google Calendar.
  *
- * Silencioso por diseño: sin conexión a Calendar, no debe intentar nada ni marcar error. Con
- * conexión, guarda el id que Calendar devuelve para poder actualizar el mismo evento después
- * en vez de crear uno nuevo cada vez.
+ * Silencioso por diseño frente al usuario: sin conexión a Calendar, no debe intentar nada ni
+ * marcar error visible. Pero SÍ debe dejar rastro local (`calendar_pendiente`) para que el
+ * reconciliador de fondo (`sincronizarCalendar()` en `js/sync.js`) cree el evento en cuanto
+ * Calendar esté disponible — antes esto era un no-op total y la visita se quedaba sin evento
+ * para siempre si se guardó antes de que la reconexión OAuth resolviera. Con conexión, guarda
+ * el id que Calendar devuelve para poder actualizar el mismo evento después en vez de crear
+ * uno nuevo cada vez.
  */
 
 import { test, describe, vi, beforeEach } from 'vitest';
@@ -32,11 +36,21 @@ beforeEach(() => {
 });
 
 describe('reflejarEnCalendar', () => {
-    test('sin Calendar conectado, no llama a la API ni al editar', async () => {
-        const editar = vi.fn();
+    test('sin Calendar conectado, no llama a la API pero marca pendiente', async () => {
+        const editar = vi.fn((mutador: (v: Visita) => void) => {
+            const copia = { ...visita };
+            mutador(copia);
+            assert.equal(copia.calendar_pendiente, true);
+        });
         await reflejarEnCalendar(visita, editar);
 
         assert.equal((puente.sincronizarEventoVisita as ReturnType<typeof vi.fn>).mock.calls.length, 0);
+        assert.equal(editar.mock.calls.length, 1);
+    });
+
+    test('sin Calendar conectado y ya marcada pendiente, no vuelve a editar', async () => {
+        const editar = vi.fn();
+        await reflejarEnCalendar({ ...visita, calendar_pendiente: true }, editar);
         assert.equal(editar.mock.calls.length, 0);
     });
 

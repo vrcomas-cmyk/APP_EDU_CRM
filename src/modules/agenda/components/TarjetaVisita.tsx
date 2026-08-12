@@ -60,7 +60,9 @@ export function TarjetaVisita({
         // Late mientras el educador está dentro: es lo único que está pasando AHORA.
         estado === ESTADOS.EN_PROCESO ? 'es-viva' : '',
         duracion < 0.75 ? 'compacta' : '',
-        esDelEquipo ? 'es-equipo' : ''
+        esDelEquipo ? 'es-equipo' : '',
+        // Cuatro o más solapadas: hospital y banderas ya no caben sin partirse a la mitad.
+        columnas >= 4 ? 'es-apretado' : ''
     ].filter(Boolean).join(' ');
 
     const sectores = visita.sectores || [];

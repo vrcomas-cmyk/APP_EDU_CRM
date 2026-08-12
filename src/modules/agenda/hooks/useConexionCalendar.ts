@@ -23,7 +23,16 @@ let intentoPorPestaña: Promise<boolean> | null = null;
 
 function reconexionUnaVezPorPestaña(): Promise<boolean> {
     if (tieneAccesoCalendar()) return Promise.resolve(true);
-    if (!intentoPorPestaña) intentoPorPestaña = intentarReconexionCalendar(CALENDAR_CLIENT_ID);
+    if (!intentoPorPestaña) {
+        // Si este intento falla, se limpia la caché: antes un solo fallo (por ejemplo, sin
+        // señal justo al abrir la app) dejaba la promesa fallida cacheada para el resto de la
+        // vida de la pestaña, y ningún montaje posterior de Calendario o Mi día volvía a
+        // intentarlo — Calendar se quedaba "no conectado" aunque la señal volviera.
+        intentoPorPestaña = intentarReconexionCalendar(CALENDAR_CLIENT_ID).then((ok) => {
+            if (!ok) intentoPorPestaña = null;
+            return ok;
+        });
+    }
     return intentoPorPestaña;
 }
 
@@ -42,6 +51,17 @@ export function useConexionCalendar() {
         // Solo al montar: reintentar en cada render provocaría llamadas repetidas al SDK.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    useEffect(() => {
+        // El token dura ~1h; sin esto, `conectado` se quedaba en `true` para siempre tras la
+        // primera conexión exitosa, aunque el token ya hubiera vencido — la UI seguía diciendo
+        // "conectado" mientras `reflejarEnCalendar` salía en silencio por falta de acceso real.
+        if (!conectado) return;
+        const reloj = setInterval(() => {
+            if (!tieneAccesoCalendar()) setConectado(false);
+        }, 60000);
+        return () => clearInterval(reloj);
+    }, [conectado]);
 
     const conectar = useCallback(async () => {
         setError(null);

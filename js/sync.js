@@ -22,6 +22,9 @@ import {
     pendientesDeSubir as revisionesPendientes, marcarSincronizadas as marcarRevisiones
 } from './revisiones.js';
 import { postear, leerCatalogos } from '../src/services/google/appsScript';
+import {
+    tieneAccesoCalendar, sincronizarEventoVisita, borrarEventoVisita
+} from './googleCalendar.js';
 
 // ---------- catálogos ----------
 
@@ -83,6 +86,13 @@ export async function sincronizarVisitas() {
     const pendientes = leerVisitas().filter(v => !v.sincronizado && !v.borrador);
     if (pendientes.length === 0) return { enviadas: 0 };
 
+    // Huella de lo que de verdad se mandó, tomada ANTES del `await`: si alguien edita la misma
+    // visita mientras el POST está en vuelo, esa edición no viajó en este envío y no debe
+    // marcarse como sincronizada solo por compartir id — se quedaría "al día" en la UI sin
+    // haber subido nunca. Comparar contra la huella (no contra el objeto en memoria, que ya
+    // pudo mutar) es lo que distingue "llegó" de "coincide por casualidad".
+    const huellas = new Map(pendientes.map(v => [v.id, JSON.stringify(soloGuardadas(v))]));
+
     const resultado = await postear({ action: 'guardarVisitas', visitas: pendientes.map(soloGuardadas) });
 
     // El servidor ya escribió en Sheets pase lo que pase (esa parte nunca lanza). Pero si el
@@ -91,11 +101,12 @@ export async function sincronizarVisitas() {
     // fuente "equipo": el flag local ya diría "sincronizada" y nunca se volvería a mandar. Se
     // deja `sincronizado = false` en ese caso para que el siguiente ciclo la reintente; volver
     // a escribir la misma fila en Sheets no duplica nada (`guardarVisitas` es upsert por id).
-    const idsEnviados = new Set(pendientes.map(v => v.id));
     const seEspejeo = resultado?.espejo !== false;
     const visitas = leerVisitas();
     visitas.forEach(v => {
-        if (idsEnviados.has(v.id)) v.sincronizado = seEspejeo;
+        if (seEspejeo && huellas.has(v.id) && JSON.stringify(soloGuardadas(v)) === huellas.get(v.id)) {
+            v.sincronizado = true;
+        }
     });
     persistirVisitas(visitas);
 
@@ -192,14 +203,19 @@ export async function sincronizarEstrategias() {
     const pendientes = leerEstrategias().filter(e => !e.sincronizado);
     if (pendientes.length === 0) return { enviadas: 0 };
 
+    // Misma huella que `sincronizarVisitas`: una edición que llega mientras el POST está en
+    // vuelo no debe quedar marcada como sincronizada solo por compartir id.
+    const huellas = new Map(pendientes.map(e => [e.id, JSON.stringify(e)]));
+
     await postear({
         action: 'guardarEstrategias',
         estrategias: pendientes.map(e => ({ ...e, productos: productosATexto(e.productos) }))
     });
 
-    const idsEnviados = new Set(pendientes.map(e => e.id));
     const estrategias = leerEstrategias();
-    estrategias.forEach(e => { if (idsEnviados.has(e.id)) e.sincronizado = true; });
+    estrategias.forEach(e => {
+        if (huellas.has(e.id) && JSON.stringify(e) === huellas.get(e.id)) e.sincronizado = true;
+    });
     persistirEstrategias(estrategias);
 
     return { enviadas: pendientes.length };
@@ -373,9 +389,12 @@ export async function sincronizarEventos() {
     const pendientes = eventosPendientes();
     if (pendientes.length === 0) return { enviados: 0 };
 
-    await postear({ action: 'guardarEventos', eventos: pendientes });
-    marcarSincronizados(pendientes.map(e => e.id));
-    return { enviados: pendientes.length };
+    const resultado = await postear({ action: 'guardarEventos', eventos: pendientes });
+    // Igual que en visitas: si el espejo no respondió, no se marca sincronizado — se
+    // reintenta en el siguiente ciclo. Antes esto se ignoraba y un evento con el espejo caído
+    // quedaba marcado "al día" sin haber llegado nunca a Supabase.
+    if (resultado?.espejo !== false) marcarSincronizados(pendientes.map(e => e.id));
+    return { enviados: pendientes.length, espejo: resultado?.espejo !== false };
 }
 
 /**
@@ -386,9 +405,9 @@ export async function sincronizarComentarios() {
     const pendientes = comentariosPendientes();
     if (pendientes.length === 0) return { enviados: 0 };
 
-    await postear({ action: 'guardarComentarios', comentarios: pendientes });
-    marcarComentarios(pendientes.map(c => c.id));
-    return { enviados: pendientes.length };
+    const resultado = await postear({ action: 'guardarComentarios', comentarios: pendientes });
+    if (resultado?.espejo !== false) marcarComentarios(pendientes.map(c => c.id));
+    return { enviados: pendientes.length, espejo: resultado?.espejo !== false };
 }
 
 /**
@@ -399,19 +418,112 @@ export async function sincronizarRevisiones() {
     const pendientes = revisionesPendientes();
     if (pendientes.length === 0) return { enviadas: 0 };
 
-    await postear({ action: 'guardarRevisiones', revisiones: pendientes });
-    marcarRevisiones(pendientes.map(r => r.id));
-    return { enviadas: pendientes.length };
+    const resultado = await postear({ action: 'guardarRevisiones', revisiones: pendientes });
+    // `marcarRevisiones` BORRA de la cola: si el espejo falló no se llama, porque ahí no
+    // queda ningún flag de "pendiente" que reintentar — perderla de la cola la pierde para
+    // siempre.
+    if (resultado?.espejo !== false) marcarRevisiones(pendientes.map(r => r.id));
+    return { enviadas: pendientes.length, espejo: resultado?.espejo !== false };
 }
 
-/** Orden importante: primero las filas, luego los archivos, y al final se reenvían las URLs. */
+// ---------- Google Calendar ----------
+
+/**
+ * Reconcilia las visitas de la app con sus eventos espejo en Google Calendar — la red de
+ * seguridad que hace que un registro cargado en la app SIEMPRE termine en Calendar, sin
+ * depender de que el usuario haya estado conectado justo en el instante en que guardó (los 4
+ * puntos donde `reflejarEnCalendar` se llama en caliente son best-effort; esto es lo que
+ * repara lo que ellos se perdieron).
+ *
+ * Sale barata y sin tocar la red si Calendar no está conectado en este dispositivo.
+ */
+export async function sincronizarCalendar() {
+    if (!tieneAccesoCalendar()) return { revisadas: 0 };
+
+    const visitas = leerVisitas();
+    let creados = 0;
+    let borrados = 0;
+    let fallidos = 0;
+
+    const necesitanEvento = visitas.filter(v =>
+        !v.borrador && v.estado !== 'cancelada' && v.dia && v.hora_inicio && v.hora_fin
+        && (!v.calendar_event_id || v.calendar_pendiente)
+    );
+    const necesitanBorrado = visitas.filter(v => v.estado === 'cancelada' && v.calendar_event_id);
+
+    for (const visita of necesitanEvento) {
+        try {
+            const id = await sincronizarEventoVisita(visita);
+            if (id) {
+                actualizarVisitaLocal(visita.id, v => {
+                    v.calendar_event_id = id;
+                    delete v.calendar_pendiente;
+                });
+                creados++;
+            }
+        } catch (err) {
+            console.error(`No se pudo reflejar la visita ${visita.id} en Calendar:`, err);
+            fallidos++;
+        }
+    }
+
+    for (const visita of necesitanBorrado) {
+        try {
+            await borrarEventoVisita(visita.calendar_event_id);
+            actualizarVisitaLocal(visita.id, v => { v.calendar_event_id = null; });
+            borrados++;
+        } catch (err) {
+            console.error(`No se pudo borrar de Calendar el evento de ${visita.id}:`, err);
+            fallidos++;
+        }
+    }
+
+    return { revisadas: necesitanEvento.length + necesitanBorrado.length, creados, borrados, fallidos };
+}
+
+/**
+ * Igual que `storage.actualizarVisita`, pero SIN volver a marcar `sincronizado = false`: el
+ * id del evento y la bandera `calendar_pendiente` son metadatos locales de Calendar, no un
+ * cambio de contenido que el backend necesite reenviar en cuanto se sepa. (`reflejarEnCalendar`
+ * sí quiere re-marcar sucio para empujar `calendar_event_id` al espejo; este camino, el del
+ * reconciliador de fondo, no — evita que el loop de 5 min se re-dispare a sí mismo sin parar.)
+ */
+function actualizarVisitaLocal(id, mutador) {
+    const visitas = leerVisitas();
+    const visita = visitas.find(v => v.id === id);
+    if (!visita) return;
+    mutador(visita);
+    persistirVisitas(visitas);
+}
+
+/**
+ * Orden importante: primero las filas, luego los archivos, y al final se reenvían las URLs.
+ * Cada etapa corre en su propio `try/catch`: antes, si `sincronizarVisitas` fallaba, ninguna
+ * de las siguientes (evidencias, Calendar, eventos, comentarios, revisiones, estrategias) se
+ * intentaba siquiera — una sola cola caída dejaba a TODAS las demás sin subir ese ciclo.
+ */
 export async function sincronizarTodo() {
-    const visitas = await sincronizarVisitas();
-    const evidencias = await subirEvidenciasPendientes();
-    if (evidencias.subidas > 0) await sincronizarVisitas();
-    const eventos = await sincronizarEventos();
-    const comentarios = await sincronizarComentarios();
-    const revisiones = await sincronizarRevisiones();
-    const estrategias = await sincronizarEstrategias();
-    return { visitas, evidencias, eventos, comentarios, revisiones, estrategias };
+    const errores = {};
+    const etapa = async (nombre, fn, valorPorDefecto) => {
+        try {
+            return await fn();
+        } catch (err) {
+            console.error(`Falló la etapa "${nombre}" de sincronizarTodo:`, err);
+            errores[nombre] = err.message || String(err);
+            return valorPorDefecto;
+        }
+    };
+
+    const visitas = await etapa('visitas', sincronizarVisitas, { enviadas: 0 });
+    const evidencias = await etapa('evidencias', subirEvidenciasPendientes, { subidas: 0, fallidas: 0 });
+    if (evidencias.subidas > 0) await etapa('visitas-tras-evidencias', sincronizarVisitas, { enviadas: 0 });
+    const calendar = await etapa('calendar', sincronizarCalendar, { revisadas: 0 });
+    const eventos = await etapa('eventos', sincronizarEventos, { enviados: 0 });
+    const comentarios = await etapa('comentarios', sincronizarComentarios, { enviados: 0 });
+    const revisiones = await etapa('revisiones', sincronizarRevisiones, { enviadas: 0 });
+    const estrategias = await etapa('estrategias', sincronizarEstrategias, { enviadas: 0 });
+
+    const resultado = { visitas, evidencias, calendar, eventos, comentarios, revisiones, estrategias };
+    if (Object.keys(errores).length > 0) resultado.errores = errores;
+    return resultado;
 }

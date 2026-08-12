@@ -248,11 +248,24 @@ function minutosATexto(min) {
 
 // ---------- solapamientos ----------
 
+/**
+ * Fin efectivo para calcular solapes: si no hay `hora_fin`, 1h de respaldo (igual que
+ * `duracionHoras`) en vez de fiarse de `finDe`, que ante una hora vacía cae al valor por
+ * defecto de `fechaHora` ('00:00') — medianoche, ANTES del inicio. Con eso, una visita sin fin
+ * que empieza a media mañana calculaba un intervalo que terminaba antes de empezar: nunca se
+ * solapaba con nada, se dibujaba a ancho completo y tapaba en silencio lo que sí tenía hora.
+ */
+function finEfectivo(v) {
+    return v.hora_fin ? finDe(v) : null;
+}
+
 /** Se ignora el toque exacto: una termina cuando la otra empieza es agenda apretada, no conflicto. */
 export function seSolapan(a, b) {
     if (a.dia !== b.dia) return false;
-    const iA = inicioDe(a), fA = finDe(a), iB = inicioDe(b), fB = finDe(b);
-    if (!iA || !fA || !iB || !fB) return false;
+    const iA = inicioDe(a), iB = inicioDe(b);
+    if (!iA || !iB) return false;
+    const fA = finEfectivo(a) ?? new Date(iA.getTime() + 60 * 60 * 1000);
+    const fB = finEfectivo(b) ?? new Date(iB.getTime() + 60 * 60 * 1000);
     return iA < fB && iB < fA;
 }
 
@@ -293,11 +306,21 @@ export function repartirEnColumnas(visitasDelDia) {
         finGrupo = null;
     };
 
+    // Mismo respaldo de 1h que `seSolapan` (ver `finEfectivo`) para lo mismo que allá: sin
+    // `hora_fin`, `finDe` cae a medianoche por defecto —ANTES del inicio—, así que sin este
+    // respaldo `finGrupo` terminaba yendo hacia atrás o quedando en un valor que nunca vuelve a
+    // disparar el cierre del grupo, y el resto del día caía en un solo grupo gigante,
+    // angostando tarjetas que en realidad no se solapaban con nada.
+    const finConRespaldo = (visita) => {
+        const ini = inicioDe(visita);
+        return finEfectivo(visita) ?? (ini ? new Date(ini.getTime() + 60 * 60 * 1000) : null);
+    };
+
     orden.forEach(visita => {
         if (finGrupo && inicioDe(visita) >= finGrupo) cerrarGrupo();
         grupo.push(visita);
-        const fin = finDe(visita);
-        if (!finGrupo || (fin && fin > finGrupo)) finGrupo = fin;
+        const fin = finConRespaldo(visita);
+        if (!finGrupo || fin > finGrupo) finGrupo = fin;
     });
     cerrarGrupo();
 

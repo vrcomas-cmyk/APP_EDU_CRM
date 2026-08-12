@@ -190,6 +190,27 @@ describe('solapamientos', () => {
         const reparto = repartirEnColumnas([enHoras('09:00', '10:00'), enHoras('11:00', '12:00')]);
         assert.ok(reparto.every(r => r.columna === 0 && r.columnas === 1));
     });
+
+    test('sin hora_fin, se trata como 1h en vez de "no se solapa con nada"', () => {
+        // Antes: `finDe` era null → `seSolapan` devolvía false siempre → la visita sin fin se
+        // dibujaba a ancho completo ENCIMA de la que sí se pisaba con ella.
+        const sinFin = visita({ hora_inicio: '09:30', hora_fin: undefined });
+        const otra = enHoras('09:00', '10:00');
+        assert.equal(seSolapan(sinFin, otra), true);
+    });
+
+    test('sin hora_fin, no colapsa el resto del grupo del día', () => {
+        // Antes: si el registro sin fin ordenaba primero, `finGrupo` se quedaba en null para
+        // siempre y el día ENTERO caía en un solo grupo, angostando visitas que en realidad
+        // no se solapaban con nada.
+        const sinFin = visita({ hora_inicio: '08:00', hora_fin: undefined });
+        const lejos = enHoras('11:00', '12:00');
+
+        const reparto = repartirEnColumnas([sinFin, lejos]);
+        const de = (v) => reparto.find(r => r.visita === v);
+
+        assert.equal(de(lejos).columnas, 1, 'no debe quedar atrapada en el grupo de la anterior');
+    });
 });
 
 describe('estado del sector — se deriva, no se marca a mano', () => {

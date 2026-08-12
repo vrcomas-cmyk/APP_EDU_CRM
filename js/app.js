@@ -34,6 +34,11 @@ let appIniciada = false;
 // alguien pulse el botón a mano: martillar cada pocos segundos contra un servidor caído
 // no arregla nada y solo gasta batería y datos.
 let sincronizarFallo = false;
+// Cuántas veces seguidas falló. Ya no es todo-o-nada: como `sincronizarTodo` ahora aísla cada
+// cola en su propio try/catch, un solo tropiezo (una cola caída, un timeout suelto) no debe
+// apagar el auto-sync de las demás — solo una racha lo justifica.
+let fallosSeguidos = 0;
+const FALLOS_PARA_DETENER = 3;
 let relojAutoSync = null;
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -275,9 +280,15 @@ function iniciarApp() {
     window.addEventListener('offline', alCambiarConexion);
     // "Ingresar" en el celular casi siempre es retomar la pestaña, no un arranque nuevo:
     // sin esto, volver de otra app podía dejar horas de trabajo sin subir hasta el próximo
-    // toque manual del chip de sync.
+    // toque manual del chip de sync. También reactiva el reloj de fondo, que se pausa
+    // mientras la pestaña no es visible (ver `pausarAutoSync`/`reanudarAutoSync`).
     document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') sincronizar();
+        if (document.visibilityState === 'visible') {
+            sincronizar();
+            reanudarAutoSync();
+        } else {
+            pausarAutoSync();
+        }
     });
     // Cada guardado (visita, evidencia, check-in/out) pasa por `guardarVisitas` en
     // storage.js, que emite esto — así sube solo sin esperar al botón.
@@ -287,10 +298,23 @@ function iniciarApp() {
     alCambiarConexion();
     // La línea de "ahora" se queda quieta si nadie la mueve.
     setInterval(refrescarCalendario, 60000);
-    // Red de seguridad para la app abierta en primer plano toda la tarde con señal
-    // intermitente: sin esto, entre guardados espaciados y sin cambiar de pestaña nada
-    // reintentaba subir lo pendiente.
+    reanudarAutoSync();
+}
+
+/**
+ * Reloj de fondo: reconciliación completa (backend + Calendar en ambos sentidos) cada 5 min,
+ * para la app abierta toda la tarde con señal intermitente o guardados espaciados. Se pausa en
+ * segundo plano (`pausarAutoSync`, disparado por `visibilitychange`) para no gastar batería ni
+ * datos en un celular con la app minimizada; `visibilitychange` la reanuda al volver.
+ */
+function reanudarAutoSync() {
+    if (relojAutoSync) return;
     relojAutoSync = setInterval(() => sincronizar(), 5 * 60000);
+}
+
+function pausarAutoSync() {
+    clearInterval(relojAutoSync);
+    relojAutoSync = null;
 }
 
 if ('serviceWorker' in navigator) {
@@ -418,6 +442,7 @@ function alCambiarConexion() {
     if (navigator.onLine) {
         // Recuperar señal es la única señal clara de que vale la pena reintentar solo.
         sincronizarFallo = false;
+        fallosSeguidos = 0;
         // Antes de mandar nada: si el token de sesión ya venció (posible tras horas
         // offline), esto lo renueva en silencio para que el sync no lo rechace.
         intentarRefresco();
@@ -466,8 +491,31 @@ async function sincronizar({ manual = false } = {}) {
 
     try {
         const r = await sincronizarTodo();
+        const huboErrores = r.errores && Object.keys(r.errores).length > 0;
+
+        if (huboErrores) {
+            fallosSeguidos++;
+            console.error('sincronizarTodo terminó con etapas fallidas:', r.errores);
+            if (fallosSeguidos >= FALLOS_PARA_DETENER) {
+                pintarSync('is-error', 'Error');
+                sincronizarFallo = true;
+                toast('No se pudo sincronizar todo. Revisa tu conexión.', {
+                    estado: 'sin-registrar',
+                    accion: { texto: 'Reintentar', fn: () => { sincronizarFallo = false; fallosSeguidos = 0; sincronizar({ manual: true }); } },
+                    ms: 8000
+                });
+            } else if (manual) {
+                toast('Algunas partes no se pudieron sincronizar. Se reintenta solo.', { estado: 'sin-registrar' });
+            }
+        } else {
+            // Un ciclo completo sin errores es la única señal de que vale la pena seguir
+            // insistiendo solo: un fallo aislado ya no apaga el auto-sync (ver
+            // `FALLOS_PARA_DETENER`), pero tampoco debe acumularse en silencio para siempre.
+            fallosSeguidos = 0;
+        }
+
         const nada = r.visitas.enviadas === 0 && r.evidencias.subidas === 0;
-        if (manual && nada) toast('Todo está sincronizado.', { estado: 'completa' });
+        if (manual && nada && !huboErrores) toast('Todo está sincronizado.', { estado: 'completa' });
         if (!nada) {
             const partes = [];
             if (r.visitas.enviadas) partes.push(`${r.visitas.enviadas} visita${r.visitas.enviadas > 1 ? 's' : ''}`);
@@ -475,16 +523,19 @@ async function sincronizar({ manual = false } = {}) {
             toast(`${partes.join(' y ')} sincronizada${partes.length > 1 || r.visitas.enviadas > 1 ? 's' : ''}.`, { estado: 'completa' });
         }
     } catch (error) {
+        // `sincronizarTodo` ya aísla cada etapa; llegar aquí es algo más grave (red caída de
+        // golpe, sesión inválida). Mismo criterio de racha que arriba.
         console.error('Error al sincronizar:', error);
-        pintarSync('is-error', 'Error');
-        // El auto-sync se detiene hasta recuperar señal o un reintento explícito: sin esto
-        // seguiría llamando cada 2s (por guardado) o cada 5 min contra el mismo error.
-        sincronizarFallo = true;
-        toast(`No se pudo sincronizar: ${error.message}`, {
-            estado: 'sin-registrar',
-            accion: { texto: 'Reintentar', fn: () => { sincronizarFallo = false; sincronizar({ manual: true }); } },
-            ms: 8000
-        });
+        fallosSeguidos++;
+        if (fallosSeguidos >= FALLOS_PARA_DETENER) {
+            pintarSync('is-error', 'Error');
+            sincronizarFallo = true;
+            toast(`No se pudo sincronizar: ${error.message}`, {
+                estado: 'sin-registrar',
+                accion: { texto: 'Reintentar', fn: () => { sincronizarFallo = false; fallosSeguidos = 0; sincronizar({ manual: true }); } },
+                ms: 8000
+            });
+        }
         sincronizando = false;
         return;
     }

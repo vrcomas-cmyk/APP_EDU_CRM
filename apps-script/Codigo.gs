@@ -324,7 +324,12 @@ const ENCABEZADOS_VISITAS = [
     'tipo', 'motivo',
     // 'es_prospecto': el nombre en 'cliente' es texto libre, no del catálogo — alguien que
     // todavía no está dado de alta pero al que ya se le puede visitar.
-    'es_prospecto'
+    'es_prospecto',
+    // El id del evento espejo en Google Calendar. Sin esta columna el vínculo solo vivía en el
+    // localStorage de UN dispositivo: al re-sincronizar en otro, `adoptarVisitasPropias`
+    // reemplazaba la visita entera y lo borraba, y el segundo dispositivo creaba un evento
+    // duplicado en vez de reconocer el que ya existía.
+    'calendar_event_id'
 ];
 
 const ENCABEZADOS_ACTIVIDADES = [
@@ -828,7 +833,8 @@ function guardarVisitas(visitas, identidad) {
                     visita.zona || '', visita.ejecutivo || '', visita.notas || '',
                     visita.id_estrategia || '',
                     visita.tipo || 'cliente', visita.motivo || '',
-                    visita.es_prospecto === true
+                    visita.es_prospecto === true,
+                    visita.calendar_event_id || ''
                 ]
             });
 
@@ -864,8 +870,10 @@ function guardarVisitas(visitas, identidad) {
     });
 
     // Estas columnas se preservan: la app suele mandarlas vacías (evidencia sube después,
-    // dirección se cachea aquí) y un re-sync sin esto borraría lo que ya está en la hoja.
-    upsert(hojaVisitas, ENCABEZADOS_VISITAS, filasPadre, ['checkin_direccion', 'checkout_direccion']);
+    // dirección se cachea aquí, y `calendar_event_id` lo puede conocer un dispositivo que no
+    // es el que manda este envío) y un re-sync sin esto borraría lo que ya está en la hoja.
+    upsert(hojaVisitas, ENCABEZADOS_VISITAS, filasPadre,
+        ['checkin_direccion', 'checkout_direccion', 'calendar_event_id']);
     upsert(hojaActividades, ENCABEZADOS_ACTIVIDADES, filasHija, ['evidencia_url', 'evidencia_estado']);
     upsert(hojaMateriales, ENCABEZADOS_MATERIALES_CAPTURA, filasMateriales, []);
 

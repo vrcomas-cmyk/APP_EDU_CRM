@@ -112,33 +112,30 @@ function ColumnaDia({
     clave, esHoy, horas, ventana, visitas, compromisos, clase,
     onPointerDownColumna, onPointerDownCuerpo, onPointerDownManija, onAbrir, onAbrirCompromiso
 }: PropsColumna) {
-    // Las que se pisan se reparten en columnas para dibujarse lado a lado. El grupo es una
-    // CADENA de solapes: si A pisa a B y B pisa a C, las tres comparten ancho.
-    const repartidas = useMemo(() => repartirEnColumnas(visitas), [visitas]);
-
-    // Mismo reparto para los compromisos de Calendar: antes todos llevaban --col:0/--cols:1 fijos,
-    // así que dos juntas empalmadas quedaban exactamente una encima de otra y solo se distinguía
-    // la de arriba al pasar el cursor (z-index del :hover). `repartirEnColumnas` solo necesita
-    // `.dia`/`.hora_inicio`/`.hora_fin` — un compromiso con hora ya tiene esa forma una vez
-    // convertido desde su `inicio`/`fin` en ISO.
-    const compromisosRepartidos = useMemo(() => {
+    // Visitas Y compromisos de Calendar se reparten en UNA sola pasada. Antes eran dos pasadas
+    // independientes: una visita y una junta que se pisan en el reloj no se enteraban una de la
+    // otra, así que quedaban exactamente encima (distinguibles solo por z-index) en vez de lado
+    // a lado como sí pasa entre dos visitas. `repartirEnColumnas` solo necesita `.dia`/
+    // `.hora_inicio`/`.hora_fin`, así que un compromiso con hora se disfraza de "visita" (con
+    // `id` prefijado para no chocar con un id real) únicamente para este cálculo; el grupo es
+    // una CADENA de solapes: si A pisa a B y B pisa a C, las tres comparten ancho.
+    const repartidas = useMemo(() => {
         const conHora = compromisos.filter(c => !c.todoElDia);
         const comoVisitas = conHora.map(c => {
             const inicio = new Date(c.inicio);
             const fin = new Date(c.fin);
             const dia = `${inicio.getFullYear()}-${String(inicio.getMonth() + 1).padStart(2, '0')}-${String(inicio.getDate()).padStart(2, '0')}`;
             return {
-                id: c.id, dia,
+                id: `cal:${c.id}`, dia,
                 hora_inicio: `${String(inicio.getHours()).padStart(2, '0')}:${String(inicio.getMinutes()).padStart(2, '0')}`,
                 hora_fin: `${String(fin.getHours()).padStart(2, '0')}:${String(fin.getMinutes()).padStart(2, '0')}`
             } as unknown as Visita;
         });
-        const columnas = new Map<string, { columna: number; columnas: number }>();
-        for (const { visita, columna, columnas: total } of repartirEnColumnas(comoVisitas)) {
-            columnas.set(visita.id, { columna, columnas: total });
-        }
-        return conHora.map(c => ({ compromiso: c, ...(columnas.get(c.id) ?? { columna: 0, columnas: 1 }) }));
-    }, [compromisos]);
+
+        return repartirEnColumnas([...visitas, ...comoVisitas]);
+    }, [visitas, compromisos]);
+
+    const compromisoDe = useMemo(() => new Map(compromisos.map(c => [c.id, c])), [compromisos]);
 
     return (
         <div
@@ -151,31 +148,40 @@ function ColumnaDia({
             {esHoy && <LineaAhora ventana={ventana} />}
 
             {/* Antes que las visitas: quedan por debajo (z-index más bajo) y nunca les roban
-                el gesto de arrastrar cuando se pisan en la pantalla. */}
-            {compromisosRepartidos.map(({ compromiso, columna, columnas }) => (
-                <BloqueCompromiso
-                    key={compromiso.id}
-                    compromiso={compromiso}
-                    ventana={ventana}
-                    columna={columna}
-                    columnas={columnas}
-                    onAbrir={onAbrirCompromiso}
-                />
-            ))}
+                el gesto de arrastrar cuando se pisan en la pantalla. Mismo reparto de columnas
+                que las visitas (ver arriba), así que una junta y una visita que se pisan
+                terminan lado a lado, no una encima de la otra. */}
+            {repartidas
+                .filter(({ visita }) => visita.id.startsWith('cal:'))
+                .map(({ visita, columna, columnas }) => {
+                    const compromiso = compromisoDe.get(visita.id.slice(4));
+                    return compromiso && (
+                        <BloqueCompromiso
+                            key={compromiso.id}
+                            compromiso={compromiso}
+                            ventana={ventana}
+                            columna={columna}
+                            columnas={columnas}
+                            onAbrir={onAbrirCompromiso}
+                        />
+                    );
+                })}
 
-            {repartidas.map(({ visita, columna, columnas }) => (
-                <TarjetaVisita
-                    key={visita.id}
-                    visita={visita}
-                    columna={columna}
-                    columnas={columnas}
-                    ventana={ventana}
-                    modo={clase}
-                    onPointerDownCuerpo={onPointerDownCuerpo}
-                    onPointerDownManija={onPointerDownManija}
-                    onAbrir={onAbrir}
-                />
-            ))}
+            {repartidas
+                .filter(({ visita }) => !visita.id.startsWith('cal:'))
+                .map(({ visita, columna, columnas }) => (
+                    <TarjetaVisita
+                        key={visita.id}
+                        visita={visita}
+                        columna={columna}
+                        columnas={columnas}
+                        ventana={ventana}
+                        modo={clase}
+                        onPointerDownCuerpo={onPointerDownCuerpo}
+                        onPointerDownManija={onPointerDownManija}
+                        onAbrir={onAbrir}
+                    />
+                ))}
         </div>
     );
 }

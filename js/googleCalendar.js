@@ -159,18 +159,45 @@ export function eventoDeVisita(visita) {
 }
 
 /**
+ * Busca, en el propio Calendar, un evento que YA lleve la marca de esta visita
+ * (`extendedProperties.private.id_visita`). Calendar es el índice: cada evento nuestro se
+ * marca al crearse (`eventoDeVisita`), así que esta búsqueda encuentra el evento aunque este
+ * dispositivo nunca haya conocido su id —el caso típico de "otro dispositivo lo creó y el
+ * espejo no traía `calendar_event_id` todavía"—. Sin esto, un segundo dispositivo terminaba
+ * creando un evento duplicado en vez de reconocer el que ya existía.
+ */
+export async function buscarEventoDeVisita(idVisita) {
+    const parametros = new URLSearchParams({
+        privateExtendedProperty: `id_visita=${idVisita}`,
+        showDeleted: 'false',
+        maxResults: '1'
+    });
+    const resp = await fetch(`${CALENDAR_API}?${parametros}`, { headers: encabezados() });
+    if (!resp.ok) throw new Error(`Calendar respondió ${resp.status} al buscar el evento`);
+    const datos = await resp.json();
+    return datos.items?.[0]?.id || null;
+}
+
+/**
  * Crea o actualiza el evento de la visita. Devuelve el id del evento (guárdalo en
- * `visita.calendar_event_id` para poder actualizarlo/borrarlo después).
+ * `visita.calendar_event_id` para poder actualizarlo/borrarlo después), o `null` si la visita
+ * no trae hora todavía (no es un error: no hay nada que agendar aún).
  *
- * Silenciosa por diseño: si Calendar no responde, la visita ya se guardó en Sheets, que es lo
- * que de verdad importa. El espejo de Calendar es un extra, igual que el de Supabase.
+ * Silenciosa por diseño frente a Sheets: si Calendar no responde, la visita ya se guardó ahí,
+ * que es lo que de verdad importa. El espejo de Calendar es un extra, igual que el de Supabase
+ * —pero a diferencia de antes, el llamador SÍ se entera cuando falla (ver `calendarSync.ts`),
+ * en vez de que el intento desaparezca sin dejar rastro.
  */
 export async function sincronizarEventoVisita(visita) {
     if (!visita.dia || !visita.hora_inicio || !visita.hora_fin) return null;
 
-    const cuerpo = JSON.stringify(eventoDeVisita(visita));
-    const existente = visita.calendar_event_id;
+    // Sin id local: puede que otro dispositivo ya haya creado el evento y el espejo aún no nos
+    // lo haya devuelto (o el backend todavía no tenga la columna desplegada). Buscar antes de
+    // crear es lo que evita el duplicado.
+    let existente = visita.calendar_event_id;
+    if (!existente) existente = await buscarEventoDeVisita(visita.id);
 
+    const cuerpo = JSON.stringify(eventoDeVisita(visita));
     const resp = await fetch(
         existente ? `${CALENDAR_API}/${existente}` : CALENDAR_API,
         { method: existente ? 'PATCH' : 'POST', headers: encabezados(), body: cuerpo }
@@ -199,18 +226,32 @@ export async function borrarEventoVisita(idEvento) {
 /**
  * Eventos del calendario propio en un rango, SIN los que esta app ya puso ahí (esos ya se ven
  * como visita). Sirve para "¿qué más tengo agendado?" al revisar el día.
+ *
+ * Pagina con `nextPageToken` en vez de fiarse de un solo `maxResults`: un mes con agenda
+ * cargada (varias juntas diarias) fácilmente pasa de 50 eventos, y el tope duro los recortaba
+ * en silencio —desaparecían del calendario sin ningún aviso—. `maxResults: 250` es el techo que
+ * usa la propia API por página; con la paginación, el límite real deja de existir.
  */
 export async function listarCompromisos(desdeISO, hastaISO) {
-    const parametros = new URLSearchParams({
-        timeMin: desdeISO, timeMax: hastaISO,
-        singleEvents: 'true', orderBy: 'startTime', maxResults: '50'
-    });
+    const items = [];
+    let pageToken;
 
-    const resp = await fetch(`${CALENDAR_API}?${parametros}`, { headers: encabezados() });
-    if (!resp.ok) throw new Error(`Calendar respondió ${resp.status} al leer eventos`);
+    do {
+        const parametros = new URLSearchParams({
+            timeMin: desdeISO, timeMax: hastaISO,
+            singleEvents: 'true', orderBy: 'startTime', maxResults: '250'
+        });
+        if (pageToken) parametros.set('pageToken', pageToken);
 
-    const datos = await resp.json();
-    return (datos.items || [])
+        const resp = await fetch(`${CALENDAR_API}?${parametros}`, { headers: encabezados() });
+        if (!resp.ok) throw new Error(`Calendar respondió ${resp.status} al leer eventos`);
+
+        const datos = await resp.json();
+        items.push(...(datos.items || []));
+        pageToken = datos.nextPageToken || null;
+    } while (pageToken);
+
+    return items
         .filter(ev => ev.extendedProperties?.private?.origen !== MARCA_ORIGEN)
         .map(ev => ({
             id: ev.id,

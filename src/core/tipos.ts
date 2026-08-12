@@ -171,7 +171,14 @@ export interface Visita {
     sectores?: Sector[];
     sincronizado?: boolean;
     /** Id del evento espejo en Google Calendar (el del propio educador), si se conectó. */
-    calendar_event_id?: string;
+    calendar_event_id?: string | null;
+    /**
+     * Se guardó sin poder reflejarse en Calendar (desconectado, token vencido, error de red).
+     * Metadato local: el backend lo ignora (no está en sus columnas). `sincronizarCalendar()`
+     * (`js/sync.js`) lo lee en el loop de fondo para crear el evento en cuanto Calendar esté
+     * disponible.
+     */
+    calendar_pendiente?: boolean;
 }
 
 /**

@@ -485,7 +485,10 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
   width: calc((100% - 6px) / var(--cols) - 2px);
   background: var(--surface); border: 1px solid var(--rule);
   border-left: 3px solid var(--st); border-radius: 3px var(--r-sm) var(--r-sm) 3px;
-  padding: 5px 7px; overflow: hidden; cursor: pointer; text-align: left;
+  /* Con más solapes (`--cols` alto) el ancho real se encoge; el relleno lo sigue en vez de
+     quedarse fijo y comerse el poco espacio que queda para el texto. */
+  padding: clamp(2px, calc(5px - (var(--cols) - 1) * 1px), 5px) clamp(3px, calc(7px - (var(--cols) - 1) * 1px), 7px);
+  overflow: hidden; cursor: pointer; text-align: left;
   display: flex; flex-direction: column; gap: 1px; z-index: 2;
   transition: box-shadow var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease-press),
               border-left-width var(--dur-fast) var(--ease);
@@ -538,11 +541,18 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 /* Nunca se corta a la mitad de una palabra: en Semana la columna es angosta y el título de
    una junta puede ser largo, así que se recorta con "…" en vez de partirse a ciegas. */
 .ev-client {
-  font-size: 11.5px; font-weight: 600; line-height: 1.25; letter-spacing: -.01em;
+  /* Mismo criterio que el relleno: con 4+ columnas encimadas, el título ya no tiene sitio
+     para 11.5px sin truncarse de inmediato en la primera letra. */
+  font-size: clamp(9.5px, calc(11.5px - (var(--cols) - 1) * .5px), 11.5px);
+  font-weight: 600; line-height: 1.25; letter-spacing: -.01em;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
 }
 .ev-hosp { font-size: 10.5px; color: var(--muted); line-height: 1.25; }
 .ev-flags { margin-top: auto; display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+/* Con 4+ columnas encimadas, el hospital y las banderas de estado dejan de caber sin
+   partirse —se sacrifican primero, porque el título y la hora ya identifican la tarjeta por
+   sí solos. `.es-apretado` la pone el componente, que ya conoce `columnas` en JS. */
+.ev.es-apretado .ev-hosp, .ev.es-apretado .ev-flags { display: none; }
 .ev-sectores { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 3px; }
 .ev-sectores span {
   font-family: var(--mono); font-size: 8.5px; letter-spacing: .06em;
