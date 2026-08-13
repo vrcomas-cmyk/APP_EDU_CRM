@@ -155,9 +155,19 @@ export function adoptarVisitasPropias(remotas, correo) {
         v => normCorreo(v.educador_correo) === propio && protegidas.has(v.id)
     );
 
+    // `calendar_pendiente` es local-only (el espejo no lo conoce), así que se pierde en el
+    // objeto remoto entero — sin conservarla, un dispositivo que YA sabía que le faltaba
+    // reflejar esta visita en Calendar olvida esa deuda al bajar el espejo, y solo el filtro
+    // `!calendar_event_id` del reconciliador salva el caso (no lo hace si el remoto sí trae
+    // un id de OTRO dispositivo, algo que pisar exprofeso sería incorrecto).
+    const locPorId = new Map(locales.map(v => [v.id, v]));
     const adoptadas = remotasPropias
         .filter(v => !protegidas.has(v.id))
-        .map(v => ({ ...v, sincronizado: true }));
+        .map(v => {
+            const local = locPorId.get(v.id);
+            const pendiente = local?.calendar_pendiente && !v.calendar_event_id;
+            return { ...v, sincronizado: true, ...(pendiente ? { calendar_pendiente: true } : {}) };
+        });
 
     guardarVisitas([...ajenas, ...propiasProtegidas, ...adoptadas]);
     return adoptadas.length;

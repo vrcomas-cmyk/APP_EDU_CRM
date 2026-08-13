@@ -9,33 +9,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { tieneAccesoCalendar, conectarCalendar, intentarReconexionCalendar, CALENDAR_CLIENT_ID } from '@core/puente';
 
-/**
- * El intento silencioso, UNA sola vez por pestaña — no una por montaje.
- *
- * Este hook se usa en Calendario Y en "Mi día"; sin esto, cada vez que alguien cambia entre
- * esas dos pantallas (algo que pasa todo el tiempo, no es un caso raro) se dispara OTRA
- * llamada al SDK de Google pidiendo el token, aunque la anterior acabe de fallar hace un
- * segundo. Un módulo compartido —no estado de React, que se reinicia por componente— es lo
- * único que puede recordar "ya se intentó en esta pestaña" entre montajes independientes.
- * Si el intento tuvo éxito, además queda en caché: no hay razón para volver a pedirlo.
- */
-let intentoPorPestaña: Promise<boolean> | null = null;
-
-function reconexionUnaVezPorPestaña(): Promise<boolean> {
-    if (tieneAccesoCalendar()) return Promise.resolve(true);
-    if (!intentoPorPestaña) {
-        // Si este intento falla, se limpia la caché: antes un solo fallo (por ejemplo, sin
-        // señal justo al abrir la app) dejaba la promesa fallida cacheada para el resto de la
-        // vida de la pestaña, y ningún montaje posterior de Calendario o Mi día volvía a
-        // intentarlo — Calendar se quedaba "no conectado" aunque la señal volviera.
-        intentoPorPestaña = intentarReconexionCalendar(CALENDAR_CLIENT_ID).then((ok) => {
-            if (!ok) intentoPorPestaña = null;
-            return ok;
-        });
-    }
-    return intentoPorPestaña;
-}
-
 export function useConexionCalendar() {
     const [conectado, setConectado] = useState(() => tieneAccesoCalendar());
     const [conectando, setConectando] = useState(false);
@@ -44,7 +17,10 @@ export function useConexionCalendar() {
     useEffect(() => {
         if (conectado) return;
         let vivo = true;
-        reconexionUnaVezPorPestaña().then((ok) => {
+        // La deduplicación de intentos en vuelo vive en `googleCalendar.js` (a nivel de
+        // módulo, no de componente): montar Calendario y "Mi día" casi al mismo tiempo ya no
+        // dispara dos llamadas al SDK, así que no hace falta repetir ese guard aquí.
+        intentarReconexionCalendar(CALENDAR_CLIENT_ID).then((ok) => {
             if (vivo && ok) setConectado(true);
         });
         return () => { vivo = false; };
@@ -53,14 +29,20 @@ export function useConexionCalendar() {
     }, []);
 
     useEffect(() => {
-        // El token dura ~1h; sin esto, `conectado` se quedaba en `true` para siempre tras la
-        // primera conexión exitosa, aunque el token ya hubiera vencido — la UI seguía diciendo
-        // "conectado" mientras `reflejarEnCalendar` salía en silencio por falta de acceso real.
+        // El token dura ~1h. Antes esto solo apagaba `conectado`; ahora primero intenta
+        // renovarlo en silencio (el consentimiento ya está dado, ver `js/app.js`) y solo
+        // avisa que se perdió la conexión si esa renovación también falla — si no, la UI
+        // decía "no conectado" cada hora aunque el reconciliador de fondo (`js/sync.js`)
+        // se las arreglara solo un instante después.
         if (!conectado) return;
+        let vivo = true;
         const reloj = setInterval(() => {
-            if (!tieneAccesoCalendar()) setConectado(false);
+            if (tieneAccesoCalendar()) return;
+            intentarReconexionCalendar(CALENDAR_CLIENT_ID).then((ok) => {
+                if (vivo && !ok) setConectado(false);
+            });
         }, 60000);
-        return () => clearInterval(reloj);
+        return () => { vivo = false; clearInterval(reloj); };
     }, [conectado]);
 
     const conectar = useCallback(async () => {

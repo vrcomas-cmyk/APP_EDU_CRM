@@ -17,7 +17,7 @@ import { limpiarAlmacen } from './entorno.js';
 import {
     migrarSiHaceFalta, leerVisitas, guardarVisitas, obtenerVisita,
     actualizarVisita, agregarVisita, eliminarVisita,
-    todasLasActividades, historialHospitales, nuevoId
+    todasLasActividades, historialHospitales, nuevoId, adoptarVisitasPropias
 } from '../js/storage.js';
 
 import { visita, sector, actividad } from './ayuda/fixtures.js';
@@ -322,6 +322,31 @@ describe('lectura y escritura', () => {
         ]);
 
         assert.deepEqual(historialHospitales(), ['ABC', 'Beta', 'Zeta']);
+    });
+});
+
+describe('adoptarVisitasPropias — Calendar', () => {
+    test('conserva calendar_pendiente si el espejo aún no trae un id propio', () => {
+        const v = visita({ id: 'v-1', sincronizado: true, calendar_pendiente: true });
+        guardarVisitas([v]);
+
+        // El espejo aún no conoce el evento (ningún dispositivo lo subió todavía).
+        adoptarVisitasPropias([{ ...v, calendar_pendiente: undefined }], v.educador_correo);
+
+        assert.equal(obtenerVisita('v-1').calendar_pendiente, true,
+            'sin esto, el reconciliador de fondo olvida que esta visita seguía sin evento');
+    });
+
+    test('si el espejo ya trae un calendar_event_id, se adopta y ya no queda pendiente', () => {
+        const v = visita({ id: 'v-1', sincronizado: true, calendar_pendiente: true });
+        guardarVisitas([v]);
+
+        adoptarVisitasPropias([{ ...v, calendar_pendiente: undefined, calendar_event_id: 'evt-otro-dispositivo' }],
+            v.educador_correo);
+
+        const adoptada = obtenerVisita('v-1');
+        assert.equal(adoptada.calendar_event_id, 'evt-otro-dispositivo');
+        assert.ok(!adoptada.calendar_pendiente);
     });
 });
 

@@ -1294,6 +1294,11 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
   display: grid; place-items: center; padding: 16px;
   animation: scrim-in .12s var(--ease);
 }
+/* Igual que `.app[hidden]`/`.gate[hidden]` más arriba: la clase con `display` le gana en
+   especificidad a la hoja del navegador, así que sin esto un modal estático en `index.html`
+   (a diferencia de los que React monta condicionalmente) se queda pintado aunque tenga
+   `hidden`. Le costó bloquear el login entero al modal de "Conectar Google Calendar". */
+.modal[hidden] { display: none; }
 .modal-caja {
   width: min(440px, 100%); max-height: 100%;
   display: flex; flex-direction: column;

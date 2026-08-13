@@ -24,7 +24,8 @@ import {
 } from './permisos.js';
 import { ponerVisitasEquipo, olvidarVisitasEquipo } from './datos.js';
 import { ponerFlujos, ponerRevisiones, olvidarRevisiones } from './revisiones.js';
-import { initAuth, sesionActual, pintarBotonEntrada, intentarRefresco, cerrarSesion } from './auth.js';
+import { initAuth, sesionActual, pintarBotonEntrada, intentarRefresco, cerrarSesion, CLIENT_ID as CALENDAR_CLIENT_ID } from './auth.js';
+import { conectarCalendar, calendarNecesitaConsentimiento } from './googleCalendar.js';
 import { initTema } from './tema.js';
 
 let el = {};
@@ -61,7 +62,10 @@ document.addEventListener('DOMContentLoaded', () => {
         sesionFoto: document.getElementById('sesion-foto'),
         sesionNombre: document.getElementById('sesion-nombre'),
         fab: document.getElementById('fab'),
-        toasts: document.getElementById('toasts')
+        toasts: document.getElementById('toasts'),
+        modalCalendar: document.getElementById('modal-conectar-calendar'),
+        calendarAceptar: document.getElementById('calendar-conectar-aceptar'),
+        calendarOmitir: document.getElementById('calendar-conectar-omitir')
     };
 
     el.sesion.addEventListener('click', () => {
@@ -82,6 +86,19 @@ document.addEventListener('DOMContentLoaded', () => {
         salirSimulacion();
         location.reload();
     });
+
+    el.calendarAceptar.addEventListener('click', () => {
+        ocultarModalCalendar();
+        conectarCalendar(CALENDAR_CLIENT_ID).catch((err) => {
+            console.error('No se pudo conectar Google Calendar:', err);
+            toast('No se pudo conectar con Google Calendar. Puedes intentarlo de nuevo desde Calendario.',
+                { estado: 'sin-registrar' });
+        });
+    });
+    // "Ahora no" no marca el consentimiento como dado: al volver a entrar se vuelve a
+    // preguntar, igual que antes de que este modal existiera nadie perdía la posibilidad de
+    // conectar más tarde desde el botón en Calendario/Mi día.
+    el.calendarOmitir.addEventListener('click', ocultarModalCalendar);
 
     initTema(document.getElementById('tema-switch'));
 
@@ -115,6 +132,29 @@ function alCambiarSesion(sesion) {
     // Cerrar sesión con la app ya armada (calendario, drawer, listeners…) es más simple de
     // resolver recargando que desmontando todo módulo por módulo a mano.
     location.reload();
+}
+
+/**
+ * El permiso de Calendar se pide UNA vez, apenas se arma la app, para que nadie tenga que
+ * descubrir por su cuenta el botón de "conectar" dentro de Calendario o Mi día.
+ *
+ * `calendarNecesitaConsentimiento()` es la memoria de "ya lo di antes" (por scope, ver
+ * `js/googleCalendar.js`): si ya se otorgó, esto ni siquiera muestra el modal — la reconexión
+ * silenciosa de fondo se encarga de renovar el token cuando haga falta.
+ *
+ * Tiene que ser un CLIC de verdad, no un intento automático: `requestAccessToken` abre un
+ * popup de consentimiento, y sin un gesto del usuario justo antes, el navegador lo bloquea en
+ * silencio — la versión anterior de esto intentaba conectar solo, y el bloqueo la dejaba
+ * pidiendo el permiso para siempre sin que nadie se enterara por qué. Este modal es ese gesto:
+ * aparece una vez, y el clic en su botón es lo que hace que Google no lo bloquee.
+ */
+function mostrarModalCalendarSiHaceFalta() {
+    if (!calendarNecesitaConsentimiento()) return;
+    el.modalCalendar.hidden = false;
+}
+
+function ocultarModalCalendar() {
+    el.modalCalendar.hidden = true;
 }
 
 function mostrarGate() {
@@ -247,6 +287,7 @@ function iniciarApp() {
     appIniciada = true;
 
     configurarToken(() => sesionActual()?.id_token || '');
+    mostrarModalCalendarSiHaceFalta();
 
     const migracion = migrarSiHaceFalta();
     if (migracion) {

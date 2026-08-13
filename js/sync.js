@@ -23,8 +23,9 @@ import {
 } from './revisiones.js';
 import { postear, leerCatalogos } from '../src/services/google/appsScript';
 import {
-    tieneAccesoCalendar, sincronizarEventoVisita, borrarEventoVisita
+    tieneAccesoCalendar, intentarReconexionCalendar, sincronizarEventoVisita, borrarEventoVisita
 } from './googleCalendar.js';
+import { CLIENT_ID as CALENDAR_CLIENT_ID } from './auth.js';
 
 // ---------- catálogos ----------
 
@@ -435,9 +436,13 @@ export async function sincronizarRevisiones() {
  * puntos donde `reflejarEnCalendar` se llama en caliente son best-effort; esto es lo que
  * repara lo que ellos se perdieron).
  *
- * Sale barata y sin tocar la red si Calendar no está conectado en este dispositivo.
+ * Sale barata y sin tocar la red si Calendar no está conectado en este dispositivo NI se
+ * pudo reconectar en silencio — el caso normal es que sí: el consentimiento se pidió al
+ * iniciar sesión (`js/app.js`), así que la mayoría de las veces solo hace falta renovar el
+ * token sin que nadie tenga que abrir Calendario o Mi Día para lograrlo.
  */
 export async function sincronizarCalendar() {
+    if (!tieneAccesoCalendar()) await intentarReconexionCalendar(CALENDAR_CLIENT_ID);
     if (!tieneAccesoCalendar()) return { revisadas: 0 };
 
     const visitas = leerVisitas();
@@ -453,12 +458,16 @@ export async function sincronizarCalendar() {
 
     for (const visita of necesitanEvento) {
         try {
+            const eraNuevo = !visita.calendar_event_id;
             const id = await sincronizarEventoVisita(visita);
             if (id) {
+                // Un id RECIÉN estrenado sí tiene que subir al espejo (otro dispositivo lo
+                // necesita para no duplicar el evento); reconfirmar el mismo id que ya
+                // conocía este dispositivo no cambió nada que el backend necesite reenviar.
                 actualizarVisitaLocal(visita.id, v => {
                     v.calendar_event_id = id;
                     delete v.calendar_pendiente;
-                });
+                }, { marcarSucio: eraNuevo });
                 creados++;
             }
         } catch (err) {
@@ -482,17 +491,19 @@ export async function sincronizarCalendar() {
 }
 
 /**
- * Igual que `storage.actualizarVisita`, pero SIN volver a marcar `sincronizado = false`: el
+ * Igual que `storage.actualizarVisita`, pero sin marcar `sincronizado = false` POR DEFECTO: el
  * id del evento y la bandera `calendar_pendiente` son metadatos locales de Calendar, no un
- * cambio de contenido que el backend necesite reenviar en cuanto se sepa. (`reflejarEnCalendar`
- * sí quiere re-marcar sucio para empujar `calendar_event_id` al espejo; este camino, el del
- * reconciliador de fondo, no — evita que el loop de 5 min se re-dispare a sí mismo sin parar.)
+ * cambio de contenido que el backend necesite reenviar en cuanto se sepa. La única excepción
+ * es `marcarSucio: true` — cuando el id que se acaba de guardar es nuevo de verdad (recién
+ * creado por el reconciliador), y sin subirlo al espejo un segundo dispositivo no tiene forma
+ * de saber que el evento ya existe y termina creando uno duplicado.
  */
-function actualizarVisitaLocal(id, mutador) {
+function actualizarVisitaLocal(id, mutador, { marcarSucio = false } = {}) {
     const visitas = leerVisitas();
     const visita = visitas.find(v => v.id === id);
     if (!visita) return;
     mutador(visita);
+    if (marcarSucio) visita.sincronizado = false;
     persistirVisitas(visitas);
 }
 
@@ -522,6 +533,16 @@ export async function sincronizarTodo() {
     const comentarios = await etapa('comentarios', sincronizarComentarios, { enviados: 0 });
     const revisiones = await etapa('revisiones', sincronizarRevisiones, { enviadas: 0 });
     const estrategias = await etapa('estrategias', sincronizarEstrategias, { enviadas: 0 });
+
+    // `sincronizarCalendar` atrapa el error de CADA visita por separado —a propósito, para que
+    // una sola falle sin frenar a las demás— así que nunca lanza y `etapa()` nunca la ve
+    // fallida, aunque las 30 visitas de alguien hayan fallado las 30. Sin esto, un problema de
+    // fondo (API de Calendar sin habilitar, scope faltante, token sin permisos) queda invisible
+    // para siempre: ni el chip de sync se pone en rojo, ni el toast de "algunas partes no se
+    // sincronizaron" aparece — solo queda un `console.error` por visita que nadie ve.
+    if (calendar.fallidos > 0 && calendar.creados === 0 && calendar.borrados === 0) {
+        errores.calendar = `${calendar.fallidos} visita(s) no se pudieron reflejar en Google Calendar`;
+    }
 
     const resultado = { visitas, evidencias, calendar, eventos, comentarios, revisiones, estrategias };
     if (Object.keys(errores).length > 0) resultado.errores = errores;

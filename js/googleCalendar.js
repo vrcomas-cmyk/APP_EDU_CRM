@@ -32,11 +32,18 @@ const CALENDAR_API = 'https://www.googleapis.com/calendar/v3/calendars/primary/e
 const SCOPE_CALENDAR = 'https://www.googleapis.com/auth/calendar.events';
 const MARCA_ORIGEN = 'pdt-visita';
 // Recordatorio de "ya di el consentimiento antes" — no es el token (ese nunca sobrevive un
-// recargo), solo la señal para intentar renovarlo solo la próxima vez sin pedir clic.
+// recargo), solo la señal para intentar renovarlo solo la próxima vez sin pedir clic. Se
+// guarda el SCOPE mismo (no un booleano): si algún día este módulo pide un scope adicional,
+// el valor guardado deja de coincidir con `SCOPE_CALENDAR` y el consentimiento vuelve a
+// aparecer una vez, solo para ese cambio — en vez de tener que inventar una versión a mano.
 const CLAVE_RECORDATORIO = 'pdt_calendar_conectado';
 
 let clienteToken = null;
 let tokenActual = null;   // { access_token, expira_en_ms }
+// Deduplica reconexiones silenciosas en vuelo: `sincronizarCalendar` (cada 5 min) y el hook
+// de React (al montar/al notar el token vencido) pueden pedirla casi al mismo tiempo: sin
+// esto, cada quien dispara su propia llamada al SDK de Google.
+let intentoSilenciosoEnVuelo = null;
 
 function tokenVigente() {
     return tokenActual && Date.now() < tokenActual.expira_en_ms;
@@ -47,11 +54,22 @@ export function tieneAccesoCalendar() {
 }
 
 function recordarConexion() {
-    try { localStorage.setItem(CLAVE_RECORDATORIO, '1'); } catch { /* modo privado, etc. */ }
+    try { localStorage.setItem(CLAVE_RECORDATORIO, SCOPE_CALENDAR); } catch { /* modo privado, etc. */ }
 }
 
 function seConectoAntes() {
-    try { return localStorage.getItem(CLAVE_RECORDATORIO) === '1'; } catch { return false; }
+    try { return localStorage.getItem(CLAVE_RECORDATORIO) === SCOPE_CALENDAR; } catch { return false; }
+}
+
+/** Para el login: ¿hace falta mostrar el consentimiento, o ya se dio para este scope? */
+export function calendarNecesitaConsentimiento() {
+    return !tokenVigente() && !seConectoAntes();
+}
+
+/** Al cerrar sesión: que la próxima cuenta que entre pida su propio consentimiento. */
+export function olvidarConsentimientoCalendar() {
+    tokenActual = null;
+    try { localStorage.removeItem(CLAVE_RECORDATORIO); } catch { /* modo privado, etc. */ }
 }
 
 function clienteTokenDe(clientId) {
@@ -107,8 +125,9 @@ export function conectarCalendar(clientId) {
 export function intentarReconexionCalendar(clientId) {
     if (tokenVigente()) return Promise.resolve(true);
     if (!seConectoAntes() || !window.google?.accounts?.oauth2) return Promise.resolve(false);
+    if (intentoSilenciosoEnVuelo) return intentoSilenciosoEnVuelo;
 
-    return new Promise((resolve) => {
+    intentoSilenciosoEnVuelo = new Promise((resolve) => {
         const cliente = clienteTokenDe(clientId);
         cliente.callback = (resp) => {
             if (resp.error) { resolve(false); return; }
@@ -124,7 +143,9 @@ export function intentarReconexionCalendar(clientId) {
         } catch {
             resolve(false);
         }
-    });
+    }).finally(() => { intentoSilenciosoEnVuelo = null; });
+
+    return intentoSilenciosoEnVuelo;
 }
 
 function encabezados() {

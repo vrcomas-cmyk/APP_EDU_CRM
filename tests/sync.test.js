@@ -18,19 +18,24 @@ vi.mock('../src/services/google/appsScript', () => ({
 }));
 
 vi.mock('../js/googleCalendar.js', () => ({
-    tieneAccesoCalendar: () => false,
+    tieneAccesoCalendar: vi.fn(() => false),
+    intentarReconexionCalendar: vi.fn(async () => false),
     sincronizarEventoVisita: vi.fn(async () => null),
     borrarEventoVisita: vi.fn(async () => {})
 }));
 
 import { agregarVisita, leerVisitas, guardarVisitas } from '../js/storage.js';
 import { registrar, TIPOS } from '../js/eventos.js';
-import { sincronizarTodo, sincronizarVisitas } from '../js/sync.js';
+import { sincronizarTodo, sincronizarVisitas, sincronizarCalendar } from '../js/sync.js';
 import { visita } from './ayuda/fixtures.js';
+import * as googleCalendar from '../js/googleCalendar.js';
 
 beforeEach(() => {
     limpiarAlmacen();
     postear.mockReset();
+    googleCalendar.tieneAccesoCalendar.mockReset().mockReturnValue(false);
+    googleCalendar.intentarReconexionCalendar.mockReset().mockResolvedValue(false);
+    googleCalendar.sincronizarEventoVisita.mockReset().mockResolvedValue(null);
 });
 
 describe('sincronizarTodo — una etapa caída no bloquea a las demás', () => {
@@ -58,6 +63,38 @@ describe('sincronizarTodo — una etapa caída no bloquea a las demás', () => {
         postear.mockResolvedValue({ status: 'ok', espejo: true });
         const r = await sincronizarTodo();
         assert.equal(r.errores, undefined);
+    });
+});
+
+describe('sincronizarCalendar — reconecta sola en vez de rendirse', () => {
+    test('sin token, intenta reconectar en silencio antes de reconciliar', async () => {
+        googleCalendar.tieneAccesoCalendar.mockReturnValue(false);
+        googleCalendar.intentarReconexionCalendar.mockResolvedValue(false);
+
+        const r = await sincronizarCalendar();
+
+        assert.equal(googleCalendar.intentarReconexionCalendar.mock.calls.length, 1,
+            'debe intentar la reconexión silenciosa antes de rendirse');
+        assert.equal(r.revisadas, 0);
+    });
+
+    test('si la reconexión silenciosa funciona, reconcilia en el mismo ciclo', async () => {
+        const v = agregarVisita(visita({ dia: '2026-08-20', hora_inicio: '09:00', hora_fin: '10:00' }));
+
+        // El token "aparece" justo cuando se intenta reconectar, como si de verdad se hubiera
+        // renovado — antes de eso `tieneAccesoCalendar()` decía que no había acceso.
+        let reconectado = false;
+        googleCalendar.tieneAccesoCalendar.mockImplementation(() => reconectado);
+        googleCalendar.intentarReconexionCalendar.mockImplementation(async () => {
+            reconectado = true;
+            return true;
+        });
+        googleCalendar.sincronizarEventoVisita.mockResolvedValue('evt-nuevo');
+
+        const r = await sincronizarCalendar();
+
+        assert.equal(r.creados, 1, 'no debía quedarse esperando al próximo ciclo de 5 min');
+        assert.equal(leerVisitas().find(x => x.id === v.id).calendar_event_id, 'evt-nuevo');
     });
 });
 
