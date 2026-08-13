@@ -65,7 +65,12 @@ const ESPEJOS = {
 
     // Qué Sector puede ver cada gerente: tampoco tiene columna en ninguna hoja, es exclusivo
     // del reporte de Actividades.
-    guardarGerenteSector: 'pdt_gerente_sector_guardar'
+    guardarGerenteSector: 'pdt_gerente_sector_guardar',
+
+    // Los compromisos de Calendar del EQUIPO tampoco viven en una hoja: es un espejo de lectura
+    // puro (lo que cada quien ya lee de su propio Google Calendar), no un dato operativo de
+    // Sheets — ver `20260813_pdt_calendar_compromisos.sql`.
+    guardarCompromisosCalendar: 'pdt_calendar_compromisos_guardar'
 };
 
 /** Las que escriben en Postgres SIN copia en la hoja: su fallo no se puede callar. */

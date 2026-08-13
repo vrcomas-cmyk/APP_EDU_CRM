@@ -415,14 +415,15 @@ var ACCIONES_CON_IDENTIDAD = ['guardarVisitas', 'subirEvidencia', 'guardarEvento
                               'guardarEstrategias', 'leerEstrategias',
                               'leerTerritorios', 'guardarTerritorios',
                               'leerReporteActividades', 'leerGerenteSector', 'guardarGerenteSector',
-                              'leerHistoricoActividades', 'leerHistoricoPlanTrabajo'];
+                              'leerHistoricoActividades', 'leerHistoricoPlanTrabajo',
+                              'guardarCompromisosCalendar', 'leerCompromisosCalendarEquipo'];
 
 // Acciones de solo LECTURA: no tocan ninguna hoja, así que no necesitan turnarse detrás del
 // candado global. Antes SÍ lo hacían —un `waitLock` compartido con las escrituras— y eso
 // significaba que una subida de evidencia grande (base64, puede tardar varios segundos)
 // bloqueaba hasta 30s la lectura de "Mi día"/Calendario de TODO el equipo, no solo de quien
 // subía. Separarlas es lo que de verdad resuelve la lentitud, más que el tamaño del payload.
-var ACCIONES_DE_LECTURA = ['leerVisitasEquipo', 'leerRevisiones', 'leerRBAC', 'leerFlujos', 'leerEstrategias', 'leerTerritorios', 'leerReporteActividades', 'leerGerenteSector', 'leerHistoricoActividades', 'leerHistoricoPlanTrabajo'];
+var ACCIONES_DE_LECTURA = ['leerVisitasEquipo', 'leerRevisiones', 'leerRBAC', 'leerFlujos', 'leerEstrategias', 'leerTerritorios', 'leerReporteActividades', 'leerGerenteSector', 'leerHistoricoActividades', 'leerHistoricoPlanTrabajo', 'leerCompromisosCalendarEquipo'];
 
 function doPost(e) {
     var lock = null;
@@ -487,6 +488,10 @@ function doPost(e) {
                 return json(leerHistoricoPlanTrabajo(body, identidad));
             case 'guardarGerenteSector':
                 return json(guardarGerenteSector(body, identidad));
+            case 'guardarCompromisosCalendar':
+                return json(guardarCompromisosCalendar(body, identidad));
+            case 'leerCompromisosCalendarEquipo':
+                return json(leerCompromisosCalendarEquipo(body, identidad));
             default:
                 return json({ status: 'error', message: 'action desconocida: ' + body.action });
         }
@@ -1011,6 +1016,43 @@ function leerVisitasEquipo(body, identidad) {
         };
     }
     return { status: 'ok', visitas: datos, espejo: true };
+}
+
+/**
+ * Sube lo que ESTE dispositivo acaba de leer de SU PROPIO Google Calendar
+ * (`listarCompromisos()` en el cliente). Solo va a Supabase —a diferencia de visitas/eventos,
+ * esto no es dato operativo de la hoja, es un espejo de lectura para que un gerente pueda ver
+ * "lo demás" que su gente tiene agendado sin que el token del gerente necesite leer el
+ * calendario de nadie más (ver `20260813_pdt_calendar_compromisos.sql`).
+ */
+function guardarCompromisosCalendar(body, identidad) {
+    var espejo = supabaseRPC('pdt_calendar_compromisos_guardar', {
+        p_correo: identidad.correo,
+        p_compromisos: body.compromisos || [],
+        p_desde: body.desde || null,
+        p_hasta: body.hasta || null
+    });
+    return { status: 'ok', espejo: espejo !== null };
+}
+
+/**
+ * Lee, para el correo verificado, los compromisos de Calendar que su equipo ya subió — el
+ * mismo criterio de alcance que `leerVisitasEquipo`, y por la misma razón pasa por aquí y no
+ * directo desde la PWA: el correo que llega a Postgres tiene que ser el que Google ya verificó.
+ */
+function leerCompromisosCalendarEquipo(body, identidad) {
+    var db = SpreadsheetApp.openById(SHEET_DB_ID);
+    var datos = supabaseRPC('pdt_calendar_compromisos_en_alcance', {
+        p_correo: identidad.correo,
+        p_desde: body.desde || null,
+        p_hasta: body.hasta || null,
+        p_todas: esAdmin(db, identidad.correo)
+    });
+
+    if (datos === null) {
+        return { status: 'ok', compromisos: [], espejo: false };
+    }
+    return { status: 'ok', compromisos: datos, espejo: true };
 }
 
 /**

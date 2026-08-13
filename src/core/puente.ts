@@ -481,6 +481,24 @@ export const sincronizarEventoVisita = _calendar.sincronizarEventoVisita as (
 ) => Promise<string | null>;
 export const borrarEventoVisita = _calendar.borrarEventoVisita as (idEvento?: string) => Promise<void>;
 
+/**
+ * "Lo demás" que el equipo tiene en su Google Calendar personal — no visitas, esas ya vienen
+ * por `consultarVisitas()`. El token de quien mira nunca lee el calendario de otra persona
+ * (Google no lo permite sin que esa persona lo comparta); en vez de eso, cada dispositivo sube
+ * lo que su propia lectura de `listarCompromisos()` trajo, y esto lee ese espejo recortado por
+ * la misma jerarquía que ya usan las visitas. Ver `20260813_pdt_calendar_compromisos.sql`.
+ */
+export const subirCompromisosCalendar = _sync.subirCompromisosCalendar as (
+    compromisos: CompromisoCalendar[], desdeISO: string, hastaISO: string
+) => Promise<{ espejo: boolean }>;
+
+export interface CompromisoCalendarEquipo extends CompromisoCalendar {
+    educadorCorreo: string;
+}
+export const descargarCompromisosCalendarEquipo = _sync.descargarCompromisosCalendarEquipo as (
+    desdeISO: string, hastaISO: string
+) => Promise<{ compromisos: CompromisoCalendarEquipo[]; espejo: boolean }>;
+
 // ---------- avisos ----------
 
 export type EstadoAviso = 'completa' | 'sin-registrar' | 'programada' | 'faltan-evidencias';

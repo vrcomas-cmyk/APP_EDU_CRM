@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     claveDia, claveHoy, diasDeSemana, etiquetaMes, etiquetaRangoSemana, etiquetaDiaLarga,
     inicioDe, finDe, reagendarVisita, listarCompromisos, consultarVisitas,
+    subirCompromisosCalendar, descargarCompromisosCalendarEquipo,
     aplicarFiltro, opcionesDeFiltro, tieneEquipo,
     type Avisar, type CompromisoCalendar, type Filtro
 } from '@core/puente';
@@ -110,23 +111,52 @@ export function Calendario({
     const { conectado: calendarConectado, conectar: conectarCalendarBtn, conectando, error: errorCalendar } = useConexionCalendar();
     const [compromisos, setCompromisos] = useState<Map<string, CompromisoCalendar[]>>(new Map());
 
+    // Correo → nombre, para poder mostrar de quién es un compromiso ajeno ("Ana López: junta
+    // con...") en vez de solo su correo. Sale de las visitas ya visibles: si alguien del equipo
+    // nunca tuvo una visita visible para mí, tampoco tengo forma de saber su nombre — se queda
+    // el correo, que sigue siendo identificable.
+    const nombrePorCorreo = useMemo(() => {
+        const mapa = new Map<string, string>();
+        for (const v of todasVisibles) {
+            if (v.educador_correo && v.educador) mapa.set(v.educador_correo.toLowerCase(), v.educador);
+        }
+        return mapa;
+    }, [todasVisibles]);
+
     useEffect(() => {
         if (!calendarConectado || claves.length === 0) { setCompromisos(new Map()); return; }
 
         let vivo = true;
         const desde = new Date(`${claves[0]}T00:00:00`);
         const hasta = new Date(`${claves[claves.length - 1]}T23:59:59`);
+        const desdeISO = desde.toISOString();
+        const hastaISO = hasta.toISOString();
 
-        listarCompromisos(desde.toISOString(), hasta.toISOString())
-            .then(lista => {
+        // Lo del equipo se pide en paralelo con lo propio; si nadie tiene equipo o el espejo no
+        // responde, `descargarCompromisosCalendarEquipo` ya vuelve `[]` en vez de fallar.
+        Promise.all([
+            listarCompromisos(desdeISO, hastaISO),
+            tieneEquipo() ? descargarCompromisosCalendarEquipo(desdeISO, hastaISO) : Promise.resolve({ compromisos: [] })
+        ])
+            .then(([propios, { compromisos: delEquipo }]) => {
                 if (!vivo) return;
+
                 const mapa = new Map<string, CompromisoCalendar[]>();
-                for (const c of lista) {
-                    if (c.todoElDia) continue;
+                const agregar = (c: CompromisoCalendar) => {
+                    if (c.todoElDia) return;
                     const clave = claveDia(new Date(c.inicio));
                     (mapa.get(clave) ?? mapa.set(clave, []).get(clave)!).push(c);
+                };
+                propios.forEach(agregar);
+                for (const c of delEquipo) {
+                    const quien = nombrePorCorreo.get(c.educadorCorreo.toLowerCase()) || c.educadorCorreo;
+                    agregar({ ...c, titulo: `${quien}: ${c.titulo}` });
                 }
                 setCompromisos(mapa);
+
+                // Mejor esfuerzo, sin bloquear la pantalla: lo propio se sube para que el
+                // equipo lo vea (ver `subirCompromisosCalendar` en `js/sync.js`).
+                if (propios.length > 0) void subirCompromisosCalendar(propios, desdeISO, hastaISO);
             })
             .catch((err) => {
                 console.error('No se pudieron leer los compromisos de Calendar:', err);
@@ -134,7 +164,7 @@ export function Calendario({
             });
 
         return () => { vivo = false; };
-    }, [claves, calendarConectado]);
+    }, [claves, calendarConectado, nombrePorCorreo]);
 
     const compromisosDe = useCallback(
         (clave: string) => compromisos.get(clave) ?? [],

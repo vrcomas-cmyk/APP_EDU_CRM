@@ -491,6 +491,51 @@ export async function sincronizarCalendar() {
 }
 
 /**
+ * Sube lo que este dispositivo acaba de leer de SU PROPIO Google Calendar
+ * (`listarCompromisos()`), para que alguien a cargo pueda verlo sin que su token necesite leer
+ * el calendario de nadie más — ver `20260813_pdt_calendar_compromisos.sql`. Mejor esfuerzo,
+ * igual que el resto de los espejos: si falla, lo único que pasa es que el gerente ve esto un
+ * poco más tarde, nunca bloquea nada de lo que el educador está haciendo.
+ */
+export async function subirCompromisosCalendar(compromisos, desdeISO, hastaISO) {
+    if (!navigator.onLine) return { espejo: false };
+    try {
+        const r = await postear({
+            action: 'guardarCompromisosCalendar',
+            compromisos: compromisos.map(c => ({
+                id: c.id, titulo: c.titulo, inicio: c.inicio, fin: c.fin,
+                todoElDia: c.todoElDia, ubicacion: c.ubicacion, descripcion: c.descripcion, url: c.url
+            })),
+            desde: desdeISO, hasta: hastaISO
+        });
+        return { espejo: r?.espejo === true };
+    } catch (err) {
+        console.error('No se pudieron subir los compromisos de Calendar:', err);
+        return { espejo: false };
+    }
+}
+
+/**
+ * Compromisos de Calendar que el EQUIPO ya subió (no los propios: esos se leen en vivo con
+ * `listarCompromisos()`). Vuelve vacío en vez de lanzar, mismo criterio que
+ * `descargarVisitasEquipo`: es información adicional, que no llegue no puede romper la
+ * pantalla de quien está viendo su agenda.
+ */
+export async function descargarCompromisosCalendarEquipo(desdeISO, hastaISO) {
+    if (!navigator.onLine) return { compromisos: [], espejo: false };
+    try {
+        const r = await postear({ action: 'leerCompromisosCalendarEquipo', desde: desdeISO, hasta: hastaISO });
+        return {
+            compromisos: Array.isArray(r?.compromisos) ? r.compromisos : [],
+            espejo: r?.espejo === true
+        };
+    } catch (err) {
+        console.error('No se pudieron leer los compromisos de Calendar del equipo:', err);
+        return { compromisos: [], espejo: false };
+    }
+}
+
+/**
  * Igual que `storage.actualizarVisita`, pero sin marcar `sincronizado = false` POR DEFECTO: el
  * id del evento y la bandera `calendar_pendiente` son metadatos locales de Calendar, no un
  * cambio de contenido que el backend necesite reenviar en cuanto se sepa. La única excepción
