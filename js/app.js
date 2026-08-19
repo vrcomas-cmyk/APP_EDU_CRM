@@ -25,21 +25,26 @@ import {
 import { ponerVisitasEquipo, olvidarVisitasEquipo } from './datos.js';
 import { ponerFlujos, ponerRevisiones, olvidarRevisiones } from './revisiones.js';
 import { initAuth, sesionActual, pintarBotonEntrada, intentarRefresco, cerrarSesion, CLIENT_ID as CALENDAR_CLIENT_ID } from './auth.js';
-import { conectarCalendar, calendarNecesitaConsentimiento } from './googleCalendar.js';
+import {
+    conectarCalendar, calendarNecesitaConsentimiento, posponerConsentimientoCalendar
+} from './googleCalendar.js';
 import { initTema } from './tema.js';
 
 let el = {};
 let sincronizando = false;
+let inicioCicloSync = 0;
 let appIniciada = false;
-// Si el último intento falló, el auto-sync deja de insistir hasta que vuelva la señal o
-// alguien pulse el botón a mano: martillar cada pocos segundos contra un servidor caído
-// no arregla nada y solo gasta batería y datos.
-let sincronizarFallo = false;
-// Cuántas veces seguidas falló. Ya no es todo-o-nada: como `sincronizarTodo` ahora aísla cada
-// cola en su propio try/catch, un solo tropiezo (una cola caída, un timeout suelto) no debe
-// apagar el auto-sync de las demás — solo una racha lo justifica.
+// Cuántas veces seguidas falló un ciclo. Ya no apaga el auto-sync (ver `sincronizarFallo`
+// antiguo): en vez de detenerse hasta un clic manual, cada fallo alarga el intervalo del
+// siguiente reintento (backoff) y un ciclo bueno lo vuelve a poner en el intervalo normal —
+// así "hay veces que no sincroniza" deja de depender de que alguien lo note y pulse el botón.
 let fallosSeguidos = 0;
-const FALLOS_PARA_DETENER = 3;
+const ESPERAS_BACKOFF_MS = [15000, 30000, 60000, 120000, 300000]; // 15s .. 5min, tope
+const INTERVALO_NORMAL_MS = 60000;
+// Un ciclo que nunca resuelve (pestaña congelada a media subida, promesa que no cierra) no
+// debe dejar `sincronizando` en `true` para siempre: eso silenciaría todo intento posterior,
+// automático o manual. Pasado este margen sobre el timeout de red, se da por muerto.
+const WATCHDOG_MS = 3 * 20000; // ~3x TIMEOUT_MS de appsScript.ts
 let relojAutoSync = null;
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -89,16 +94,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     el.calendarAceptar.addEventListener('click', () => {
         ocultarModalCalendar();
-        conectarCalendar(CALENDAR_CLIENT_ID).catch((err) => {
+        conectarCalendar(CALENDAR_CLIENT_ID, sesionActual()?.correo).catch((err) => {
             console.error('No se pudo conectar Google Calendar:', err);
             toast('No se pudo conectar con Google Calendar. Puedes intentarlo de nuevo desde Calendario.',
                 { estado: 'sin-registrar' });
         });
     });
-    // "Ahora no" no marca el consentimiento como dado: al volver a entrar se vuelve a
-    // preguntar, igual que antes de que este modal existiera nadie perdía la posibilidad de
-    // conectar más tarde desde el botón en Calendario/Mi día.
-    el.calendarOmitir.addEventListener('click', ocultarModalCalendar);
+    // "Ahora no" SÍ marca el aplazamiento (por correo, ver `js/googleCalendar.js`): sin esto
+    // el modal volvía a aparecer en cada login para quien no quería conectar Calendar en ese
+    // momento — justo el "me pide sincronización más de una vez" que se busca evitar. El botón
+    // de conectar en Calendario/Mi día sigue disponible para quien cambie de opinión.
+    el.calendarOmitir.addEventListener('click', () => {
+        posponerConsentimientoCalendar(sesionActual()?.correo);
+        ocultarModalCalendar();
+    });
 
     initTema(document.getElementById('tema-switch'));
 
@@ -149,7 +158,7 @@ function alCambiarSesion(sesion) {
  * aparece una vez, y el clic en su botón es lo que hace que Google no lo bloquee.
  */
 function mostrarModalCalendarSiHaceFalta() {
-    if (!calendarNecesitaConsentimiento()) return;
+    if (!calendarNecesitaConsentimiento(sesionActual()?.correo)) return;
     el.modalCalendar.hidden = false;
 }
 
@@ -260,7 +269,7 @@ function refrescarPerfil() {
  * debe terminar con las visitas de esa persona en su propio localStorage.
  */
 function cargarEquipo() {
-    descargarVisitasEquipo().then(({ visitas, espejo }) => {
+    return descargarVisitasEquipo().then(({ visitas, espejo }) => {
         if (!espejo) return;      // el espejo no está configurado: se sigue con lo local
         ponerVisitasEquipo(visitas);
         if (!enSimulacion()) adoptarVisitasPropias(visitas, sesionActual()?.correo);
@@ -273,13 +282,35 @@ function cargarEquipo() {
  * qué le rechazaron, y eso es una revisión sobre sus propias visitas.
  */
 function cargarRevisiones() {
-    descargarRevisiones().then(({ flujos, revisiones, espejo }) => {
+    return descargarRevisiones().then(({ flujos, revisiones, espejo }) => {
         if (!espejo) return;
         ponerFlujos(flujos);
         ponerRevisiones(revisiones);
         pintarAccesos();
         refrescarTodo();
     });
+}
+
+/**
+ * Toda la BAJADA del espejo (visitas del equipo, revisiones, catálogo), separada de la SUBIDA.
+ * Nunca lanza: cada pieza ya atrapa sus propios errores (`descargarVisitasEquipo`,
+ * `descargarRevisiones` y `descargarCatalogoSiSePuede` devuelven vacío/registran en consola en
+ * vez de rechazar), así que esto puede llamarse en cualquier momento —incluso si la subida
+ * falló— sin arriesgar nada más.
+ */
+let bajadaEnVuelo = null;
+
+/**
+ * Deduplica bajadas simultáneas: `alCambiarConexion`, `volverAPrimerPlano` y el `finally` de
+ * `sincronizar()` pueden pedirla casi al mismo tiempo (p. ej. al recuperar señal con la pestaña
+ * recién vuelta a primer plano). Sin esto, cada disparador metía su propia ronda de peticiones
+ * en vez de compartir la que ya estaba en camino.
+ */
+function bajarDelEspejo() {
+    if (bajadaEnVuelo) return bajadaEnVuelo;
+    bajadaEnVuelo = Promise.all([cargarEquipo(), cargarRevisiones(), descargarCatalogoSiSePuede()])
+        .finally(() => { bajadaEnVuelo = null; });
+    return bajadaEnVuelo;
 }
 
 /** Todo lo que antes vivía suelto en DOMContentLoaded: ahora espera a que haya sesión. */
@@ -319,18 +350,18 @@ function iniciarApp() {
     document.addEventListener('keydown', atajoPaleta);
     window.addEventListener('online', alCambiarConexion);
     window.addEventListener('offline', alCambiarConexion);
-    // "Ingresar" en el celular casi siempre es retomar la pestaña, no un arranque nuevo:
-    // sin esto, volver de otra app podía dejar horas de trabajo sin subir hasta el próximo
-    // toque manual del chip de sync. También reactiva el reloj de fondo, que se pausa
-    // mientras la pestaña no es visible (ver `pausarAutoSync`/`reanudarAutoSync`).
+    // "Ingresar" en el celular casi siempre es retomar la pestaña, no un arranque nuevo: sin
+    // esto, volver de otra app podía dejar horas de trabajo sin subir, y lo que el equipo
+    // capturó mientras tanto sin bajar, hasta el próximo toque manual del chip de sync.
+    // `volverAPrimerPlano` baja primero (lo del equipo aparece al instante) y sube después.
     document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') {
-            sincronizar();
-            reanudarAutoSync();
-        } else {
-            pausarAutoSync();
-        }
+        if (document.visibilityState === 'visible') volverAPrimerPlano();
     });
+    // Complementa a `visibilitychange`: en Android, volver "atrás" desde otra app puede
+    // restaurar la pestaña desde el bfcache sin pasar por un cambio de visibilidad, y
+    // `focus` cubre el caso de escritorio (cambiar de ventana y volver).
+    window.addEventListener('focus', volverAPrimerPlano);
+    window.addEventListener('pageshow', volverAPrimerPlano);
     // Cada guardado (visita, evidencia, check-in/out) pasa por `guardarVisitas` en
     // storage.js, que emite esto — así sube solo sin esperar al botón.
     window.addEventListener('pdt:visitas-guardadas', alGuardarVisitas);
@@ -342,20 +373,29 @@ function iniciarApp() {
     reanudarAutoSync();
 }
 
+let volviendoAPrimerPlano = false;
+
+/** Baja lo del equipo de inmediato y dispara la subida propia — ver comentario en el listener. */
+function volverAPrimerPlano() {
+    if (volviendoAPrimerPlano) return;
+    volviendoAPrimerPlano = true;
+    bajarDelEspejo().finally(() => { volviendoAPrimerPlano = false; });
+    sincronizar();
+}
+
 /**
- * Reloj de fondo: reconciliación completa (backend + Calendar en ambos sentidos) cada 5 min,
- * para la app abierta toda la tarde con señal intermitente o guardados espaciados. Se pausa en
- * segundo plano (`pausarAutoSync`, disparado por `visibilitychange`) para no gastar batería ni
- * datos en un celular con la app minimizada; `visibilitychange` la reanuda al volver.
+ * Reloj de fondo: reconciliación completa (backend + Calendar en ambos sentidos), para la app
+ * abierta toda la tarde con señal intermitente o guardados espaciados.
+ *
+ * Ya NO se pausa en segundo plano: apagar el timer a mano (como antes) es lo que dejaba un
+ * celular minimizado sin sincronizar hasta el próximo toque — el propio navegador ya limita
+ * cuánto puede correr un timer en una pestaña oculta, así que no hace falta ayudarlo a quedarse
+ * mudo. El intervalo baja de 5 min a 1 min: junto con el backoff de `sincronizar()`, un fallo
+ * aislado ya no obliga a esperar 5 min completos para el siguiente intento.
  */
 function reanudarAutoSync() {
     if (relojAutoSync) return;
-    relojAutoSync = setInterval(() => sincronizar(), 5 * 60000);
-}
-
-function pausarAutoSync() {
-    clearInterval(relojAutoSync);
-    relojAutoSync = null;
+    relojAutoSync = setInterval(() => sincronizar(), INTERVALO_NORMAL_MS);
 }
 
 if ('serviceWorker' in navigator) {
@@ -481,14 +521,13 @@ export function toast(texto, { estado = null, accion = null, ms } = {}) {
 
 function alCambiarConexion() {
     if (navigator.onLine) {
-        // Recuperar señal es la única señal clara de que vale la pena reintentar solo.
-        sincronizarFallo = false;
-        fallosSeguidos = 0;
         // Antes de mandar nada: si el token de sesión ya venció (posible tras horas
         // offline), esto lo renueva en silencio para que el sync no lo rechace.
         intentarRefresco();
-        sincronizar();
-        descargarCatalogoSiSePuede();
+        // Bajar primero: lo que el equipo sincronizó mientras este dispositivo estaba sin
+        // señal aparece de inmediato, sin esperar a que la subida propia termine.
+        bajarDelEspejo();
+        sincronizar({ reintentoPorConexion: true });
         refrescarPerfil();
     } else {
         pintarSync('is-off', 'Sin conexión');
@@ -502,7 +541,7 @@ let relojDebounceSync = null;
  * evidencia, check-in/out) en un solo envío en vez de uno por escritura.
  */
 function alGuardarVisitas() {
-    if (sincronizando || sincronizarFallo) return;
+    if (sincronizando) return;
     clearTimeout(relojDebounceSync);
     relojDebounceSync = setTimeout(() => sincronizar(), 2000);
 }
@@ -520,14 +559,43 @@ function estadoSyncEnReposo() {
     pintarSync('', 'Al día');
 }
 
-async function sincronizar({ manual = false } = {}) {
-    if (sincronizando || !navigator.onLine) {
-        if (manual && !navigator.onLine) {
+let relojReintentoBackoff = null;
+
+/** Cancela un reintento con backoff ya programado — un ciclo bueno o uno manual lo reemplazan. */
+function cancelarReintentoBackoff() {
+    clearTimeout(relojReintentoBackoff);
+    relojReintentoBackoff = null;
+}
+
+/**
+ * Programa el siguiente intento tras un fallo, cada vez más espaciado
+ * (`ESPERAS_BACKOFF_MS`), en vez de apagar el auto-sync hasta un clic manual. El reloj de
+ * fondo (`reanudarAutoSync`, cada `INTERVALO_NORMAL_MS`) de todos modos volvería a intentarlo,
+ * pero esto reacciona antes cuando la señal se cae por rachas cortas.
+ */
+function programarReintentoBackoff() {
+    cancelarReintentoBackoff();
+    const espera = ESPERAS_BACKOFF_MS[Math.min(fallosSeguidos - 1, ESPERAS_BACKOFF_MS.length - 1)];
+    relojReintentoBackoff = setTimeout(() => sincronizar(), espera);
+}
+
+async function sincronizar({ manual = false, reintentoPorConexion = false } = {}) {
+    if (!navigator.onLine) {
+        if (manual) {
             toast('Sin conexión. Lo que registres se guarda y sube solo al recuperar señal.', { estado: 'programada' });
         }
         return;
     }
+    // Un ciclo colgado (pestaña congelada, promesa que nunca cierra) no debe dejar el
+    // auto-sync mudo para siempre: pasado el watchdog, se permite empezar uno nuevo aunque el
+    // anterior nunca haya llegado a su `finally`.
+    if (sincronizando) {
+        if (Date.now() - inicioCicloSync < WATCHDOG_MS) return;
+        console.error('Un ciclo de sincronización no cerró a tiempo; se intenta uno nuevo.');
+    }
+    cancelarReintentoBackoff();
     sincronizando = true;
+    inicioCicloSync = Date.now();
     pintarSync('is-busy', 'Enviando');
 
     try {
@@ -537,21 +605,12 @@ async function sincronizar({ manual = false } = {}) {
         if (huboErrores) {
             fallosSeguidos++;
             console.error('sincronizarTodo terminó con etapas fallidas:', r.errores);
-            if (fallosSeguidos >= FALLOS_PARA_DETENER) {
-                pintarSync('is-error', 'Error');
-                sincronizarFallo = true;
-                toast('No se pudo sincronizar todo. Revisa tu conexión.', {
-                    estado: 'sin-registrar',
-                    accion: { texto: 'Reintentar', fn: () => { sincronizarFallo = false; fallosSeguidos = 0; sincronizar({ manual: true }); } },
-                    ms: 8000
-                });
-            } else if (manual) {
+            pintarSync('is-error', 'Error');
+            programarReintentoBackoff();
+            if (manual) {
                 toast('Algunas partes no se pudieron sincronizar. Se reintenta solo.', { estado: 'sin-registrar' });
             }
         } else {
-            // Un ciclo completo sin errores es la única señal de que vale la pena seguir
-            // insistiendo solo: un fallo aislado ya no apaga el auto-sync (ver
-            // `FALLOS_PARA_DETENER`), pero tampoco debe acumularse en silencio para siempre.
             fallosSeguidos = 0;
         }
 
@@ -565,31 +624,27 @@ async function sincronizar({ manual = false } = {}) {
         }
     } catch (error) {
         // `sincronizarTodo` ya aísla cada etapa; llegar aquí es algo más grave (red caída de
-        // golpe, sesión inválida). Mismo criterio de racha que arriba.
+        // golpe, sesión inválida). Mismo backoff que arriba, nunca un apagado definitivo.
         console.error('Error al sincronizar:', error);
         fallosSeguidos++;
-        if (fallosSeguidos >= FALLOS_PARA_DETENER) {
-            pintarSync('is-error', 'Error');
-            sincronizarFallo = true;
-            toast(`No se pudo sincronizar: ${error.message}`, {
-                estado: 'sin-registrar',
-                accion: { texto: 'Reintentar', fn: () => { sincronizarFallo = false; fallosSeguidos = 0; sincronizar({ manual: true }); } },
-                ms: 8000
-            });
+        pintarSync('is-error', 'Error');
+        programarReintentoBackoff();
+        if (manual || reintentoPorConexion) {
+            toast(`No se pudo sincronizar: ${error.message}`, { estado: 'sin-registrar', ms: 8000 });
         }
+    } finally {
         sincronizando = false;
-        return;
+        refrescarTodo();
+        estadoSyncEnReposo();
+
+        // Con lo propio ya subido (o al menos intentado), se vuelve a bajar el espejo: así lo
+        // que otro dispositivo acaba de sincronizar aparece aquí sin esperar a recargar la
+        // página. Va en `finally`, no solo en el camino feliz: antes, si `sincronizarTodo`
+        // lanzaba, la bajada nunca ocurría y ese ciclo dejaba al dispositivo sin ver nada de
+        // lo que el equipo hizo mientras tanto — la causa más probable de "lo que capturo en
+        // la compu no se ve en el celular".
+        bajarDelEspejo();
     }
-
-    sincronizando = false;
-    refrescarTodo();
-    estadoSyncEnReposo();
-
-    // Con lo propio ya subido, se vuelve a bajar el espejo: así lo que otro dispositivo
-    // acaba de sincronizar aparece aquí sin esperar a recargar la página. El orden importa —
-    // primero subir, luego bajar— para que `adoptarVisitasPropias` no tenga nada pendiente
-    // que proteger de esta misma sesión.
-    cargarEquipo();
 }
 
 // ---------- catálogo ----------

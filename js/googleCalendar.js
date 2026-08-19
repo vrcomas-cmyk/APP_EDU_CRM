@@ -36,7 +36,14 @@ const MARCA_ORIGEN = 'pdt-visita';
 // guarda el SCOPE mismo (no un booleano): si algún día este módulo pide un scope adicional,
 // el valor guardado deja de coincidir con `SCOPE_CALENDAR` y el consentimiento vuelve a
 // aparecer una vez, solo para ese cambio — en vez de tener que inventar una versión a mano.
-const CLAVE_RECORDATORIO = 'pdt_calendar_conectado';
+//
+// La clave lleva el CORREO: el consentimiento de Calendar es por cuenta de Google, no por
+// dispositivo. Antes se guardaba una sola clave global y `cerrarSesion` la borraba entera para
+// que la siguiente cuenta en el mismo dispositivo viera su propio consentimiento — pero eso
+// también obligaba a la MISMA persona a volver a aceptar cada vez que cerraba sesión. Con la
+// clave por correo ninguna de las dos cosas hace falta: cada cuenta trae su propio recuerdo.
+const PREFIJO_RECORDATORIO = 'pdt_calendar_conectado:';
+const PREFIJO_POSPUESTO = 'pdt_calendar_pospuesto:';
 
 let clienteToken = null;
 let tokenActual = null;   // { access_token, expira_en_ms }
@@ -44,6 +51,11 @@ let tokenActual = null;   // { access_token, expira_en_ms }
 // de React (al montar/al notar el token vencido) pueden pedirla casi al mismo tiempo: sin
 // esto, cada quien dispara su propia llamada al SDK de Google.
 let intentoSilenciosoEnVuelo = null;
+// Renovación proactiva: dispara unos minutos ANTES de que el token expire, para que ninguna
+// etapa de sync se tope nunca con uno ya vencido. Se reprograma en cada token nuevo.
+let relojRenovacion = null;
+let correoActual = null;
+let clientIdActual = null;
 
 function tokenVigente() {
     return tokenActual && Date.now() < tokenActual.expira_en_ms;
@@ -53,23 +65,69 @@ export function tieneAccesoCalendar() {
     return tokenVigente();
 }
 
-function recordarConexion() {
-    try { localStorage.setItem(CLAVE_RECORDATORIO, SCOPE_CALENDAR); } catch { /* modo privado, etc. */ }
+function claveRecordatorio(correo) {
+    return `${PREFIJO_RECORDATORIO}${String(correo || '').trim().toLowerCase()}`;
 }
 
-function seConectoAntes() {
-    try { return localStorage.getItem(CLAVE_RECORDATORIO) === SCOPE_CALENDAR; } catch { return false; }
+function clavePospuesto(correo) {
+    return `${PREFIJO_POSPUESTO}${String(correo || '').trim().toLowerCase()}`;
 }
 
-/** Para el login: ¿hace falta mostrar el consentimiento, o ya se dio para este scope? */
-export function calendarNecesitaConsentimiento() {
-    return !tokenVigente() && !seConectoAntes();
+function recordarConexion(correo) {
+    try { localStorage.setItem(claveRecordatorio(correo), SCOPE_CALENDAR); } catch { /* modo privado, etc. */ }
+    try { localStorage.removeItem(clavePospuesto(correo)); } catch { /* modo privado, etc. */ }
 }
 
-/** Al cerrar sesión: que la próxima cuenta que entre pida su propio consentimiento. */
-export function olvidarConsentimientoCalendar() {
+function seConectoAntes(correo) {
+    try { return localStorage.getItem(claveRecordatorio(correo)) === SCOPE_CALENDAR; } catch { return false; }
+}
+
+/** "Ahora no" en el modal de login: no repreguntar en esta MISMA sesión de nuevo. */
+export function posponerConsentimientoCalendar(correo) {
+    try { localStorage.setItem(clavePospuesto(correo), String(Date.now())); } catch { /* modo privado, etc. */ }
+}
+
+function seAplazoAntes(correo) {
+    try { return !!localStorage.getItem(clavePospuesto(correo)); } catch { return false; }
+}
+
+/** Para el login: ¿hace falta mostrar el consentimiento, o ya se dio (o aplazó) para este correo? */
+export function calendarNecesitaConsentimiento(correo) {
+    return !tokenVigente() && !seConectoAntes(correo) && !seAplazoAntes(correo);
+}
+
+/**
+ * Ya no se llama al cerrar sesión (ver `js/auth.js`): el consentimiento es por cuenta, así que
+ * borrarlo en el logout solo forzaba a la MISMA persona a volver a aceptar la próxima vez.
+ * Sigue existiendo para "Usar otra cuenta" / depuración manual.
+ */
+export function olvidarConsentimientoCalendar(correo) {
     tokenActual = null;
-    try { localStorage.removeItem(CLAVE_RECORDATORIO); } catch { /* modo privado, etc. */ }
+    detenerRenovacionProactiva();
+    if (correo) {
+        try { localStorage.removeItem(claveRecordatorio(correo)); } catch { /* modo privado, etc. */ }
+        try { localStorage.removeItem(clavePospuesto(correo)); } catch { /* modo privado, etc. */ }
+    }
+}
+
+function detenerRenovacionProactiva() {
+    clearTimeout(relojRenovacion);
+    relojRenovacion = null;
+}
+
+/**
+ * Programa una renovación silenciosa ~5 min antes de que el token expire. Con esto ninguna
+ * etapa de `sincronizarTodo` (cada 60s-5min, ver `js/app.js`) debería encontrarse nunca con un
+ * token ya vencido — hoy solo se renovaba de forma reactiva, al notar que ya había expirado.
+ */
+function programarRenovacionProactiva() {
+    detenerRenovacionProactiva();
+    if (!tokenActual || !correoActual || !clientIdActual) return;
+    const margenMs = 5 * 60000;
+    const espera = Math.max(0, tokenActual.expira_en_ms - Date.now() - margenMs);
+    relojRenovacion = setTimeout(() => {
+        intentarReconexionCalendar(clientIdActual, correoActual);
+    }, espera);
 }
 
 function clienteTokenDe(clientId) {
@@ -84,10 +142,16 @@ function clienteTokenDe(clientId) {
 }
 
 /**
- * Pide (o renueva) el token de acceso. La primera vez abre el consentimiento de Google; con
- * el consentimiento ya dado, los intentos siguientes suelen resolverse sin interacción.
+ * Pide (o renueva) el token de acceso. Intenta SIEMPRE primero sin interacción
+ * (`prompt: ''`): si el consentimiento ya se dio en una sesión anterior de Google —aunque este
+ * dispositivo lo haya olvidado, p. ej. tras borrar datos— suele resolver solo. Solo cae a
+ * `prompt: 'consent'` cuando ese intento en verdad falla, así la pantalla de permiso aparece
+ * como mucho una vez por cuenta en vez de en cada carga de página.
  */
-export function conectarCalendar(clientId) {
+export function conectarCalendar(clientId, correo) {
+    correoActual = correo || correoActual;
+    clientIdActual = clientId;
+
     return new Promise((resolve, reject) => {
         if (!window.google?.accounts?.oauth2) {
             reject(new Error('Google Identity Services no cargó. Conéctate a internet e intenta de nuevo.'));
@@ -95,23 +159,37 @@ export function conectarCalendar(clientId) {
         }
 
         const cliente = clienteTokenDe(clientId);
+        const conConsentimiento = () => new Promise((res, rej) => {
+            cliente.callback = (resp) => {
+                if (resp.error) { rej(new Error(resp.error_description || resp.error)); return; }
+                aplicarToken(resp);
+                res(true);
+            };
+            cliente.requestAccessToken({ prompt: 'consent' });
+        });
+
         cliente.callback = (resp) => {
             if (resp.error) {
-                reject(new Error(resp.error_description || resp.error));
+                // Sin permiso previo (o revocado): recién aquí se muestra la pantalla real.
+                conConsentimiento().then(resolve, reject);
                 return;
             }
-            tokenActual = {
-                access_token: resp.access_token,
-                // Se resta un margen: pedir un token "a punto de vencer" y usarlo en la
-                // siguiente llamada es peor que renovarlo un poco antes.
-                expira_en_ms: Date.now() + (Number(resp.expires_in || 0) - 60) * 1000
-            };
-            recordarConexion();
+            aplicarToken(resp);
             resolve(true);
         };
-
-        cliente.requestAccessToken({ prompt: tokenActual ? '' : 'consent' });
+        cliente.requestAccessToken({ prompt: '' });
     });
+}
+
+function aplicarToken(resp) {
+    tokenActual = {
+        access_token: resp.access_token,
+        // Se resta un margen: pedir un token "a punto de vencer" y usarlo en la
+        // siguiente llamada es peor que renovarlo un poco antes.
+        expira_en_ms: Date.now() + (Number(resp.expires_in || 0) - 60) * 1000
+    };
+    recordarConexion(correoActual);
+    programarRenovacionProactiva();
 }
 
 /**
@@ -122,20 +200,18 @@ export function conectarCalendar(clientId) {
  * el navegador bloquea el intento por no venir de un clic, simplemente resuelve `false` y la
  * app se queda como si no se hubiera intentado — el botón de conectar sigue ahí para ese caso.
  */
-export function intentarReconexionCalendar(clientId) {
+export function intentarReconexionCalendar(clientId, correo) {
+    if (correo) correoActual = correo;
     if (tokenVigente()) return Promise.resolve(true);
-    if (!seConectoAntes() || !window.google?.accounts?.oauth2) return Promise.resolve(false);
+    if (!seConectoAntes(correoActual) || !window.google?.accounts?.oauth2) return Promise.resolve(false);
     if (intentoSilenciosoEnVuelo) return intentoSilenciosoEnVuelo;
 
+    clientIdActual = clientId;
     intentoSilenciosoEnVuelo = new Promise((resolve) => {
         const cliente = clienteTokenDe(clientId);
         cliente.callback = (resp) => {
             if (resp.error) { resolve(false); return; }
-            tokenActual = {
-                access_token: resp.access_token,
-                expira_en_ms: Date.now() + (Number(resp.expires_in || 0) - 60) * 1000
-            };
-            recordarConexion();
+            aplicarToken(resp);
             resolve(true);
         };
         try {

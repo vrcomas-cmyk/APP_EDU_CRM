@@ -457,9 +457,11 @@ import { CLIENT_ID as _CALENDAR_CLIENT_ID } from '../../js/auth.js';
 
 export const CALENDAR_CLIENT_ID = _CALENDAR_CLIENT_ID as string;
 export const tieneAccesoCalendar = _calendar.tieneAccesoCalendar as () => boolean;
-export const conectarCalendar = _calendar.conectarCalendar as (clientId: string) => Promise<boolean>;
+export const conectarCalendar = _calendar.conectarCalendar as (
+    clientId: string, correo?: string
+) => Promise<boolean>;
 export const intentarReconexionCalendar = _calendar.intentarReconexionCalendar as (
-    clientId: string
+    clientId: string, correo?: string
 ) => Promise<boolean>;
 
 export interface CompromisoCalendar {

@@ -25,7 +25,7 @@ import { postear, leerCatalogos } from '../src/services/google/appsScript';
 import {
     tieneAccesoCalendar, intentarReconexionCalendar, sincronizarEventoVisita, borrarEventoVisita
 } from './googleCalendar.js';
-import { CLIENT_ID as CALENDAR_CLIENT_ID } from './auth.js';
+import { CLIENT_ID as CALENDAR_CLIENT_ID, sesionActual } from './auth.js';
 
 // ---------- catálogos ----------
 
@@ -253,8 +253,24 @@ export async function descargarEstrategiasEquipo() {
  * Devuelve [] en vez de lanzar: el equipo es información adicional. Que no llegue no puede
  * romper la pantalla de quien está capturando lo suyo.
  */
+// Ventana por defecto de la bajada del espejo: 60 días atrás y 90 adelante. Antes se pedía
+// sin rango, con solo un `limite: 2000` como tope duro — en un equipo activo eso hace la
+// bajada más lenta de lo necesario y, peor, puede recortar justo lo más reciente si el tope
+// se alcanza con historial viejo. Acotar por fecha es más rápido y no pierde lo actual.
+const DIAS_ATRAS_DEFECTO = 60;
+const DIAS_ADELANTE_DEFECTO = 90;
+
+function ventanaPorDefecto() {
+    const hoy = new Date();
+    const desde = new Date(hoy); desde.setDate(desde.getDate() - DIAS_ATRAS_DEFECTO);
+    const hasta = new Date(hoy); hasta.setDate(hasta.getDate() + DIAS_ADELANTE_DEFECTO);
+    const iso = (d) => d.toISOString().slice(0, 10);
+    return { desde: iso(desde), hasta: iso(hasta) };
+}
+
 export async function descargarVisitasEquipo({ desde = null, hasta = null, limite = 2000 } = {}) {
     if (!navigator.onLine) return { visitas: [], espejo: false };
+    if (!desde && !hasta) ({ desde, hasta } = ventanaPorDefecto());
 
     try {
         const r = await postear({ action: 'leerVisitasEquipo', desde, hasta, limite });
@@ -442,7 +458,9 @@ export async function sincronizarRevisiones() {
  * token sin que nadie tenga que abrir Calendario o Mi Día para lograrlo.
  */
 export async function sincronizarCalendar() {
-    if (!tieneAccesoCalendar()) await intentarReconexionCalendar(CALENDAR_CLIENT_ID);
+    if (!tieneAccesoCalendar()) {
+        await intentarReconexionCalendar(CALENDAR_CLIENT_ID, sesionActual()?.correo);
+    }
     if (!tieneAccesoCalendar()) return { revisadas: 0 };
 
     const visitas = leerVisitas();

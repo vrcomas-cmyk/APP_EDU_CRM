@@ -12,7 +12,6 @@
  * con un mensaje claro y la fila queda pendiente hasta el siguiente sync con un token fresco.
  */
 
-import { olvidarConsentimientoCalendar } from './googleCalendar.js';
 
 // Se exporta: el módulo de Google Calendar pide un token de ACCESO (OAuth2, con permiso de
 // Calendar) con el mismo Client ID que ya usa este Sign-In de IDENTIDAD (id_token). Son dos
@@ -137,10 +136,10 @@ export function intentarRefresco() {
 export function cerrarSesion() {
     localStorage.removeItem(CLAVE_SESION);
     try { google.accounts.id.disableAutoSelect(); } catch { /* GSI no cargó; no hay nada que deshacer */ }
-    // El consentimiento de Calendar es POR CUENTA: si no se olvida aquí, la próxima persona
-    // que entre en este mismo dispositivo hereda el "ya conectado" de la anterior y nunca ve
-    // el consentimiento para SU propia cuenta.
-    olvidarConsentimientoCalendar();
+    // El consentimiento de Calendar ya no se olvida aquí: la clave que lo recuerda
+    // (`js/googleCalendar.js`) va POR CORREO, así que otra cuenta que entre en este mismo
+    // dispositivo sigue viendo su propio consentimiento sin heredar el de esta — y esta misma
+    // persona no tiene que volver a aceptar solo por haber cerrado sesión.
     alCambiarSesion(null);
 }
 

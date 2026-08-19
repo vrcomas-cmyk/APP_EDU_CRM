@@ -7,12 +7,15 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { tieneAccesoCalendar, conectarCalendar, intentarReconexionCalendar, CALENDAR_CLIENT_ID } from '@core/puente';
+import {
+    tieneAccesoCalendar, conectarCalendar, intentarReconexionCalendar, sesionActual, CALENDAR_CLIENT_ID
+} from '@core/puente';
 
 export function useConexionCalendar() {
     const [conectado, setConectado] = useState(() => tieneAccesoCalendar());
     const [conectando, setConectando] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const correo = sesionActual()?.correo;
 
     useEffect(() => {
         if (conectado) return;
@@ -20,7 +23,7 @@ export function useConexionCalendar() {
         // La deduplicación de intentos en vuelo vive en `googleCalendar.js` (a nivel de
         // módulo, no de componente): montar Calendario y "Mi día" casi al mismo tiempo ya no
         // dispara dos llamadas al SDK, así que no hace falta repetir ese guard aquí.
-        intentarReconexionCalendar(CALENDAR_CLIENT_ID).then((ok) => {
+        intentarReconexionCalendar(CALENDAR_CLIENT_ID, correo).then((ok) => {
             if (vivo && ok) setConectado(true);
         });
         return () => { vivo = false; };
@@ -38,25 +41,25 @@ export function useConexionCalendar() {
         let vivo = true;
         const reloj = setInterval(() => {
             if (tieneAccesoCalendar()) return;
-            intentarReconexionCalendar(CALENDAR_CLIENT_ID).then((ok) => {
+            intentarReconexionCalendar(CALENDAR_CLIENT_ID, correo).then((ok) => {
                 if (vivo && !ok) setConectado(false);
             });
         }, 60000);
         return () => { vivo = false; clearInterval(reloj); };
-    }, [conectado]);
+    }, [conectado, correo]);
 
     const conectar = useCallback(async () => {
         setError(null);
         setConectando(true);
         try {
-            await conectarCalendar(CALENDAR_CLIENT_ID);
+            await conectarCalendar(CALENDAR_CLIENT_ID, correo);
             setConectado(true);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'No se pudo conectar con Google Calendar.');
         } finally {
             setConectando(false);
         }
-    }, []);
+    }, [correo]);
 
     return { conectado, conectar, conectando, error };
 }
