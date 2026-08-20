@@ -1,21 +1,33 @@
 /**
  * Conexión con Google Calendar, compartida por el calendario y "Mi día".
  *
- * Al montar intenta una reconexión de fondo (sin clic) si ya se había conectado antes; si el
- * navegador no lo permite sin interacción o no hay sesión activa, se queda `conectado: false`
- * y `conectar()` sigue disponible para el botón visible.
+ * El consentimiento se dio una sola vez, en el login (`js/auth.js`): a partir de ahí, "conectar"
+ * es solo pedirle al servidor un access_token fresco (`js/googleCalendar.js`), sin ningún popup.
+ * Al montar intenta esa reconexión de fondo; si por lo que sea falla (red caída, servidor
+ * ocupado), `conectar()` sigue disponible para reintentar desde el botón visible.
+ * `necesitaReautenticar` solo se enciende si el servidor confirma que el permiso ya no sirve.
  */
 
 import { useCallback, useEffect, useState } from 'react';
 import {
-    tieneAccesoCalendar, conectarCalendar, intentarReconexionCalendar, sesionActual, CALENDAR_CLIENT_ID
+    tieneAccesoCalendar, conectarCalendar, intentarReconexionCalendar, sesionActual, CALENDAR_CLIENT_ID,
+    alReautenticarCalendar
 } from '@core/puente';
 
 export function useConexionCalendar() {
     const [conectado, setConectado] = useState(() => tieneAccesoCalendar());
     const [conectando, setConectando] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    // Solo se enciende cuando el servidor confirma que el permiso de Google ya no sirve
+    // (contraseña cambiada, acceso revocado). Es el único caso en el que hace falta volver a
+    // iniciar sesión — ya no hay ningún botón de "Conectar" que abra un popup de consentimiento.
+    const [necesitaReautenticar, setNecesitaReautenticar] = useState(false);
     const correo = sesionActual()?.correo;
+
+    useEffect(() => {
+        alReautenticarCalendar(() => setNecesitaReautenticar(true));
+        return () => alReautenticarCalendar(() => {});
+    }, []);
 
     useEffect(() => {
         if (conectado) return;
@@ -52,8 +64,9 @@ export function useConexionCalendar() {
         setError(null);
         setConectando(true);
         try {
-            await conectarCalendar(CALENDAR_CLIENT_ID, correo);
-            setConectado(true);
+            const ok = await conectarCalendar(CALENDAR_CLIENT_ID, correo);
+            setConectado(ok);
+            if (!ok) setError('No se pudo conectar con Google Calendar. Intenta de nuevo en un momento.');
         } catch (err) {
             setError(err instanceof Error ? err.message : 'No se pudo conectar con Google Calendar.');
         } finally {
@@ -61,5 +74,5 @@ export function useConexionCalendar() {
         }
     }, [correo]);
 
-    return { conectado, conectar, conectando, error };
+    return { conectado, conectar, conectando, error, necesitaReautenticar };
 }

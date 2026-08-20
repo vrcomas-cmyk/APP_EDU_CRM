@@ -416,7 +416,8 @@ var ACCIONES_CON_IDENTIDAD = ['guardarVisitas', 'subirEvidencia', 'guardarEvento
                               'leerTerritorios', 'guardarTerritorios',
                               'leerReporteActividades', 'leerGerenteSector', 'guardarGerenteSector',
                               'leerHistoricoActividades', 'leerHistoricoPlanTrabajo',
-                              'guardarCompromisosCalendar', 'leerCompromisosCalendarEquipo'];
+                              'guardarCompromisosCalendar', 'leerCompromisosCalendarEquipo',
+                              'calendarToken', 'cerrarSesionGoogle'];
 
 // Acciones de solo LECTURA: no tocan ninguna hoja, así que no necesitan turnarse detrás del
 // candado global. Antes SÍ lo hacían —un `waitLock` compartido con las escrituras— y eso
@@ -439,11 +440,17 @@ function doPost(e) {
 
         var identidad = null;
         if (ACCIONES_CON_IDENTIDAD.indexOf(body.action) !== -1) {
-            identidad = verificarIdentidad(body.id_token);
+            identidad = resolverIdentidad(body);
             if (!identidad.ok) return json({ status: 'error', message: identidad.error });
         }
 
         switch (body.action) {
+            case 'canjearCodigoGoogle':
+                return json(canjearCodigoGoogle(body));
+            case 'calendarToken':
+                return json(calendarToken(body, identidad));
+            case 'cerrarSesionGoogle':
+                return json(cerrarSesionGoogle(body, identidad));
             case 'guardarVisitas':
                 return json(guardarVisitas(body.visitas || [], identidad));
             case 'subirEvidencia':
@@ -537,13 +544,178 @@ function verificarIdentidad(idToken) {
         return { ok: false, error: 'Solo cuentas @' + DOMINIO_PERMITIDO + ' pueden usar esta app.' };
     }
 
-    return { ok: true, correo: correo, nombre: datos.name || correo };
+    return { ok: true, correo: correo, nombre: datos.name || correo, foto: datos.picture || '' };
 }
 
 function json(obj) {
     return ContentService
         .createTextOutput(JSON.stringify(obj))
         .setMimeType(ContentService.MimeType.JSON);
+}
+
+// ---------- SESIÓN PROPIA + REFRESH TOKEN DE GOOGLE (una vez por cuenta, no por dispositivo) ----------
+//
+// Antes el permiso de Calendar vivía solo en el navegador (flujo implícito de GIS): cada
+// dispositivo tenía que pedirlo por su cuenta, y la renovación silenciosa dependía de la cookie
+// de sesión de Google en ESE navegador — frágil sobre todo en Safari/iOS.
+//
+// Ahora el canje de código por tokens pasa por aquí. El REFRESH TOKEN que entrega Google se
+// guarda en `pdt_google_credenciales` (Supabase) y nunca sale de este servidor; el navegador solo
+// carga un token de sesión propio (`sesion_token`), opaco, que resuelve identidad contra esa
+// tabla — ver `resolverIdentidad`. Cualquier dispositivo que inicie sesión con la misma cuenta ya
+// tiene el permiso de Calendar, sin volver a pedir nada.
+
+const PROP_GOOGLE_CLIENT_SECRET = 'GOOGLE_CLIENT_SECRET';
+
+function secretoClienteGoogle() {
+    return PropertiesService.getScriptProperties().getProperty(PROP_GOOGLE_CLIENT_SECRET) || '';
+}
+
+/** SHA-256 en hex minúscula — nunca se guarda el token de sesión en claro, solo su huella. */
+function huellaSesion(token) {
+    var bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, token, Utilities.Charset.UTF_8);
+    return bytes.map(function (b) {
+        return ('0' + (b & 0xFF).toString(16)).slice(-2);
+    }).join('');
+}
+
+/** Token de sesión opaco: dos UUID sin separador, suficiente entropía para no adivinarse. */
+function generarTokenSesion() {
+    return Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
+}
+
+/**
+ * Identidad para las acciones que YA tienen sesión (todas menos `canjearCodigoGoogle`).
+ *
+ * Se sigue aceptando `id_token` (el JWT de ~1h de GIS) además del `sesion_token` propio, para
+ * que un cliente que todavía no se haya actualizado no se quede sin poder trabajar: el día que
+ * TODOS los dispositivos hayan iniciado sesión de nuevo con el flujo nuevo, esa rama deja de
+ * usarse pero no hace falta borrarla a propósito.
+ */
+function resolverIdentidad(body) {
+    if (body.sesion_token) {
+        var fila = supabaseRPC('pdt_google_credenciales_por_sesion', {
+            p_sesion_hash: huellaSesion(body.sesion_token)
+        });
+        if (fila && fila.status === 'ok') {
+            return { ok: true, correo: fila.correo, nombre: body.nombre || fila.correo };
+        }
+        return { ok: false, error: 'Tu sesión ya no es válida. Vuelve a iniciar sesión.' };
+    }
+    return verificarIdentidad(body.id_token);
+}
+
+/**
+ * Primer login: canjea el `code` que entregó `initCodeClient` (modo popup, `redirect_uri:
+ * 'postmessage'`) por un `access_token` Y un `refresh_token` de Google — este último solo llega
+ * en el consentimiento inicial, por eso `pdt_google_credenciales_guardar` nunca lo pisa con vacío.
+ *
+ * Sin identidad previa: es justo lo que la crea. La identidad de la cuenta sale del `id_token`
+ * que Google devuelve en el mismo canje, verificado con las mismas reglas que ya usa
+ * `verificarIdentidad` (aud, expiración, correo verificado, dominio).
+ */
+function canjearCodigoGoogle(body) {
+    var secreto = secretoClienteGoogle();
+    if (!secreto) {
+        return { status: 'error', message: 'Falta configurar ' + PROP_GOOGLE_CLIENT_SECRET + ' en el script.' };
+    }
+    if (!body.code) return { status: 'error', message: 'Falta el código de Google.' };
+
+    var resp;
+    try {
+        resp = UrlFetchApp.fetch('https://oauth2.googleapis.com/token', {
+            method: 'post',
+            payload: {
+                code: body.code,
+                client_id: CLIENT_ID,
+                client_secret: secreto,
+                redirect_uri: 'postmessage',
+                grant_type: 'authorization_code'
+            },
+            muteHttpExceptions: true
+        });
+    } catch (err) {
+        return { status: 'error', message: 'No se pudo contactar a Google: ' + err };
+    }
+
+    var datos = JSON.parse(resp.getContentText());
+    if (resp.getResponseCode() !== 200) {
+        return { status: 'error', message: datos.error_description || datos.error || 'Google rechazó el código.' };
+    }
+
+    var identidad = verificarIdentidad(datos.id_token);
+    if (!identidad.ok) return { status: 'error', message: identidad.error };
+
+    var sesionToken = generarTokenSesion();
+    var guardado = supabaseRPC('pdt_google_credenciales_guardar', {
+        p_correo: identidad.correo,
+        p_refresh_token: datos.refresh_token || null,
+        p_scopes: datos.scope || '',
+        p_sesion_hash: huellaSesion(sesionToken)
+    });
+    if (guardado === null) {
+        return { status: 'error', message: 'No se pudo guardar la conexión con Google. Intenta de nuevo.' };
+    }
+
+    return {
+        status: 'ok',
+        sesion_token: sesionToken,
+        correo: identidad.correo,
+        nombre: identidad.nombre,
+        foto: identidad.foto || '',
+        access_token: datos.access_token,
+        expira_en: datos.expires_in
+    };
+}
+
+/**
+ * Cualquier dispositivo, en cualquier momento: canjea el refresh token guardado por un
+ * access_token fresco de Calendar. El refresh token NUNCA se devuelve al navegador.
+ *
+ * Si Google responde `invalid_grant` (contraseña de Google cambiada, acceso revocado a mano en
+ * myaccount.google.com, o un admin de Workspace lo revocó), se borra la credencial guardada y se
+ * responde `code: 'reautenticar'` — el único caso en el que se vuelve a pedir el permiso.
+ */
+function calendarToken(body, identidad) {
+    var secreto = secretoClienteGoogle();
+    if (!secreto) {
+        return { status: 'error', message: 'Falta configurar ' + PROP_GOOGLE_CLIENT_SECRET + ' en el script.' };
+    }
+
+    var fila = supabaseRPC('pdt_google_credenciales_por_sesion', {
+        p_sesion_hash: huellaSesion(body.sesion_token || '')
+    });
+    if (!fila || fila.status !== 'ok' || !fila.refresh_token) {
+        return { status: 'error', code: 'reautenticar', message: 'Sin acceso a Google Calendar guardado.' };
+    }
+
+    var resp = UrlFetchApp.fetch('https://oauth2.googleapis.com/token', {
+        method: 'post',
+        payload: {
+            refresh_token: fila.refresh_token,
+            client_id: CLIENT_ID,
+            client_secret: secreto,
+            grant_type: 'refresh_token'
+        },
+        muteHttpExceptions: true
+    });
+
+    var datos = JSON.parse(resp.getContentText());
+    if (resp.getResponseCode() !== 200) {
+        if (datos.error === 'invalid_grant') {
+            supabaseRPC('pdt_google_credenciales_olvidar', { p_correo: identidad.correo });
+            return { status: 'error', code: 'reautenticar', message: 'Tu acceso a Google cambió. Vuelve a iniciar sesión.' };
+        }
+        return { status: 'error', message: datos.error_description || datos.error || 'Google no renovó el acceso.' };
+    }
+
+    return { status: 'ok', access_token: datos.access_token, expira_en: datos.expires_in };
+}
+
+/** Logout explícito: ya no tiene sentido conservar el refresh token de esta cuenta aquí. */
+function cerrarSesionGoogle(body, identidad) {
+    supabaseRPC('pdt_google_credenciales_olvidar', { p_correo: identidad.correo });
+    return { status: 'ok' };
 }
 
 // ---------- CATÁLOGOS ----------

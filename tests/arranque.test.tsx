@@ -59,11 +59,13 @@ beforeEach(() => {
      * comprobar aquí es el arranque normal, no el degradado.
      */
     (globalThis as Record<string, unknown>).google = {
-        accounts: { id: { initialize() {}, renderButton() {}, prompt() {}, disableAutoSelect() {} } }
+        accounts: {
+            oauth2: { initCodeClient: () => ({ requestCode() {} }) }
+        }
     };
 
     localStorage.setItem('sesion', JSON.stringify({
-        correo: 'ana@x.com', nombre: 'Ana López', id_token: 'x'
+        correo: 'ana@x.com', nombre: 'Ana López', sesion_token: 'x'
     }));
     localStorage.setItem('datosPWA', JSON.stringify({
         clientes: ['Cliente Uno'], sectores: ['GASAS'], origenes: ['BI']

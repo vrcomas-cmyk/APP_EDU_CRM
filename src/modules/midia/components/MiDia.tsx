@@ -11,7 +11,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     consultarVisitas, claveHoy, etiquetaDiaLarga, calcularIndicadores, indicadoresPorEducador,
     tieneEquipo, flujosDisponibles, conteoPendientes, opcionesDeFiltro, aplicarFiltro,
-    listarCompromisos, tieneCheckIn, saludDe, SALUD, detalleEstado, fechaCorta,
+    listarCompromisos, tieneCheckIn, saludDe, SALUD, detalleEstado, fechaCorta, cerrarSesion,
     type CompromisoCalendar, type Filtro
 } from '@core/puente';
 import type { Visita } from '@core/tipos';
@@ -160,7 +160,7 @@ export function MiDia({ onAbrirVisita }: { onAbrirVisita: (id: string) => void }
  * conectarlo es un extra que se activa cuando hay señal, nunca un requisito para capturar.
  */
 function CompromisosCalendar({ hoy }: { hoy: string }) {
-    const { conectado, conectar, conectando, error } = useConexionCalendar();
+    const { conectado, conectar, conectando, error, necesitaReautenticar } = useConexionCalendar();
     const [cargando, setCargando] = useState(false);
     const [errorLista, setErrorLista] = useState<string | null>(null);
     const [compromisos, setCompromisos] = useState<CompromisoCalendar[] | null>(null);
@@ -185,12 +185,17 @@ function CompromisosCalendar({ hoy }: { hoy: string }) {
             {!conectado ? (
                 <>
                     <p className="ayuda">
-                        {conectando
-                            ? 'Conectando…'
-                            : 'Conéctalo para ver aquí tus juntas y otros compromisos de hoy, y para que tus visitas guardadas aparezcan también en tu Calendar.'}
+                        {necesitaReautenticar
+                            ? 'Tu acceso a Google Calendar cambió. Vuelve a iniciar sesión para reconectarlo.'
+                            : conectando
+                                ? 'Conectando…'
+                                : 'No se pudo cargar Google Calendar en este momento.'}
                     </p>
-                    <button type="button" className="btn-txt" disabled={conectando} onClick={conectar}>
-                        Conectar Google Calendar
+                    <button
+                        type="button" className="btn-txt" disabled={conectando}
+                        onClick={necesitaReautenticar ? cerrarSesion : conectar}
+                    >
+                        {necesitaReautenticar ? 'Cerrar sesión' : 'Reintentar'}
                     </button>
                 </>
             ) : cargando ? (

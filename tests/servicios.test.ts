@@ -139,7 +139,7 @@ describe('ErrorDeRed.esTransitorio — de esto depende que una cola vacíe', () 
 });
 
 describe('Apps Script', () => {
-    beforeEach(() => { configurarToken(() => 'token-de-prueba'); salirSimulacion(); });
+    beforeEach(() => { configurarToken(() => ({ sesion_token: 'token-de-prueba' })); salirSimulacion(); });
     afterEach(() => salirSimulacion());
 
     describe('"ver como" (simulación)', () => {
@@ -177,13 +177,13 @@ describe('Apps Script', () => {
             'Apps Script no responde OPTIONS: application/json rompe la sincronización entera');
     });
 
-    test('el id_token viaja en el CUERPO, no en una cabecera', async () => {
+    test('la identidad viaja en el CUERPO, no en una cabecera', async () => {
         const { llamada } = espiarFetch(async () => respuesta({ status: 'ok' }));
 
         await postear({ accion: 'x' });
 
         const { init, cabeceras } = llamada();
-        assert.equal(JSON.parse(init.body as string).id_token, 'token-de-prueba');
+        assert.equal(JSON.parse(init.body as string).sesion_token, 'token-de-prueba');
         assert.equal(cabeceras['Authorization'], undefined,
             'una cabecera de autorización dispararía el preflight que se está evitando');
     });
@@ -219,7 +219,7 @@ describe('Apps Script', () => {
     });
 
     test('sin proveedor de token manda cadena vacía, no revienta', async () => {
-        configurarToken(() => '');
+        configurarToken(() => ({ id_token: '' }));
         const { llamada } = espiarFetch(async () => respuesta({ status: 'ok' }));
 
         await postear({ accion: 'x' });

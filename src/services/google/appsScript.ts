@@ -11,9 +11,10 @@
  *    cualquier cabecera que lo dispare —`application/json` incluido— rompe la sincronización
  *    entera. El cuerpo sigue siendo JSON; lo que se miente es el tipo declarado.
  *
- * 2. El id_token viaja en el CUERPO, no en `Authorization`. Un header de autorización
- *    dispararía el mismo preflight que se está evitando. Quien de verdad lo valida es el
- *    servidor (ver apps-script/Codigo.gs), contra el CLIENT_ID y el dominio permitido.
+ * 2. La identidad viaja en el CUERPO, no en `Authorization`. Un header de autorización
+ *    dispararía el mismo preflight que se está evitando. Quien de verdad la valida es el
+ *    servidor (ver apps-script/Codigo.gs: `resolverIdentidad`), contra Supabase (sesión propia)
+ *    o contra Google (id_token de una sesión vieja aún no migrada).
  *
  * Se manda el token que haya en caché aunque esté vencido: el servidor lo rechaza con un
  * mensaje claro y la fila queda pendiente para el siguiente intento. Comprobarlo aquí solo
@@ -30,10 +31,16 @@ export interface RespuestaAppsScript {
     [clave: string]: unknown;
 }
 
-/** De dónde saca el token la capa de servicios, sin importarle cómo se obtuvo la sesión. */
-export type ProveedorDeToken = () => string;
+/**
+ * De dónde saca la identidad la capa de servicios, sin importarle cómo se obtuvo la sesión.
+ *
+ * Devuelve `{ sesion_token }` para la sesión propia (el caso normal desde que existe el canje
+ * en el servidor) o `{ id_token }` para una sesión vieja de Google aún no migrada — nunca los
+ * dos a la vez. `resolverIdentidad` en Apps Script sabe leer cualquiera de los dos.
+ */
+export type ProveedorDeToken = () => { sesion_token: string } | { id_token: string };
 
-let obtenerToken: ProveedorDeToken = () => '';
+let obtenerToken: ProveedorDeToken = () => ({ id_token: '' });
 
 /**
  * Inyecta el proveedor de token. Lo llama el arranque de la app.
@@ -76,7 +83,7 @@ export async function postear<T extends RespuestaAppsScript = RespuestaAppsScrip
         respuesta = await fetch(APPS_SCRIPT_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify({ ...cuerpo, id_token: obtenerToken() }),
+            body: JSON.stringify({ ...cuerpo, ...obtenerToken() }),
             signal: control.signal
         });
     } catch (err) {

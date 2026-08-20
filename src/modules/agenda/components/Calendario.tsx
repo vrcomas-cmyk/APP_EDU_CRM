@@ -10,7 +10,7 @@ import {
     claveDia, claveHoy, diasDeSemana, etiquetaMes, etiquetaRangoSemana, etiquetaDiaLarga,
     inicioDe, finDe, reagendarVisita, listarCompromisos, consultarVisitas,
     subirCompromisosCalendar, descargarCompromisosCalendarEquipo,
-    aplicarFiltro, opcionesDeFiltro, tieneEquipo,
+    aplicarFiltro, opcionesDeFiltro, tieneEquipo, cerrarSesion,
     type Avisar, type CompromisoCalendar, type Filtro
 } from '@core/puente';
 
@@ -108,7 +108,10 @@ export function Calendario({
      * Lo que ya está en Google Calendar, agrupado por día. Silencioso si falla o si nadie lo
      * conectó: es un extra sobre la rejilla, no una condición para que el calendario funcione.
      */
-    const { conectado: calendarConectado, conectar: conectarCalendarBtn, conectando, error: errorCalendar } = useConexionCalendar();
+    const {
+        conectado: calendarConectado, conectar: conectarCalendarBtn, conectando,
+        error: errorCalendar, necesitaReautenticar
+    } = useConexionCalendar();
     const [compromisos, setCompromisos] = useState<Map<string, CompromisoCalendar[]>>(new Map());
 
     // Correo → nombre, para poder mostrar de quién es un compromiso ajeno ("Ana López: junta
@@ -240,16 +243,29 @@ export function Calendario({
     // `movil`, esto la dejaba inalcanzable y Google Calendar no existía ahí ni para conectar
     // ni para ver los compromisos. Es el único punto de la app donde se conecta Calendar sin
     // depender del permiso de "Mi día".
+    // El permiso de Calendar ya se dio una vez, en el login: esta barra ya no abre ningún popup
+    // de consentimiento, solo reintenta contra el servidor. `necesitaReautenticar` es el único
+    // caso real de "hace falta que hagas algo" (contraseña de Google cambiada, acceso
+    // revocado) — ahí lo que corresponde es cerrar sesión y volver a entrar, no reintentar.
     const barraConectarCalendar = !calendarConectado && (
         <div className="calendar-conectar-barra">
-            <span>
-                {conectando
-                    ? 'Conectando con Google Calendar…'
-                    : 'Conecta Google Calendar para ver tus juntas en la rejilla.'}
-            </span>
-            <button type="button" className="btn-txt" disabled={conectando} onClick={conectarCalendarBtn}>
-                Conectar Google Calendar
-            </button>
+            {necesitaReautenticar ? (
+                <>
+                    <span>Tu acceso a Google Calendar cambió. Vuelve a iniciar sesión para reconectarlo.</span>
+                    <button type="button" className="btn-txt" onClick={cerrarSesion}>Cerrar sesión</button>
+                </>
+            ) : (
+                <>
+                    <span>
+                        {conectando
+                            ? 'Conectando con Google Calendar…'
+                            : 'No se pudo cargar Google Calendar en este momento.'}
+                    </span>
+                    <button type="button" className="btn-txt" disabled={conectando} onClick={conectarCalendarBtn}>
+                        Reintentar
+                    </button>
+                </>
+            )}
             {errorCalendar && <span className="aviso">{errorCalendar}</span>}
         </div>
     );

@@ -109,33 +109,6 @@
         Nueva visita <kbd>N</kbd>
     </button>
 
-    <!-- Se muestra una sola vez, justo tras el login, para pedir el permiso de Calendar con un
-         clic real (ver `mostrarModalCalendarSiHaceFalta` en js/app.js): sin un gesto del
-         usuario el navegador bloquea el popup de consentimiento en silencio. -->
-    <div class="modal" id="modal-conectar-calendar" hidden>
-        <div class="modal-caja">
-            <div class="modal-head">
-                <div class="drawer-head-txt">
-                    <h3>Conecta Google Calendar</h3>
-                    <span class="eyebrow">Para ver y crear tus juntas en ambos sentidos</span>
-                </div>
-            </div>
-            <div class="modal-body">
-                <p class="gate-sub">
-                    Cada visita que agendes aquí va a aparecer en tu Google Calendar, y tus
-                    demás juntas se van a ver junto con tus visitas. Se pide una sola vez.
-                </p>
-                <div class="modal-foot">
-                    <span style="flex:1"></span>
-                    <button type="button" class="btn-txt" id="calendar-conectar-omitir">Ahora no</button>
-                    <button type="button" class="btn btn-principal" id="calendar-conectar-aceptar">
-                        Conectar Google Calendar
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Sin `aria-live` aquí: cada toast lleva el suyo. Marcar el contenedor estático
          no anunciaba los toasts montados después por lectores que arrancaron al cargar. -->
     <div class="toasts" id="toasts"></div>

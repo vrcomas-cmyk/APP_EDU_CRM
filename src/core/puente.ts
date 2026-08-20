@@ -461,8 +461,17 @@ export const conectarCalendar = _calendar.conectarCalendar as (
     clientId: string, correo?: string
 ) => Promise<boolean>;
 export const intentarReconexionCalendar = _calendar.intentarReconexionCalendar as (
-    clientId: string, correo?: string
+    clientId?: string, correo?: string
 ) => Promise<boolean>;
+/**
+ * Se dispara cuando el servidor confirma que el refresh token de Calendar ya no sirve
+ * (contraseña de Google cambiada, acceso revocado a mano, etc.) — el único caso en el que hace
+ * falta volver a pedir el permiso. Ver `js/googleCalendar.js`.
+ */
+export const alReautenticarCalendar = _calendar.alReautenticar as (fn: () => void) => void;
+
+import { cerrarSesion as _cerrarSesion } from '../../js/auth.js';
+export const cerrarSesion = _cerrarSesion as () => void;
 
 export interface CompromisoCalendar {
     id: string;
