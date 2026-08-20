@@ -180,7 +180,7 @@ const HOJA_CAMPOS = 'CamposActividad';
 
 // El mismo Client ID configurado en js/auth.js. Si no coincide con el "aud" del token, alguien
 // mandó un token de OTRA aplicación.
-const CLIENT_ID = '698264876096-35bqu62bnsfb7v8tnph6m8p7pr7v56r9.apps.googleusercontent.com';
+const CLIENT_ID = '698264876096-frdrrbq27f73e3ue5rngm9g6berj85rq.apps.googleusercontent.com';
 
 // Solo cuentas de este dominio pueden escribir. Déjalo vacío ('') para aceptar cualquier
 // cuenta de Google verificada (no recomendado fuera de pruebas).
@@ -712,9 +712,17 @@ function calendarToken(body, identidad) {
     return { status: 'ok', access_token: datos.access_token, expira_en: datos.expires_in };
 }
 
-/** Logout explícito: ya no tiene sentido conservar el refresh token de esta cuenta aquí. */
+/**
+ * Logout explícito de ESTE dispositivo.
+ *
+ * Solo se borra la sesión de este dispositivo (`pdt_sesion_olvidar`), NO el refresh token
+ * de la cuenta: cerrar sesión en la compu no puede quitarle a la misma cuenta, en el
+ * celular, un permiso de Google que ella misma concedió. Antes se borraba la fila de la
+ * cuenta entera — y con ella el permiso de Calendar de TODOS sus dispositivos—.
+ */
 function cerrarSesionGoogle(body, identidad) {
-    supabaseRPC('pdt_google_credenciales_olvidar', { p_correo: identidad.correo });
+    var hash = body.sesion_token ? huellaSesion(body.sesion_token) : '';
+    if (hash) supabaseRPC('pdt_sesion_olvidar', { p_sesion_hash: hash });
     return { status: 'ok' };
 }
 
