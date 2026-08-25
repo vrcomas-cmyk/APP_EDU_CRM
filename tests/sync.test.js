@@ -11,10 +11,19 @@ import assert from 'node:assert/strict';
 import { limpiarAlmacen } from './entorno.js';
 
 const postear = vi.fn();
+const rpc = vi.fn();
+const rpcEstricto = vi.fn();
 
 vi.mock('../src/services/google/appsScript', () => ({
     postear: (...args) => postear(...args),
     leerCatalogos: vi.fn(async () => ({}))
+}));
+
+// Visitas ya no viaja por Apps Script: `sincronizarVisitas`/`descargarVisitasEquipo` llaman
+// directo a Supabase. Ver `20260825_pdt_supabase_primero.sql` y `js/sync.js`.
+vi.mock('../src/services/supabase/rpc', () => ({
+    rpc: (...args) => rpc(...args),
+    rpcEstricto: (...args) => rpcEstricto(...args)
 }));
 
 vi.mock('../js/googleCalendar.js', () => ({
@@ -26,13 +35,17 @@ vi.mock('../js/googleCalendar.js', () => ({
 
 import { agregarVisita, leerVisitas, guardarVisitas } from '../js/storage.js';
 import { registrar, TIPOS } from '../js/eventos.js';
-import { sincronizarTodo, sincronizarVisitas, sincronizarCalendar } from '../js/sync.js';
+import { sincronizarTodo, sincronizarVisitas, sincronizarCalendar, descargarVisitasEquipo } from '../js/sync.js';
 import { visita } from './ayuda/fixtures.js';
 import * as googleCalendar from '../js/googleCalendar.js';
+import { simularRol, salirSimulacion } from '../js/simulacion.js';
 
 beforeEach(() => {
     limpiarAlmacen();
+    salirSimulacion();
     postear.mockReset();
+    rpc.mockReset();
+    rpcEstricto.mockReset().mockResolvedValue({ status: 'ok' });
     googleCalendar.tieneAccesoCalendar.mockReset().mockReturnValue(false);
     googleCalendar.intentarReconexionCalendar.mockReset().mockResolvedValue(false);
     googleCalendar.sincronizarEventoVisita.mockReset().mockResolvedValue(null);
@@ -43,8 +56,11 @@ describe('sincronizarTodo — una etapa caída no bloquea a las demás', () => {
         const v = agregarVisita(visita({ sincronizado: false }));
         registrar(TIPOS.VISITA_PROGRAMADA, v);
 
+        rpcEstricto.mockImplementation(async (funcion) => {
+            if (funcion === 'pdt_visitas_guardar_sesion') throw new Error('Supabase no respondió');
+            return { status: 'ok' };
+        });
         postear.mockImplementation(async ({ action }) => {
-            if (action === 'guardarVisitas') throw new Error('Apps Script no respondió');
             if (action === 'guardarEventos') return { status: 'ok', espejo: true };
             return { status: 'ok' };
         });
@@ -63,6 +79,64 @@ describe('sincronizarTodo — una etapa caída no bloquea a las demás', () => {
         postear.mockResolvedValue({ status: 'ok', espejo: true });
         const r = await sincronizarTodo();
         assert.equal(r.errores, undefined);
+    });
+});
+
+describe('sincronizarVisitas — Supabase directo, sin pasar por Apps Script', () => {
+    test('llama a pdt_visitas_guardar_sesion, no a postear("guardarVisitas")', async () => {
+        agregarVisita(visita({ sincronizado: false }));
+
+        await sincronizarVisitas();
+
+        assert.equal(rpcEstricto.mock.calls[0]?.[0], 'pdt_visitas_guardar_sesion');
+        assert.ok(postear.mock.calls.every(([body]) => body.action !== 'guardarVisitas'),
+            'el camino caliente ya no debe pasar por Apps Script');
+    });
+
+    test('si la RPC lanza, la visita queda pendiente para reintentar', async () => {
+        agregarVisita(visita({ sincronizado: false }));
+        rpcEstricto.mockRejectedValue(new Error('Supabase caído'));
+
+        await assert.rejects(() => sincronizarVisitas());
+        assert.ok(leerVisitas().every(v => v.sincronizado === false));
+    });
+
+    test('un borrador no se envía', async () => {
+        agregarVisita(visita({ sincronizado: false, borrador: true }));
+
+        await sincronizarVisitas();
+
+        assert.equal(rpcEstricto.mock.calls.length, 0);
+    });
+
+    test('en "ver como" no se escribe nada', async () => {
+        agregarVisita(visita({ sincronizado: false }));
+        simularRol({ clave: 'educador', nombre: 'Educador', efectivas: [] });
+
+        const r = await sincronizarVisitas();
+
+        assert.equal(rpcEstricto.mock.calls.length, 0,
+            'quien está simulando un rol no debe poder guardar como si fuera esa persona');
+        assert.equal(r.enviadas, 0);
+    });
+});
+
+describe('descargarVisitasEquipo — lectura directa de Supabase', () => {
+    test('llama a pdt_visitas_equipo_sesion', async () => {
+        rpc.mockResolvedValue([{ id: 'v1' }]);
+
+        const r = await descargarVisitasEquipo();
+
+        assert.equal(rpc.mock.calls[0]?.[0], 'pdt_visitas_equipo_sesion');
+        assert.deepEqual(r, { visitas: [{ id: 'v1' }], espejo: true });
+    });
+
+    test('si Supabase falla, devuelve vacío sin lanzar', async () => {
+        rpc.mockResolvedValue(null);
+
+        const r = await descargarVisitasEquipo();
+
+        assert.deepEqual(r, { visitas: [], espejo: false });
     });
 });
 
@@ -99,30 +173,29 @@ describe('sincronizarCalendar — reconecta sola en vez de rendirse', () => {
 });
 
 describe('sincronizarVisitas — acuse por huella, no por id', () => {
-    test('una edición concurrente al POST no se marca sincronizada', async () => {
+    test('una edición concurrente a la RPC no se marca sincronizada', async () => {
         const v = agregarVisita(visita({ sincronizado: false, notas: 'original' }));
 
-        // El POST "tarda": mientras está en vuelo, alguien edita la misma visita otra vez.
-        postear.mockImplementation(async () => {
+        // La RPC "tarda": mientras está en vuelo, alguien edita la misma visita otra vez.
+        rpcEstricto.mockImplementation(async () => {
             const visitas = leerVisitas();
             const enVivo = visitas.find(x => x.id === v.id);
             enVivo.notas = 'editada durante el envío';
             enVivo.sincronizado = false;
             guardarVisitas(visitas);
-            return { status: 'ok', espejo: true };
+            return { status: 'ok' };
         });
 
         await sincronizarVisitas();
 
         const final = leerVisitas().find(x => x.id === v.id);
         assert.equal(final.sincronizado, false,
-            'la edición que llegó durante el POST no viajó en ese envío; no debe darse por subida');
+            'la edición que llegó durante la RPC no viajó en ese envío; no debe darse por subida');
         assert.equal(final.notas, 'editada durante el envío', 'la edición no debe perderse');
     });
 
     test('sin edición concurrente, sí se marca sincronizada', async () => {
         agregarVisita(visita({ sincronizado: false }));
-        postear.mockResolvedValue({ status: 'ok', espejo: true });
 
         await sincronizarVisitas();
 

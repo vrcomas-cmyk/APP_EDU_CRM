@@ -973,11 +973,15 @@ function leerEducadores(db) {
  * (padre = visita x sector), Actividades (hija) y Materiales_Capturados (nieta).
  * Devuelve los ids procesados para que la app marque lo sincronizado.
  */
-function guardarVisitas(visitas, identidad) {
-    var hojaVisitas = obtenerHoja(HOJA_VISITAS, ENCABEZADOS_VISITAS);
-    var hojaActividades = obtenerHoja(HOJA_ACTIVIDADES, ENCABEZADOS_ACTIVIDADES);
-    var hojaMateriales = obtenerHoja(HOJA_MATERIALES_CAPTURA, ENCABEZADOS_MATERIALES_CAPTURA);
-
+/**
+ * Arma las filas de Sheets (visitas×sector, actividades, materiales) para un lote de visitas.
+ * Extraída de `guardarVisitas` para que `exportarASheets()` —el drenado diario de
+ * `pdt_export_cola`— produzca EXACTAMENTE las mismas filas que el camino de escritura
+ * directa, sin duplicar el mapeo. `identidad` sigue siendo la fuente del correo/nombre: aquí
+ * ya no es "la identidad verificada de esta petición" sino la que quedó guardada en la cola
+ * al momento de encolar, pero el criterio ("el correo nunca lo decide el cliente") es el mismo.
+ */
+function filasDeVisitas(visitas, identidad) {
     var filasPadre = [];
     var filasHija = [];
     var filasMateriales = [];
@@ -1054,17 +1058,36 @@ function guardarVisitas(visitas, identidad) {
         });
     });
 
+    return { padres: filasPadre, hijas: filasHija, materiales: filasMateriales };
+}
+
+/**
+ * Ruta de COMPATIBILIDAD: escritura directa Apps Script → Sheets + espejo, para cualquier
+ * dispositivo que aún tenga en caché (service worker) una versión de la PWA que postee
+ * `guardarVisitas` en vez de llamar a `pdt_visitas_guardar_sesion` directo en Supabase. El
+ * camino nuevo, caliente, es ese RPC — ver `20260825_pdt_supabase_primero.sql` y
+ * `js/sync.js:sincronizarVisitas`. Esta función puede retirarse una vez que no queden clientes
+ * viejos en circulación.
+ */
+function guardarVisitas(visitas, identidad) {
+    var hojaVisitas = obtenerHoja(HOJA_VISITAS, ENCABEZADOS_VISITAS);
+    var hojaActividades = obtenerHoja(HOJA_ACTIVIDADES, ENCABEZADOS_ACTIVIDADES);
+    var hojaMateriales = obtenerHoja(HOJA_MATERIALES_CAPTURA, ENCABEZADOS_MATERIALES_CAPTURA);
+
+    var filas = filasDeVisitas(visitas, identidad);
+
     // Estas columnas se preservan: la app suele mandarlas vacías (evidencia sube después,
     // dirección se cachea aquí, y `calendar_event_id` lo puede conocer un dispositivo que no
     // es el que manda este envío) y un re-sync sin esto borraría lo que ya está en la hoja.
-    upsert(hojaVisitas, ENCABEZADOS_VISITAS, filasPadre,
+    upsert(hojaVisitas, ENCABEZADOS_VISITAS, filas.padres,
         ['checkin_direccion', 'checkout_direccion', 'calendar_event_id']);
-    upsert(hojaActividades, ENCABEZADOS_ACTIVIDADES, filasHija, ['evidencia_url', 'evidencia_estado']);
-    upsert(hojaMateriales, ENCABEZADOS_MATERIALES_CAPTURA, filasMateriales, []);
+    upsert(hojaActividades, ENCABEZADOS_ACTIVIDADES, filas.hijas, ['evidencia_url', 'evidencia_estado']);
+    upsert(hojaMateriales, ENCABEZADOS_MATERIALES_CAPTURA, filas.materiales, []);
 
     // ESPEJO. Va DESPUÉS de escribir en Sheets y a propósito: Sheets es la fuente operativa
-    // y no debe depender de que Supabase esté arriba. Si el espejo falla, la visita sigue
-    // marcada como no sincronizada en la PWA y se reintenta sola en el siguiente envío.
+    // de ESTE camino de compatibilidad y no debe depender de que Supabase esté arriba. Si el
+    // espejo falla, la visita sigue marcada como no sincronizada en la PWA y se reintenta sola
+    // en el siguiente envío.
     var espejo = supabaseRPC('pdt_espejo_guardar', {
         p_correo: identidad.correo,
         p_visitas: visitas
@@ -1074,10 +1097,74 @@ function guardarVisitas(visitas, identidad) {
         status: 'ok',
         espejo: espejo !== null,
         ids: visitas.map(function (v) { return v.id; }),
-        padres: filasPadre.length,
-        actividades: filasHija.length,
-        materiales: filasMateriales.length
+        padres: filas.padres.length,
+        actividades: filas.hijas.length,
+        materiales: filas.materiales.length
     };
+}
+
+/**
+ * Export DIARIO, principal: Supabase es ahora el almacenamiento de las visitas, y Sheets es
+ * una copia de reporte que se regenera desde `pdt_export_cola` (llenada por
+ * `pdt_visitas_guardar_sesion` en cada guardado). Se llama sola por un trigger horario
+ * (`instalarTriggerExport`, una vez al día); también es segura de correr a mano desde el
+ * editor si alguien necesita la hoja al día antes de la corrida nocturna.
+ *
+ * Tomar/confirmar en dos pasos (no "leer y borrar"): si esta función se cae a la mitad, lo no
+ * confirmado vuelve a estar disponible a los 30 min (`pdt_export_tomar`) en vez de perderse.
+ */
+function exportarASheets() {
+    var hojaVisitas = obtenerHoja(HOJA_VISITAS, ENCABEZADOS_VISITAS);
+    var hojaActividades = obtenerHoja(HOJA_ACTIVIDADES, ENCABEZADOS_ACTIVIDADES);
+    var hojaMateriales = obtenerHoja(HOJA_MATERIALES_CAPTURA, ENCABEZADOS_MATERIALES_CAPTURA);
+
+    var limiteMs = new Date().getTime() + 5 * 60 * 1000; // deja margen antes del límite de 6 min
+    var totalExportadas = 0;
+
+    while (new Date().getTime() < limiteMs) {
+        var filas = supabaseRPC('pdt_export_tomar', { p_limite: 200 });
+        if (!filas || filas.length === 0) break;
+
+        var visitas = filas.map(function (fila) { return fila.payload; });
+        var identidadPorVisita = {};
+        filas.forEach(function (fila) {
+            identidadPorVisita[fila.id_visita] = { correo: fila.correo, nombre: fila.nombre };
+        });
+
+        // `filasDeVisitas` espera UNA identidad por lote; aquí cada fila puede traer la suya
+        // (visitas de personas distintas mezcladas en la misma pasada), así que se arma fila
+        // por fila para no atribuirle a nadie el correo de otro.
+        var padres = [], hijas = [], materiales = [];
+        visitas.forEach(function (visita) {
+            var identidad = identidadPorVisita[visita.id] || { correo: '', nombre: '' };
+            var armado = filasDeVisitas([visita], identidad);
+            padres = padres.concat(armado.padres);
+            hijas = hijas.concat(armado.hijas);
+            materiales = materiales.concat(armado.materiales);
+        });
+
+        upsert(hojaVisitas, ENCABEZADOS_VISITAS, padres,
+            ['checkin_direccion', 'checkout_direccion', 'calendar_event_id']);
+        upsert(hojaActividades, ENCABEZADOS_ACTIVIDADES, hijas, ['evidencia_url', 'evidencia_estado']);
+        upsert(hojaMateriales, ENCABEZADOS_MATERIALES_CAPTURA, materiales, []);
+
+        supabaseRPC('pdt_export_confirmar', { p_ids: filas.map(function (f) { return f.id_visita; }) });
+        totalExportadas += filas.length;
+    }
+
+    Logger.log('exportarASheets: %s visita(s) exportada(s).', totalExportadas);
+    return totalExportadas;
+}
+
+/**
+ * Corre UNA VEZ desde el editor para instalar el trigger diario. Borra cualquier trigger
+ * previo de `exportarASheets` antes de crear el nuevo, para poder reejecutarla sin duplicar.
+ */
+function instalarTriggerExport() {
+    ScriptApp.getProjectTriggers().forEach(function (t) {
+        if (t.getHandlerFunction() === 'exportarASheets') ScriptApp.deleteTrigger(t);
+    });
+    ScriptApp.newTrigger('exportarASheets').timeBased().atHour(3).everyDays(1).create();
 }
 
 /** Minutos entre check-in y check-out. null si falta cualquiera de los dos momentos. */

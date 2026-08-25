@@ -6,9 +6,12 @@
  * un permiso concedido a internet entero. Todo pasa por funciones con `security definer` a
  * las que se les ha revocado el `execute` público.
  *
- * Lo que este cliente puede leer sin identidad verificada es deliberadamente poco: el perfil
- * del propio usuario y la aceptación de una invitación. Las visitas de otras personas se leen
- * por Apps Script, que sí valida el id_token de Google.
+ * Lo que este cliente puede leer o escribir sin pasar por Apps Script está acotado a funciones
+ * que resuelven identidad ELLAS MISMAS a partir de un secreto que solo su dueño tiene: el
+ * perfil propio, aceptar una invitación, y —desde `pdt_visitas_guardar_sesion` /
+ * `pdt_visitas_equipo_sesion`— leer y guardar visitas a partir del `sesion_token` (que
+ * `pdt_correo_de_sesion` resuelve contra `pdt_sesiones` dentro de Postgres). Todo lo demás
+ * sigue por Apps Script, que valida el id_token de Google.
  */
 
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../config';

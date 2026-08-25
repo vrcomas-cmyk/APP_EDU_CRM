@@ -22,10 +22,12 @@ import {
     pendientesDeSubir as revisionesPendientes, marcarSincronizadas as marcarRevisiones
 } from './revisiones.js';
 import { postear, leerCatalogos } from '../src/services/google/appsScript';
+import { rpc, rpcEstricto } from '../src/services/supabase/rpc';
 import {
     tieneAccesoCalendar, intentarReconexionCalendar, sincronizarEventoVisita, borrarEventoVisita
 } from './googleCalendar.js';
 import { CLIENT_ID as CALENDAR_CLIENT_ID, sesionActual } from './auth.js';
+import { simulacionActiva } from './simulacion.js';
 
 // ---------- catálogos ----------
 
@@ -81,37 +83,49 @@ function soloGuardadas(visita) {
     };
 }
 
+/**
+ * Supabase es el almacenamiento PRINCIPAL de visitas: esto llama directo a
+ * `pdt_visitas_guardar_sesion` (RPC con la clave anónima, identidad resuelta dentro de
+ * Postgres a partir del `sesion_token`), sin pasar por Apps Script. Apps Script sigue
+ * escribiendo Sheets, pero como una exportación diaria desde la cola que esta misma función
+ * de Postgres llena — ya no está en el camino de subir un check-in.
+ *
+ * En "ver como" no se escribe: quien está simulando un rol no debe poder guardar como si
+ * fuera esa persona. `postear()` tenía esta misma regla (bloqueaba todo lo que no empezara
+ * con "leer"); al saltarnos `postear()` para hablar directo con Supabase, la regla hay que
+ * repetirla aquí a mano.
+ */
 export async function sincronizarVisitas() {
+    if (simulacionActiva()) return { enviadas: 0 };
+
     // Un borrador no se envía: la visita no existe hasta que alguien presiona Guardar visita,
     // y subirla crearía en la hoja una cita que nadie confirmó.
     const pendientes = leerVisitas().filter(v => !v.sincronizado && !v.borrador);
     if (pendientes.length === 0) return { enviadas: 0 };
 
     // Huella de lo que de verdad se mandó, tomada ANTES del `await`: si alguien edita la misma
-    // visita mientras el POST está en vuelo, esa edición no viajó en este envío y no debe
+    // visita mientras la RPC está en vuelo, esa edición no viajó en este envío y no debe
     // marcarse como sincronizada solo por compartir id — se quedaría "al día" en la UI sin
     // haber subido nunca. Comparar contra la huella (no contra el objeto en memoria, que ya
     // pudo mutar) es lo que distingue "llegó" de "coincide por casualidad".
     const huellas = new Map(pendientes.map(v => [v.id, JSON.stringify(soloGuardadas(v))]));
 
-    const resultado = await postear({ action: 'guardarVisitas', visitas: pendientes.map(soloGuardadas) });
+    // `rpcEstricto`, no `rpc`: si Supabase no confirma, hay que ENTERARSE (dejar
+    // `sincronizado = false` para reintentar), no seguir como si nada.
+    await rpcEstricto('pdt_visitas_guardar_sesion', {
+        p_sesion_token: sesionActual()?.sesion_token || '',
+        p_visitas: pendientes.map(soloGuardadas)
+    });
 
-    // El servidor ya escribió en Sheets pase lo que pase (esa parte nunca lanza). Pero si el
-    // espejo a Supabase falló, `resultado.espejo` viene en `false` — y marcar aquí
-    // `sincronizado = true` de todos modos dejaría a esa visita ausente PARA SIEMPRE de la
-    // fuente "equipo": el flag local ya diría "sincronizada" y nunca se volvería a mandar. Se
-    // deja `sincronizado = false` en ese caso para que el siguiente ciclo la reintente; volver
-    // a escribir la misma fila en Sheets no duplica nada (`guardarVisitas` es upsert por id).
-    const seEspejeo = resultado?.espejo !== false;
     const visitas = leerVisitas();
     visitas.forEach(v => {
-        if (seEspejeo && huellas.has(v.id) && JSON.stringify(soloGuardadas(v)) === huellas.get(v.id)) {
+        if (huellas.has(v.id) && JSON.stringify(soloGuardadas(v)) === huellas.get(v.id)) {
             v.sincronizado = true;
         }
     });
     persistirVisitas(visitas);
 
-    return { enviadas: pendientes.length, espejo: seEspejeo };
+    return { enviadas: pendientes.length, espejo: true };
 }
 
 // ---------- evidencias ----------
@@ -268,20 +282,26 @@ function ventanaPorDefecto() {
     return { desde: iso(desde), hasta: iso(hasta) };
 }
 
+/**
+ * Bajada directa de Supabase (`pdt_visitas_equipo_sesion`), sin pasar por Apps Script — el
+ * mismo salto que se quitó en `sincronizarVisitas`. `rpc`, no `rpcEstricto`: un Supabase
+ * caído no debe dejar sin nada a quien solo quiere seguir viendo lo que ya tenía localmente.
+ */
 export async function descargarVisitasEquipo({ desde = null, hasta = null, limite = 2000 } = {}) {
     if (!navigator.onLine) return { visitas: [], espejo: false };
     if (!desde && !hasta) ({ desde, hasta } = ventanaPorDefecto());
 
-    try {
-        const r = await postear({ action: 'leerVisitasEquipo', desde, hasta, limite });
-        return {
-            visitas: Array.isArray(r?.visitas) ? r.visitas : [],
-            espejo: r?.espejo === true
-        };
-    } catch (err) {
-        console.error('No se pudieron leer las visitas del equipo:', err);
-        return { visitas: [], espejo: false };
-    }
+    const visitas = await rpc('pdt_visitas_equipo_sesion', {
+        p_sesion_token: sesionActual()?.sesion_token || '',
+        p_desde: desde,
+        p_hasta: hasta,
+        p_limite: limite
+    });
+
+    return {
+        visitas: Array.isArray(visitas) ? visitas : [],
+        espejo: Array.isArray(visitas)
+    };
 }
 
 /** Flujos y revisiones que este usuario puede ver. Vuelve vacío si el espejo no responde. */
