@@ -7,12 +7,14 @@
  *               infla los archivos otro ~33%.
  */
 
-const CLAVE_VISITAS = 'visitas';
-const CLAVE_CATALOGO = 'datosPWA';
-const CLAVE_BACKUP = 'visitas_backup_v1';
-const CLAVE_VERSION_MODELO = 'modelo_version';
+import { clave, nombreDB } from './entorno.js';
+
+const CLAVE_VISITAS = clave('visitas');
+const CLAVE_CATALOGO = clave('datosPWA');
+const CLAVE_BACKUP = clave('visitas_backup_v1');
+const CLAVE_VERSION_MODELO = clave('modelo_version');
 const VERSION_MODELO = 6;
-const CLAVE_ESTRATEGIAS = 'pdt_estrategias';
+const CLAVE_ESTRATEGIAS = clave('pdt_estrategias');
 
 /**
  * Modelo v6.
@@ -62,7 +64,7 @@ const CLAVE_ESTRATEGIAS = 'pdt_estrategias';
  */
 export const DURACION_POR_DEFECTO_H = 1;
 
-const DB_NOMBRE = 'visitas-db';
+const DB_NOMBRE = nombreDB('visitas-db');
 const DB_VERSION = 1;
 const STORE_EVIDENCIAS = 'evidencias';
 
@@ -88,10 +90,41 @@ export function leerVisitas() {
 }
 
 export function guardarVisitas(visitas) {
-    localStorage.setItem(CLAVE_VISITAS, JSON.stringify(visitas));
+    guardarConCuotaSegura(CLAVE_VISITAS, JSON.stringify(visitas));
     // Un evento y no un import de sync.js: ese módulo ya importa este, y llamarlo al revés
     // sería un ciclo. app.js escucha esto para subir solo, sin esperar al botón manual.
     window.dispatchEvent(new CustomEvent('pdt:visitas-guardadas'));
+}
+
+function esErrorDeCuota(err) {
+    return err instanceof DOMException
+        && (err.name === 'QuotaExceededError' || err.name === 'NS_ERROR_DOM_QUOTA_REACHED' || err.code === 22);
+}
+
+/**
+ * Escribe en localStorage con una salida de emergencia si no cabe.
+ *
+ * El catálogo (`datosPWA`, ~11.5k clientes) es, con mucho, lo más pesado del presupuesto de
+ * ~5MB, y es lo único de lo que vive aquí que es PRESCINDIBLE: se vuelve a descargar de Apps
+ * Script en el siguiente ciclo (`descargarCatalogoSiSePuede`, app.js). Una visita capturada,
+ * una estrategia, un comentario o un evento no tienen ese respaldo — son el único lugar donde
+ * existe ese trabajo. Por eso, si el navegador rechaza una escritura por cuota, se libera el
+ * catálogo primero y se reintenta, en vez de dejar que lo que se estaba guardando de verdad
+ * se pierda en un `throw` que nadie más abajo espera.
+ *
+ * No se usa para el catálogo mismo: no hay nada más barato que liberar antes que él, así que
+ * si su propia escritura falla por cuota, el error se deja subir tal cual (`guardarCatalogo`
+ * ya lo atrapa y lo trata como no crítico).
+ */
+export function guardarConCuotaSegura(clave, valorSerializado) {
+    try {
+        localStorage.setItem(clave, valorSerializado);
+    } catch (err) {
+        if (!esErrorDeCuota(err) || clave === CLAVE_CATALOGO) throw err;
+        console.warn('Cuota de localStorage excedida; se libera el catálogo para reintentar.', err);
+        try { localStorage.removeItem(CLAVE_CATALOGO); } catch { /* nada más que intentar aquí */ }
+        localStorage.setItem(clave, valorSerializado); // si esto también falla, se propaga
+    }
 }
 
 export function obtenerVisita(id) {
@@ -198,7 +231,7 @@ export function leerEstrategias() {
 }
 
 export function guardarEstrategias(estrategias) {
-    localStorage.setItem(CLAVE_ESTRATEGIAS, JSON.stringify(estrategias));
+    guardarConCuotaSegura(CLAVE_ESTRATEGIAS, JSON.stringify(estrategias));
 }
 
 export function upsertEstrategia(estrategia) {
@@ -245,7 +278,13 @@ export function leerCatalogo() {
 }
 
 export function guardarCatalogo(datos) {
-    localStorage.setItem(CLAVE_CATALOGO, JSON.stringify(datos));
+    try {
+        localStorage.setItem(CLAVE_CATALOGO, JSON.stringify(datos));
+    } catch (err) {
+        // No crítico: sin espacio para el catálogo nuevo, se sigue con el que ya había en
+        // caché (o sin catálogo, si tampoco cupo antes). Nunca a costa de una visita.
+        console.error('No se pudo guardar el catálogo (posible cuota de localStorage):', err);
+    }
 }
 
 // ---------- recorridos ----------

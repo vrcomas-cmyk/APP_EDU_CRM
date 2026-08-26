@@ -27,8 +27,9 @@ import {
     simulacionActiva, estadoSimulacion, perfilSimulado,
     simularUsuario, simularRol, salirSimulacion
 } from './simulacion.js';
+import { clave } from './entorno.js';
 
-const CLAVE_CACHE = 'pdt_perfil_cache';
+const CLAVE_CACHE = clave('pdt_perfil_cache');
 
 /** Lo que puede un educador. Es también el piso cuando no hay perfil que consultar. */
 const PERMISOS_EDUCADOR = [

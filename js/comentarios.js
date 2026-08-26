@@ -21,11 +21,12 @@
  * obligaría a recorrer el árbol entero para responder cualquier pregunta sobre ellos.
  */
 
-import { nuevoId } from './storage.js';
+import { nuevoId, guardarConCuotaSegura } from './storage.js';
 import { sesionActual } from './auth.js';
 import { puede } from './permisos.js';
+import { clave } from './entorno.js';
 
-const CLAVE = 'comentarios';
+const CLAVE = clave('comentarios');
 const MAX_LOCALES = 3000;
 
 export const AMBITOS = {
@@ -48,7 +49,8 @@ export function leerComentarios() {
 }
 
 function persistir(lista) {
-    localStorage.setItem(CLAVE, JSON.stringify(lista));
+    // Libera el catálogo antes de perder un comentario por cuota — ver `guardarConCuotaSegura`.
+    guardarConCuotaSegura(CLAVE, JSON.stringify(lista));
 }
 
 /** Del más viejo al más nuevo: una conversación se lee en el orden en que ocurrió. */
@@ -128,7 +130,10 @@ export function comentar({ ambito, idAmbito, texto, visita }) {
         const pendientes = lista.filter(c => !c.sincronizado);
         const subidos = lista.filter(c => c.sincronizado);
         const conservar = Math.max(0, MAX_LOCALES - pendientes.length);
-        persistir([...subidos.slice(-conservar), ...pendientes]);
+        // `slice(-0)` devuelve el arreglo COMPLETO, no vacío (-0 === 0 para JS): cuando los
+        // pendientes solos ya llenan o superan el tope, `conservar` da 0 y sin este `if` no se
+        // podaba ni un sincronizado — la lista crecía sin límite en vez de taparse.
+        persistir([...(conservar > 0 ? subidos.slice(-conservar) : []), ...pendientes]);
     } else {
         persistir(lista);
     }

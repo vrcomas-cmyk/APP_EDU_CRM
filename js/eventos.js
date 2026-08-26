@@ -9,10 +9,11 @@
  * auditar nada.
  */
 
-import { nuevoId } from './storage.js';
+import { nuevoId, guardarConCuotaSegura } from './storage.js';
 import { describirDispositivo } from './geo.js';
+import { clave } from './entorno.js';
 
-const CLAVE = 'eventos';
+const CLAVE = clave('eventos');
 const MAX_LOCALES = 2000;   // ~400KB; a partir de ahí solo crecería sin que nadie los lea
 
 export const TIPOS = {
@@ -65,11 +66,18 @@ export function registrar(tipo, visita, datos = {}) {
         const pendientes = eventos.filter(e => !e.sincronizado);
         const subidos = eventos.filter(e => e.sincronizado);
         const conservar = Math.max(0, MAX_LOCALES - pendientes.length);
-        localStorage.setItem(CLAVE, JSON.stringify([...subidos.slice(-conservar), ...pendientes]));
+        // `slice(-0)` devuelve el arreglo COMPLETO, no vacío (-0 === 0 para JS): cuando los
+        // pendientes solos ya llenan o superan el tope, `conservar` da 0 y sin este `if` no se
+        // podaba ni un sincronizado — la bitácora crecía sin límite en vez de taparse en
+        // MAX_LOCALES + pendientes.
+        guardarConCuotaSegura(CLAVE, JSON.stringify([
+            ...(conservar > 0 ? subidos.slice(-conservar) : []),
+            ...pendientes
+        ]));
         return;
     }
 
-    localStorage.setItem(CLAVE, JSON.stringify(eventos));
+    guardarConCuotaSegura(CLAVE, JSON.stringify(eventos));
 }
 
 export function eventosPendientes() {

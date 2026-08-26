@@ -18,10 +18,11 @@
  */
 
 import { APPS_SCRIPT_URL } from '../src/services/config';
+import { clave } from './entorno.js';
 
 export const CLIENT_ID = '698264876096-frdrrbq27f73e3ue5rngm9g6berj85rq.apps.googleusercontent.com';
 const DOMINIO = 'degasa.com';
-const CLAVE_SESION = 'sesion';
+const CLAVE_SESION = clave('sesion');
 // Identidad + Calendar en un solo consentimiento: pedir ambos scopes de una vez es justamente lo
 // que evita el segundo "Conectar Google Calendar" más adelante.
 const SCOPES = 'openid email profile https://www.googleapis.com/auth/calendar.events';

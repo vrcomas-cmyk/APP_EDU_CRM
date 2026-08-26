@@ -9,7 +9,8 @@ import { test, describe } from 'vitest';
 import assert from 'node:assert/strict';
 
 import {
-    verificarClaveAnonima, APPS_SCRIPT_URL, SUPABASE_URL, SUPABASE_ANON_KEY, TIMEOUT_MS
+    verificarClaveAnonima, verificarEntornoCoincideConProyecto,
+    APPS_SCRIPT_URL, SUPABASE_URL, SUPABASE_ANON_KEY, TIMEOUT_MS, ENTORNO
 } from '@services/config';
 
 /** Arma un JWT de mentira con el rol pedido. No se firma: el guard solo lee la carga. */
@@ -46,6 +47,42 @@ describe('guard de la clave publicada', () => {
 
     test('un JWT sin rol declarado pasa', () => {
         assert.doesNotThrow(() => verificarClaveAnonima(jwt({ iss: 'otro-proveedor' })));
+    });
+});
+
+describe('guardarraíl de entorno (pruebas vs. producción)', () => {
+    const OFICIAL = 'https://fiplfsuhsqibzrpvjvbx.supabase.co';
+    const PRUEBA = 'https://cukxritzckostahasdsh.supabase.co';
+
+    test('produccion + proyecto oficial: arranca', () => {
+        assert.doesNotThrow(() => verificarEntornoCoincideConProyecto('produccion', OFICIAL));
+    });
+
+    test('pruebas + proyecto de prueba: arranca', () => {
+        assert.doesNotThrow(() => verificarEntornoCoincideConProyecto('pruebas', PRUEBA));
+    });
+
+    test('produccion + proyecto de PRUEBA: no arranca', () => {
+        // Este es el caso real que dispararía "producción" quedándose sin datos: alguien
+        // copia el .env de la rama `pruebas` sobre `main` sin darse cuenta.
+        assert.throws(
+            () => verificarEntornoCoincideConProyecto('produccion', PRUEBA),
+            /proyecto de PRUEBA/
+        );
+    });
+
+    test('pruebas + proyecto OFICIAL: no arranca', () => {
+        // El caso que de verdad importa evitar: la app de prueba escribiendo sobre datos
+        // reales por un .env mal copiado en sentido contrario.
+        assert.throws(
+            () => verificarEntornoCoincideConProyecto('pruebas', OFICIAL),
+            /proyecto OFICIAL/
+        );
+    });
+
+    test('el .env real que está cargado ahora combina entorno y proyecto', () => {
+        assert.doesNotThrow(() => verificarEntornoCoincideConProyecto(ENTORNO, SUPABASE_URL),
+            'si esto falla, el propio .env con el que corre la suite está mal configurado');
     });
 });
 

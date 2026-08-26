@@ -21,7 +21,7 @@
  * duplicaría la regla en un lugar donde no se puede confiar en ella.
  */
 
-import { APPS_SCRIPT_URL, TIMEOUT_MS } from '../config';
+import { APPS_SCRIPT_URL, APPS_SCRIPT_PENDIENTE, TIMEOUT_MS } from '../config';
 import { ErrorDeRed } from '../http';
 import { simulacionActiva } from '../../../js/simulacion.js';
 
@@ -67,6 +67,15 @@ export async function postear<T extends RespuestaAppsScript = RespuestaAppsScrip
     // (`guardarVisitas`, `subirEvidencia`…), las de lectura con `leer` (`leerRBAC`…). Cortar
     // aquí, y no solo escondiendo botones en la UI, es lo que hace la regla real: un botón
     // deshabilitado es cosmética, esta es la puerta de verdad hacia Apps Script.
+    if (APPS_SCRIPT_PENDIENTE) {
+        throw new ErrorDeRed(
+            'Esta app de prueba todavía no tiene un Apps Script propio configurado, así que ' +
+            'esta acción está deshabilitada a propósito (para no escribir en las hojas de ' +
+            'Google de producción). Las visitas siguen funcionando: van directo a Supabase.',
+            APPS_SCRIPT_URL
+        );
+    }
+
     const accion = String(cuerpo.action || '');
     if (simulacionActiva() && !accion.startsWith('leer')) {
         throw new ErrorDeRed(
@@ -114,6 +123,13 @@ export async function postear<T extends RespuestaAppsScript = RespuestaAppsScrip
 
 /** GET sin parámetros: devuelve los catálogos. Es la única lectura pública del script. */
 export async function leerCatalogos<T = unknown>(): Promise<T> {
+    if (APPS_SCRIPT_PENDIENTE) {
+        throw new ErrorDeRed(
+            'Esta app de prueba todavía no tiene un Apps Script propio configurado: no hay ' +
+            'catálogos (clientes, materiales, educadores) que descargar.',
+            APPS_SCRIPT_URL
+        );
+    }
     const respuesta = await fetch(APPS_SCRIPT_URL);
     if (!respuesta.ok) {
         throw new ErrorDeRed(`Error al descargar catálogos: ${respuesta.status}`, APPS_SCRIPT_URL, respuesta.status);

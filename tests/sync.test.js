@@ -121,6 +121,40 @@ describe('sincronizarVisitas — Supabase directo, sin pasar por Apps Script', (
     });
 });
 
+describe('sincronizarVisitas — en lotes de 25', () => {
+    test('60 pendientes se mandan en 3 llamadas, no en una sola', async () => {
+        for (let i = 0; i < 60; i++) agregarVisita(visita({ sincronizado: false }));
+
+        await sincronizarVisitas();
+
+        assert.equal(rpcEstricto.mock.calls.length, 3, '25 + 25 + 10');
+        assert.equal(rpcEstricto.mock.calls[0][1].p_visitas.length, 25);
+        assert.equal(rpcEstricto.mock.calls[1][1].p_visitas.length, 25);
+        assert.equal(rpcEstricto.mock.calls[2][1].p_visitas.length, 10);
+        assert.ok(leerVisitas().every(v => v.sincronizado === true));
+    });
+
+    test('un lote que falla no bloquea a los demás: lo que sí llegó queda marcado', async () => {
+        const primeras25 = Array.from({ length: 25 }, () => agregarVisita(visita({ sincronizado: false })));
+        const segundas25 = Array.from({ length: 25 }, () => agregarVisita(visita({ sincronizado: false })));
+
+        let llamada = 0;
+        rpcEstricto.mockImplementation(async () => {
+            llamada++;
+            if (llamada === 1) throw new Error('el primer lote falló');
+            return { status: 'ok' };
+        });
+
+        await assert.rejects(() => sincronizarVisitas());
+
+        const visitas = leerVisitas();
+        assert.ok(primeras25.every(p => visitas.find(v => v.id === p.id).sincronizado === false),
+            'el lote que falló se reintenta en el próximo ciclo');
+        assert.ok(segundas25.every(p => visitas.find(v => v.id === p.id).sincronizado === true),
+            'el lote que sí llegó no debe perderse solo porque el otro falló');
+    });
+});
+
 describe('descargarVisitasEquipo — lectura directa de Supabase', () => {
     test('llama a pdt_visitas_equipo_sesion', async () => {
         rpc.mockResolvedValue([{ id: 'v1' }]);

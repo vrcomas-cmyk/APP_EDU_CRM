@@ -58,6 +58,16 @@ export const SUPABASE_URL = requerida('VITE_SUPABASE_URL');
 export const SUPABASE_ANON_KEY = requerida('VITE_SUPABASE_ANON_KEY');
 
 /**
+ * Centinela de `VITE_APPS_SCRIPT_URL` para la app de prueba mientras no exista un despliegue
+ * de Apps Script propio para ella: en vez de dejar la variable vacía (lo que tumbaría la app
+ * entera, porque `requerida()` no lo permite) o apuntar por descuido al script real —que
+ * escribiría en las hojas de Google de PRODUCCIÓN—, se usa este valor no-URL. `postear()` y
+ * `leerCatalogos()` lo detectan y fallan con un mensaje claro en cada acción que lo necesite,
+ * en vez de fallar como un `fetch` roto o, peor, escribir donde no debía.
+ */
+export const APPS_SCRIPT_PENDIENTE = APPS_SCRIPT_URL === 'PENDIENTE_PRUEBAS';
+
+/**
  * Cuánto se espera a una respuesta antes de darla por perdida.
  *
  * Sin tope, un `fetch` en una red de hospital —señal intermitente, no ausente— se queda
@@ -67,13 +77,55 @@ export const SUPABASE_ANON_KEY = requerida('VITE_SUPABASE_ANON_KEY');
 export const TIMEOUT_MS = numero('VITE_TIMEOUT_MS', 20_000);
 
 /**
- * Comprobación de seguridad, no de configuración.
- *
- * Una clave de Supabase lleva su rol dentro del JWT. Si alguien pega por error la
- * `service_role` en una variable `VITE_`, quedaría publicada en el paquete con permiso para
- * saltarse TODAS las políticas de la base. Es un error plausible —las dos cadenas se ven
- * iguales— y de consecuencias totales, así que se detecta al arrancar y no se deja pasar.
+ * Entorno declarado explícitamente por `.env`: qué app es esta, para el banner y para el
+ * guardarraíl de abajo. No tiene valor por defecto — un default a "producción" convertiría
+ * un `.env` mal copiado en escrituras silenciosas sobre los datos reales; mejor que la app no
+ * arranque a que arranque sin saber quién es.
  */
+export type EntornoApp = 'pruebas' | 'produccion';
+
+function leerEntorno(): EntornoApp {
+    const valor = entorno()['VITE_ENTORNO']?.trim().toLowerCase();
+    if (valor === 'pruebas' || valor === 'produccion') return valor;
+    throw new Error(
+        `VITE_ENTORNO="${valor ?? ''}" no es válido (debe ser "pruebas" o "produccion"). ` +
+        'Revisa el .env de esta rama.'
+    );
+}
+
+export const ENTORNO: EntornoApp = leerEntorno();
+export const ES_PRUEBAS = ENTORNO === 'pruebas';
+
+const PROYECTO_OFICIAL_REF = 'fiplfsuhsqibzrpvjvbx';
+const PROYECTO_PRUEBA_REF = 'cukxritzckostahasdsh';
+
+/**
+ * Guardarraíl de entorno: que `pruebas` y `produccion` sean dos apps de verdad, no una
+ * bandera decorativa. Cruzar el par entorno↔proyecto (una `pruebas` apuntando a la base
+ * oficial, o una `produccion` apuntando a la de prueba) es exactamente el error que este
+ * guardarraíl existe para volver imposible — no advertirlo, impedir que la app arranque.
+ */
+// Función pura (recibe el entorno en vez de leer `ENTORNO` directamente) a propósito: así se
+// puede probar el guardarraíl con las cuatro combinaciones sin depender de qué `.env` cargó
+// el proceso que corre la prueba — exactamente el mismo motivo por el que `verificarClaveAnonima`
+// recibe la clave como argumento en vez de leer `SUPABASE_ANON_KEY`.
+export function verificarEntornoCoincideConProyecto(entornoActual: EntornoApp, url: string): void {
+    if (entornoActual === 'produccion' && url.includes(PROYECTO_PRUEBA_REF)) {
+        throw new Error(
+            'VITE_ENTORNO=produccion pero VITE_SUPABASE_URL apunta al proyecto de PRUEBA ' +
+            `(${PROYECTO_PRUEBA_REF}). Revisa el .env: esto dejaría "producción" sin sus datos reales.`
+        );
+    }
+    if (entornoActual === 'pruebas' && url.includes(PROYECTO_OFICIAL_REF)) {
+        throw new Error(
+            'VITE_ENTORNO=pruebas pero VITE_SUPABASE_URL apunta al proyecto OFICIAL ' +
+            `(${PROYECTO_OFICIAL_REF}). Esto escribiría sobre los datos reales. Revisa el .env.`
+        );
+    }
+}
+
+verificarEntornoCoincideConProyecto(ENTORNO, SUPABASE_URL);
+
 export function verificarClaveAnonima(clave: string): void {
     try {
         const carga = clave.split('.')[1];

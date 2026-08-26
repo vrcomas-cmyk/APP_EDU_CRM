@@ -207,6 +207,18 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 .gate-sub { font-size: 13.5px; color: var(--muted); line-height: 1.5; }
 #gate-boton { min-height: 40px; }
 
+/* App de prueba: mismo criterio que el banner de "ver como" de abajo — imposible de ignorar
+   y de olvidar, para que nadie confunda esta app con la oficial. Vive antes que #gate y #app
+   en el DOM, así que se ve incluso en la pantalla de login. */
+.banner-entorno {
+  display: flex; align-items: center; justify-content: center;
+  padding: 6px 14px;
+  background: #7A1F1F; color: #fff;
+  font-size: 12.5px; font-weight: 700; letter-spacing: 0.02em;
+  flex: none;
+}
+.banner-entorno[hidden] { display: none; }
+
 /* "Ver como": mientras dure la simulación, tiene que ser imposible olvidar que está puesta —
    por eso vive fija arriba de todo, con el color de estado más llamativo, y no dentro de un
    menú que se pueda cerrar sin querer. */

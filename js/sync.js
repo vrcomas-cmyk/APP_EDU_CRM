@@ -95,6 +95,12 @@ function soloGuardadas(visita) {
  * con "leer"); al saltarnos `postear()` para hablar directo con Supabase, la regla hay que
  * repetirla aquí a mano.
  */
+// Mandar 200 visitas pendientes (un dispositivo que estuvo semanas sin señal) en un solo POST
+// arriesga un payload que tarda o que un timeout de red tira entero — y entonces NINGUNA sube,
+// aunque 190 de ellas no tuvieran nada raro. En lotes, una visita problemática en un lote no
+// bloquea a los demás: cada lote se sube y se marca por separado.
+const LOTE_VISITAS = 25;
+
 export async function sincronizarVisitas() {
     if (simulacionActiva()) return { enviadas: 0 };
 
@@ -103,29 +109,51 @@ export async function sincronizarVisitas() {
     const pendientes = leerVisitas().filter(v => !v.sincronizado && !v.borrador);
     if (pendientes.length === 0) return { enviadas: 0 };
 
-    // Huella de lo que de verdad se mandó, tomada ANTES del `await`: si alguien edita la misma
-    // visita mientras la RPC está en vuelo, esa edición no viajó en este envío y no debe
-    // marcarse como sincronizada solo por compartir id — se quedaría "al día" en la UI sin
-    // haber subido nunca. Comparar contra la huella (no contra el objeto en memoria, que ya
-    // pudo mutar) es lo que distingue "llegó" de "coincide por casualidad".
+    // Huella de lo que de verdad se mandó, tomada ANTES de cualquier `await` — para TODOS los
+    // lotes de una vez, no uno a la vez: si alguien edita una visita del lote 3 mientras el
+    // lote 1 está en vuelo, esa edición no debe marcarse sincronizada solo por compartir id.
+    // Comparar contra la huella (no contra el objeto en memoria, que ya pudo mutar) es lo que
+    // distingue "llegó" de "coincide por casualidad".
     const huellas = new Map(pendientes.map(v => [v.id, JSON.stringify(soloGuardadas(v))]));
 
-    // `rpcEstricto`, no `rpc`: si Supabase no confirma, hay que ENTERARSE (dejar
-    // `sincronizado = false` para reintentar), no seguir como si nada.
-    await rpcEstricto('pdt_visitas_guardar_sesion', {
-        p_sesion_token: sesionActual()?.sesion_token || '',
-        p_visitas: pendientes.map(soloGuardadas)
-    });
+    let enviadas = 0;
+    let primerError = null;
 
-    const visitas = leerVisitas();
-    visitas.forEach(v => {
-        if (huellas.has(v.id) && JSON.stringify(soloGuardadas(v)) === huellas.get(v.id)) {
-            v.sincronizado = true;
+    for (let i = 0; i < pendientes.length; i += LOTE_VISITAS) {
+        const lote = pendientes.slice(i, i + LOTE_VISITAS);
+        try {
+            // `rpcEstricto`, no `rpc`: si Supabase no confirma, hay que ENTERARSE (dejar
+            // `sincronizado = false` para reintentar), no seguir como si nada.
+            await rpcEstricto('pdt_visitas_guardar_sesion', {
+                p_sesion_token: sesionActual()?.sesion_token || '',
+                p_visitas: lote.map(soloGuardadas)
+            });
+
+            const idsDelLote = new Set(lote.map(v => v.id));
+            const visitas = leerVisitas();
+            visitas.forEach(v => {
+                if (!idsDelLote.has(v.id)) return;
+                if (huellas.get(v.id) === JSON.stringify(soloGuardadas(v))) {
+                    v.sincronizado = true;
+                    enviadas++;
+                }
+            });
+            persistirVisitas(visitas);
+        } catch (err) {
+            console.error(`No se pudo sincronizar un lote de ${lote.length} visita(s):`, err);
+            primerError = primerError || err;
+            // Se sigue con el siguiente lote: lo que ya subió en lotes previos queda marcado
+            // (persistido arriba), y lo que falte se reintenta en el próximo ciclo igual que
+            // antes de trocear esto.
         }
-    });
-    persistirVisitas(visitas);
+    }
 
-    return { enviadas: pendientes.length, espejo: true };
+    // Se relanza al final, no por lote: los lotes que sí llegaron ya quedaron marcados en
+    // disco antes de este `throw`, así que `sincronizarTodo` se entera del fallo (cuenta
+    // "visitas" como etapa fallida, dispara el backoff) sin perder el progreso ya hecho.
+    if (primerError) throw primerError;
+
+    return { enviadas, espejo: true };
 }
 
 // ---------- evidencias ----------

@@ -27,8 +27,9 @@ import { puede } from './permisos.js';
 import { consultarVisitas } from './datos.js';
 import { estadoDe, ESTADOS, tieneCheckIn, actividadesGuardadasDe } from './estado.js';
 import { requiereEvidencia } from './catalogos.js';
+import { clave } from './entorno.js';
 
-const CLAVE_PENDIENTES = 'revisiones_pendientes';
+const CLAVE_PENDIENTES = clave('revisiones_pendientes');
 
 /**
  * Los veredictos posibles.

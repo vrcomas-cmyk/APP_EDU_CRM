@@ -27,6 +27,10 @@
     </script>
 </head>
 <body>
+    <!-- Fuera de #gate y #app a propósito: debe verse ANTES de iniciar sesión, no solo dentro
+         de la app ya autenticada — es la defensa contra confundir esta app con la oficial. -->
+    <div class="banner-entorno" id="banner-entorno" hidden>PRUEBAS — datos de prueba, no producción</div>
+
     <div class="gate" id="gate">
         <div class="gate-caja">
             <span class="appbar-mark">PLAN DE TRABAJO</span>

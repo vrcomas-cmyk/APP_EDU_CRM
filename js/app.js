@@ -26,6 +26,15 @@ import { ponerVisitasEquipo, olvidarVisitasEquipo } from './datos.js';
 import { ponerFlujos, ponerRevisiones, olvidarRevisiones } from './revisiones.js';
 import { initAuth, sesionActual, pintarBotonEntrada, cerrarSesion } from './auth.js';
 import { initTema } from './tema.js';
+import { ES_PRUEBAS } from '../src/services/config';
+import { conectarCanal } from '../src/services/supabase/realtime';
+
+// Se pinta al cargar el módulo, no en `iniciarApp()`: tiene que verse en el gate de login,
+// antes de cualquier sesión, o no cumple su propósito de evitar confundir esta app con la
+// oficial. Sin condición de ocultarlo en `produccion` — `hidden` ya viene puesto en el HTML.
+if (ES_PRUEBAS) {
+    document.getElementById('banner-entorno').hidden = false;
+}
 
 let el = {};
 let sincronizando = false;
@@ -327,6 +336,27 @@ function iniciarApp() {
     // La línea de "ahora" se queda quieta si nadie la mueve.
     setInterval(refrescarCalendario, 60000);
     reanudarAutoSync();
+    conectarRealtime();
+}
+
+/**
+ * Vía rápida sobre el poll de 60s, no un reemplazo: si el canal no conecta —red corporativa
+ * que bloquea WebSocket, por ejemplo— `reanudarAutoSync()` de todos modos sigue trayendo lo
+ * del equipo, solo que una vez por minuto en vez de al instante. Por eso no hay manejo de
+ * error aquí: lo peor que puede pasar ya tiene una red de seguridad.
+ */
+function conectarRealtime() {
+    const sesion = sesionActual();
+    if (!sesion?.sesion_token) return; // sesión vieja de Google (id_token): sin canal propio
+    conectarCanal(sesion.sesion_token, bajarDelEspejo, (conectado) => {
+        // Sin indicador en la UI todavía: esto es lo único que dice si la vía rápida está
+        // viva o si la app quedó dependiendo del poll de 60s (red que bloquea WebSocket).
+        console.log(conectado ? '[realtime] canal conectado' : '[realtime] canal no conectó — usando solo el poll de 60s');
+        if (!conectado) return;
+        // Al reconectar (recuperar señal, volver de segundo plano) puede haber pasado algo
+        // mientras el canal estaba caído; una bajada de más no hace daño y cierra ese hueco.
+        bajarDelEspejo();
+    });
 }
 
 let volviendoAPrimerPlano = false;
@@ -490,13 +520,22 @@ function alCambiarConexion() {
 }
 
 let relojDebounceSync = null;
+// Un guardado que llega mientras el ciclo anterior sigue en vuelo NO debe perderse: antes,
+// `alGuardarVisitas` simplemente salía (`if (sincronizando) return`) y ese guardado se quedaba
+// sin re-disparar nada hasta el próximo evento — el poll de 60s, u otro guardado más adelante.
+// Con esta bandera, el `finally` de `sincronizar()` relanza un ciclo nuevo apenas el actual
+// termina, así que lo que se guardó a media subida sale en cuanto hay hueco, no un minuto después.
+let cambioPendienteMientrasSincroniza = false;
 
 /**
  * Auto-sync tras guardar: agrupa la ráfaga de escrituras de un mismo guardado (visita,
  * evidencia, check-in/out) en un solo envío en vez de uno por escritura.
  */
 function alGuardarVisitas() {
-    if (sincronizando) return;
+    if (sincronizando) {
+        cambioPendienteMientrasSincroniza = true;
+        return;
+    }
     clearTimeout(relojDebounceSync);
     relojDebounceSync = setTimeout(() => sincronizar(), 2000);
 }
@@ -599,6 +638,13 @@ async function sincronizar({ manual = false, reintentoPorConexion = false } = {}
         // lo que el equipo hizo mientras tanto — la causa más probable de "lo que capturo en
         // la compu no se ve en el celular".
         bajarDelEspejo();
+
+        // Ver comentario en `alGuardarVisitas`: un guardado que llegó a media subida no se
+        // queda esperando el próximo disparador — se relanza un ciclo nuevo de inmediato.
+        if (cambioPendienteMientrasSincroniza) {
+            cambioPendienteMientrasSincroniza = false;
+            sincronizar();
+        }
     }
 }
 
