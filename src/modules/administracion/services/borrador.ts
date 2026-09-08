@@ -8,9 +8,10 @@
 
 import {
     configuracionCampos, leerCatalogo, IDS_CAMPOS, MODOS,
-    origenes, areas, unidades, tiposEvidencia
+    origenes, areas, unidades, tiposEvidencia, temas
 } from '@core/puente';
-import type { BorradorCatalogo, Educador, ModoCampo, TipoActividad } from '@core/tipos';
+import { problemasDeTema } from './color';
+import type { BorradorCatalogo, Educador, ModoCampo, TemaPersonalizado, TipoActividad } from '@core/tipos';
 
 /** Las listas simples se editan todas igual; solo cambian el nombre y el texto de ayuda. */
 export const LISTAS = [
@@ -51,7 +52,23 @@ export function borradorDesdeCatalogo(): BorradorCatalogo {
         tipos_evidencia: [...tiposEvidencia()],
         sectores_ocultos: [...(cat.sectores_ocultos || [])],
         educadores: (cat.educadores || []).map(e => ({ ...e })),
-        admins: [...(cat.admins || [])]
+        admins: [...(cat.admins || [])],
+        temas: temas().map(t => ({ ...t }))
+    };
+}
+
+let contadorTema = 0;
+
+/** Un tema nuevo arranca en modo claro, con papel y tinta ya válidos (mismos que el tema
+ *  Claro base) — así el editor abre mostrando algo legible, no un blanco sobre blanco. */
+export function temaNuevo(): TemaPersonalizado {
+    contadorTema += 1;
+    return {
+        clave: `personalizado-${Date.now()}-${contadorTema}`,
+        nombre: '',
+        modo: 'claro',
+        paper: '#F5F8F7',
+        ink: '#101617'
     };
 }
 
@@ -158,6 +175,23 @@ export function problemasDe(b: BorradorCatalogo): string[] {
 
     if (b.tipos_actividad.length === 0) {
         problemas.push('no queda ningún tipo de actividad');
+    }
+
+    if (b.temas.some(t => !t.nombre.trim())) {
+        problemas.push('hay un tema sin nombre');
+    }
+    const clavesTemas = b.temas.map(t => t.clave);
+    if (new Set(clavesTemas).size !== clavesTemas.length) {
+        problemas.push('hay dos temas con la misma clave');
+    }
+    for (const t of b.temas) {
+        // El mismo candado de contraste que ya se le puso al editor (PanelTemas): se repite
+        // aquí porque el borrador se puede guardar sin haber pasado por esa pantalla en el
+        // mismo golpe de tecla, y `problemasDe` es el último punto de control antes de subir.
+        const errores = problemasDeTema(t).filter(p => p.nivel === 'error');
+        if (errores.length > 0) {
+            problemas.push(`el tema "${t.nombre || t.clave}" no pasa el contraste mínimo: ${errores[0]!.mensaje}`);
+        }
     }
 
     return problemas;

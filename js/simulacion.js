@@ -24,6 +24,7 @@
  */
 
 import { rpcEstricto } from '../src/services/supabase/rpc';
+import { sesionActual } from './auth.js';
 
 const CLAVE = 'pdt_simulacion';
 
@@ -60,7 +61,17 @@ export async function simularUsuario(correo) {
     const limpio = String(correo || '').trim().toLowerCase();
     if (!limpio) throw new Error('Hace falta un correo para simular.');
 
-    const datos = await rpcEstricto('pdt_perfil', { p_correo: limpio });
+    // Quién pregunta va por sesion_token, no por el correo de quien llama: pdt_perfil_simulado
+    // resuelve al ACTOR con eso y comprueba ahí, en Postgres, que es administrador — el gate de
+    // `permisos.js` (perfilReal()?.es_admin) es de UI, este es el que de verdad no se puede
+    // saltar con la consola del navegador.
+    const sesion = sesionActual();
+    if (!sesion?.sesion_token) throw new Error('No hay una sesión activa para simular.');
+
+    const datos = await rpcEstricto('pdt_perfil_simulado', {
+        p_sesion_token: sesion.sesion_token,
+        p_correo_objetivo: limpio
+    });
     if (!datos || typeof datos !== 'object') throw new Error('No se pudo leer el perfil de ese correo.');
 
     const perfil = {

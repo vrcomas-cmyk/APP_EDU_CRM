@@ -6,11 +6,12 @@
  * doble toque registrarían dos llegadas a la misma visita.
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
     tieneCheckIn, tieneCheckOut, puedeIniciar, iniciarVisita, finalizarVisita,
     permanenciaTexto, duracionTexto, describirUbicacion, precisionDudosa,
-    reactivarVisita, minutosDeRetraso, esVisitaCliente, type Resultado, type Avisar
+    reactivarVisita, minutosDeRetraso, esVisitaCliente, consultarVisitas, visitaAbiertaDe,
+    type Resultado, type Avisar
 } from '@core/puente';
 import type { Visita, Marca } from '@core/tipos';
 
@@ -21,10 +22,26 @@ interface Props {
     /** Visita de otra persona: el check-in/out es un hecho físico de quien la capturó, no de
      *  quien la mira — mostrarlo como botón invitaría a marcar la llegada de alguien más. */
     soloLectura?: boolean;
+    /** Abre otra visita en este mismo drawer — aquí, para saltar directo a cerrar la que
+     *  quedó abierta. Opcional porque `AvisoCancelada` comparte este tipo y no la usa. */
+    abrirOtraVisita?: (id: string) => void;
 }
 
-export function BloqueCheck({ visita, avisar, alTerminar, soloLectura }: Props) {
+export function BloqueCheck({ visita, avisar, alTerminar, soloLectura, abrirOtraVisita }: Props) {
     const [ocupado, setOcupado] = useState<string | null>(null);
+
+    // Solo importa mientras no hay check-in todavía: una vez iniciada, esta visita YA ES la
+    // abierta, no tiene sentido bloquearla contra sí misma.
+    const abierta = useMemo(() => {
+        if (tieneCheckIn(visita)) return null;
+        try {
+            return visitaAbiertaDe(consultarVisitas(), visita.educador_correo, visita.id);
+        } catch {
+            // Un fallo de permisos/red al consultar el equipo no debe tumbar el drawer — la
+            // capa de dominio (iniciarVisita) vuelve a comprobarlo igual con datos locales.
+            return null;
+        }
+    }, [visita]);
 
     async function ejecutar(accion: (id: string) => Promise<Resultado>, textoOcupado: string) {
         setOcupado(textoOcupado);
@@ -62,6 +79,28 @@ export function BloqueCheck({ visita, avisar, alTerminar, soloLectura }: Props) 
 
         const listo = puedeIniciar(visita);
         const cliente = esVisitaCliente(visita);
+
+        if (abierta) {
+            const nombre = abierta.cliente || abierta.hospital || 'sin cliente';
+            return (
+                <div className="check">
+                    <p className="ayuda">
+                        Tienes una visita sin cerrar en <strong>{nombre}</strong>. Ciérrala antes
+                        de iniciar esta — no se puede estar en dos visitas a la vez.
+                    </p>
+                    {abrirOtraVisita && (
+                        <button
+                            type="button"
+                            className="btn-txt"
+                            onClick={() => abrirOtraVisita(abierta.id)}
+                        >
+                            Ir a cerrarla
+                        </button>
+                    )}
+                </div>
+            );
+        }
+
         return (
             <div className="check">
                 <p className="ayuda">

@@ -13,11 +13,11 @@
  * una promesa rota, y además revela que el módulo existe.
  */
 
-import { puede, flujosDisponibles, conteoPendientes, hayRevisionesCargadas } from '@core/puente';
+import { puede, flujosDisponibles, conteoPendientes, hayRevisionesCargadas, tieneEquipo } from '@core/puente';
 
 export type ClaveModulo =
     'calendario' | 'mi-dia' | 'estrategias' | 'dashboard' | 'revision'
-    | 'reporte-actividades' | 'historico' | 'administracion';
+    | 'reporte-actividades' | 'historico' | 'supervision' | 'administracion';
 
 export interface Modulo {
     clave: ClaveModulo;
@@ -105,6 +105,17 @@ export const MODULOS: Modulo[] = [
         corto: 'Histórico',
         icono: 'historico',
         disponible: () => puede('historico', 'ver')
+    },
+    {
+        clave: 'supervision',
+        nombre: 'Supervisión',
+        corto: 'Equipo',
+        icono: 'supervision',
+        // El dato que este módulo muestra ya es visible hoy en Calendario e Indicadores para
+        // cualquier jefe (mismas visitas, mismo alcance) — esto solo lo ordena para verlo al
+        // día, no amplía a quién ve qué. `visitas.consultar` y no solo tener equipo: sin ese
+        // permiso la pantalla estaría garantizadamente vacía.
+        disponible: () => tieneEquipo() && puede('visitas', 'consultar')
     },
     {
         clave: 'administracion',

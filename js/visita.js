@@ -6,9 +6,10 @@
  * Cada acción devuelve { ok, error } en vez de lanzar: el que la llama decide cómo avisar.
  */
 
-import { obtenerVisita, actualizarVisita, nuevoId } from './storage.js';
+import { obtenerVisita, actualizarVisita, nuevoId, leerVisitas } from './storage.js';
 import {
-    ESTADOS, estadoDe, tieneCheckIn, tieneCheckOut, permanenciaMinutos, esVisitaCliente
+    ESTADOS, estadoDe, tieneCheckIn, tieneCheckOut, permanenciaMinutos, esVisitaCliente,
+    visitaAbiertaDe
 } from './estado.js';
 import { obtenerUbicacion, describirDispositivo } from './geo.js';
 import { registrar, TIPOS } from './eventos.js';
@@ -24,6 +25,15 @@ export async function iniciarVisita(id) {
     if (estadoDe(visita) === ESTADOS.CANCELADA) return error('Esta visita está cancelada.');
     // Un segundo check-in reescribiría la hora real de llegada, que es justo lo que prueba.
     if (tieneCheckIn(visita)) return error('Esta visita ya tiene check-in.');
+
+    // Blindaje contra "se me olvidó cerrar la anterior": no se puede empezar una visita nueva
+    // con otra todavía abierta del mismo educador. Es una regla de dominio, no de pantalla —
+    // debe cumplirse la abra quien la abra, no solo cuando el botón del drawer está deshabilitado.
+    const abierta = visitaAbiertaDe(leerVisitas(), visita.educador_correo, id);
+    if (abierta) {
+        const nombre = abierta.cliente || abierta.hospital || 'sin cliente';
+        return error(`Tienes una visita sin cerrar (${nombre}). Ciérrala antes de iniciar otra.`);
+    }
 
     // El GPS no bloquea: si no hay señal, se registra igual y queda constancia de por qué no.
     const ubicacion = await obtenerUbicacion();

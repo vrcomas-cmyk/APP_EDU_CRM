@@ -370,6 +370,7 @@ export function VisitaDrawer({
                                                 ? <AvisoCancelada visita={visita} avisar={avisar}
                                                                   alTerminar={() => { refrescar(); alCambiar(); }} />
                                                 : <BloqueCheck visita={visita} avisar={avisar} soloLectura={soloLectura}
+                                                               abrirOtraVisita={abrirOtraVisita}
                                                                alTerminar={() => { refrescar(); alCambiar(); }} />}
 
                                             <PanelInformacion visita={visita} editar={editar} />

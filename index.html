@@ -13,7 +13,10 @@
     <script>
         // Bloqueante y a propósito: fija el tema ANTES del primer paint. Si esto corriera en
         // js/app.js (un módulo, que siempre difiere), habría un parpadeo del tema por defecto
-        // al tema guardado en cada carga.
+        // al tema guardado en cada carga. Sin red, sin montar nada de la app: si el tema
+        // guardado es uno de los 3 base, aplica el bloque CSS estático de siempre; si es
+        // personalizado, lee el último cálculo cacheado (`pdt_tema_custom`, escrito por
+        // `js/tema.js` la última vez que se aplicó) e inyecta esas variables directo.
         (function () {
             try {
                 var t = localStorage.getItem('pdt_tema');
@@ -21,7 +24,17 @@
                 if (t === 'light' || t === 'dark' || t === 'degasa') {
                     document.documentElement.dataset.theme = t;
                     document.getElementById('meta-tema-elegido').setAttribute('content', colores[t]);
+                    return;
                 }
+                var crudo = localStorage.getItem('pdt_tema_custom');
+                if (!crudo) return;
+                var cache = JSON.parse(crudo);
+                if (!cache || cache.clave !== t || !cache.variables) return;
+                document.documentElement.dataset.theme = 'custom';
+                for (var prop in cache.variables) {
+                    document.documentElement.style.setProperty(prop, cache.variables[prop]);
+                }
+                document.getElementById('meta-tema-elegido').setAttribute('content', cache.variables['--paper'] || '');
             } catch (e) {}
         })();
     </script>
@@ -78,17 +91,10 @@
             <button type="button" id="btn-buscar" class="btn-buscar" aria-label="Buscar una visita"
                 title="Buscar (Ctrl+K)">🔎</button>
 
-            <div class="seg tema-switch" id="tema-switch" role="group" aria-label="Tema">
-                <button type="button" data-tema="light" aria-pressed="false" aria-label="Claro" title="Claro">
-                    <span class="tema-swatch tema-swatch-claro"></span>
-                </button>
-                <button type="button" data-tema="dark" aria-pressed="false" aria-label="Oscuro" title="Oscuro">
-                    <span class="tema-swatch tema-swatch-oscuro"></span>
-                </button>
-                <button type="button" data-tema="degasa" aria-pressed="false" aria-label="DEGASA" title="DEGASA">
-                    <span class="tema-swatch tema-swatch-degasa"></span>
-                </button>
-            </div>
+            <!-- Contenido pintado por js/tema.js (initTema): la lista de botones ya no es fija
+                 —depende de cuántos temas personalizados haya en el catálogo—, así que no hay
+                 markup que escribir a mano aquí. -->
+            <div class="seg tema-switch" id="tema-switch" role="group" aria-label="Tema"></div>
 
             <button type="button" id="btn-deuda" class="deuda" hidden>
                 <span class="dot st-faltan-evidencias" style="--st: var(--st-part)"></span>

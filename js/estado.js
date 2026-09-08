@@ -273,6 +273,33 @@ export function buscarSolapes(visitas, candidata, ignorarId = null) {
     return visitas.filter(v => v.id !== ignorarId && v.id !== candidata.id && seSolapan(v, candidata));
 }
 
+const normCorreo = (c) => String(c || '').trim().toLowerCase();
+
+/**
+ * La visita de `correo` que quedó con check-in y sin check-out — "se me olvidó cerrarla" en
+ * forma de dato. Si hay más de una (no debería, pero un dato viejo lo permite), se devuelve la
+ * MÁS ANTIGUA: es la que lleva más tiempo abierta y la que hay que cerrar primero.
+ *
+ * Pura, sin storage: quien llama decide de dónde sale `visitas` (local para el bloqueo de
+ * dominio, local+equipo para lo que se le explica al usuario en pantalla).
+ */
+export function visitaAbiertaDe(visitas, correo, ignorarId = null) {
+    const objetivo = normCorreo(correo);
+    if (!objetivo) return null;
+
+    const abiertas = visitas.filter(v =>
+        v.id !== ignorarId
+        && estadoDe(v) !== ESTADOS.CANCELADA
+        && tieneCheckIn(v)
+        && !tieneCheckOut(v)
+        && normCorreo(v.educador_correo) === objetivo
+    );
+    if (abiertas.length === 0) return null;
+
+    abiertas.sort((a, b) => new Date(a.check_in.momento) - new Date(b.check_in.momento));
+    return abiertas[0];
+}
+
 /**
  * Reparte en columnas las visitas que se pisan, para dibujarlas lado a lado.
  * Un grupo es una CADENA de solapes: si A pisa a B y B pisa a C, las tres van al mismo grupo

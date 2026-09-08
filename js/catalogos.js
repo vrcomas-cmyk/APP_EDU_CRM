@@ -91,6 +91,9 @@ export function origenes()        { return delCatalogo('origenes', ORIGENES_POR_
 export function areas()           { return delCatalogo('areas', AREAS_POR_DEFECTO); }
 export function unidades()        { return delCatalogo('unidades', UNIDADES_POR_DEFECTO); }
 export function tiposEvidencia()  { return delCatalogo('tipos_evidencia', TIPOS_EVIDENCIA_POR_DEFECTO); }
+/** Temas personalizados creados desde Administración → Apariencia. Sin catálogo, ninguno —
+ *  los 3 temas base (`js/tema.js`) no dependen de esto y siguen funcionando igual. */
+export function temas()           { return delCatalogo('temas', []); }
 
 /**
  * "1", "01", "001" son la misma zona escrita distinto según cómo la haya tecleado quien llenó

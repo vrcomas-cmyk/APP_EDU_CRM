@@ -320,6 +320,52 @@ describe('actividad sellada — inmutable', () => {
     });
 });
 
+/**
+ * REGRESIÓN: subir/quitar evidencia DESPUÉS del sello se quedaba congelado en pantalla.
+ *
+ * `abrirActividad` monta `VentanaActividad` en su PROPIA raíz de React (`createRoot`), separada
+ * de la del drawer — la misma costura que ya rompió una vez con la ventana de sector (ver el
+ * describe de arriba, "la ventana se abre donde debe"). El control de evidencia
+ * (`js/evidencias.js: controlEvidencia`) es vainilla: sus botones "Subir ahora"/"Quitar" llaman
+ * al `alCambiar` que reciben, pero ese `alCambiar` refrescaba SOLO el drawer de afuera — nunca
+ * esta raíz separada. El dato se guardaba bien (`escribirEvidencia` escribe directo al
+ * almacén), pero la ventana seguía mostrando lo de antes: "Subir ahora"/"Procesando…" para
+ * siempre, aunque el archivo ya hubiera terminado.
+ */
+describe('evidencia después del sello — la ventana se repinta sola', () => {
+    function conEvidenciaLocal() {
+        const v = visitaBase();
+        v.sectores![0]!.actividades = [{
+            id: 'a-1', tipo: 'Capacitación', area_visitada: 'Área Usuaria',
+            guardada: { momento: '2026-07-15T10:00:00.000Z', usuario: 'Ana López' },
+            contacto: { nombre: 'Dr. Pérez', cargo: 'Jefe' },
+            materiales: [],
+            evidencia: { estado: 'local', nombre: 'informe.pdf', mime: 'application/pdf', url: '' }
+        }];
+        guardarVisitas([v]);
+        abrir('a-1');
+    }
+
+    test('"Quitar" refresca ESTA ventana sin tener que volver a abrirla', async () => {
+        conEvidenciaLocal();
+
+        assert.ok(boton('Quitar'), 'la evidencia local debe ofrecer Quitar');
+        assert.match(document.body.textContent!, /informe\.pdf/);
+
+        await act(async () => { boton('Quitar')!.click(); });
+        // `quitarEvidencia` es async (borra el archivo y reescribe el estado); sin esperar el
+        // siguiente tick, el repintado podría no haber corrido todavía.
+        await act(async () => { await Promise.resolve(); });
+
+        assert.equal(actividadDe().evidencia?.estado, 'pendiente', 'el dato sí cambió');
+        assert.ok(!/informe\.pdf/.test(document.body.textContent!),
+            'y la VENTANA (no solo el almacén) debe dejar de mostrar el archivo quitado');
+        assert.ok(!boton('Quitar'), 'el botón de un estado que ya no existe no debe seguir ahí');
+        assert.match(document.body.textContent!, /Agregar evidencia/,
+            'debe volver a ofrecer el selector de archivo, no quedarse congelada');
+    });
+});
+
 describe('descartar', () => {
     test('un borrador vacío se descarta al cerrar SIN preguntar', () => {
         const confirmaciones: string[] = [];

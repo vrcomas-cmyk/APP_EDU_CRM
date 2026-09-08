@@ -130,16 +130,11 @@ export function controlEvidencia(actividad, { alCambiar = () => {}, alToast = ()
         ok.style.setProperty('--st-bg', 'var(--st-done-bg)');
         ok.textContent = '☁ Subida';
         caja.appendChild(ok);
-
-        if (ev.url) {
-            const ver = document.createElement('a');
-            ver.className = 'btn-txt';
-            ver.href = ev.url;
-            ver.target = '_blank';
-            ver.rel = 'noopener';
-            ver.textContent = 'Ver';
-            caja.appendChild(ver);
-        }
+        // Sin enlace "Ver" a Drive: quien monta este control ya pone al lado la miniatura de
+        // `vistaprevia.js` (`miniaturaEvidencia`), que abre el visor DENTRO de la app —imagen,
+        // PDF o video embebido, con "Abrir aparte" como opción secundaria en ese visor, no como
+        // la única vía. Repetir un enlace que saca de la app aquí era el mismo archivo, dos
+        // caminos, y el peor de los dos.
         return caja;
     }
 
@@ -201,16 +196,8 @@ export function vistaEvidencia(actividad) {
         ok.className = 'pill st-completa';
         ok.textContent = '☁ Subida';
         caja.appendChild(ok);
-
-        if (ev.url) {
-            const ver = document.createElement('a');
-            ver.className = 'btn-txt';
-            ver.href = ev.url;
-            ver.target = '_blank';
-            ver.rel = 'noopener';
-            ver.textContent = 'Ver';
-            caja.appendChild(ver);
-        }
+        // Mismo motivo que en controlEvidencia(): la miniatura de al lado ya abre el visor
+        // in-app; un enlace aparte aquí solo duplicaba la salida hacia afuera de la app.
         return caja;
     }
 

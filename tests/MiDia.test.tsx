@@ -79,7 +79,13 @@ describe('Mi día', () => {
         guardarVisitas([{
             id: 'v-completa', educador_correo: 'ana@x.com', cliente: 'Cliente Uno',
             dia: claveHoy(), hora_inicio: '09:00', hora_fin: '10:00', estado: 'finalizada',
-            check_in: { momento: new Date().toISOString() },
+            // check_in Y check_out: "finalizada" sin check_out no ocurre en la app real
+            // (finalizarVisita siempre pone los dos juntos) — sin el check_out, esta visita
+            // se leería como "sin cerrar" por `visitaAbiertaDe` (que mira los campos crudos,
+            // no el string `estado`) y el banner de Mi Día la volvería a mostrar por nombre,
+            // rompiendo justo lo que esta prueba verifica.
+            check_in: { momento: new Date(Date.now() - 60 * 60000).toISOString() },
+            check_out: { momento: new Date().toISOString() },
             sectores: [{
                 id: 's1', nombre: 'GASAS',
                 actividades: [{ id: 'a1', tipo: 'Seguimiento', guardada: { momento: new Date().toISOString() } }]

@@ -14,6 +14,7 @@ import {
 } from '@core/puente';
 import { BanderasVisita } from '@shared/components/Indicadores';
 import { ResumenCompromiso } from '@shared/components/ResumenCompromiso';
+import { colorDePersona, textoDePersona, inicialDePersona } from '../services/colorPersona';
 import type { Visita } from '@core/tipos';
 
 /** Más de cuatro puntos no se distinguen; el número deja de leerse como cantidad. */
@@ -26,9 +27,10 @@ interface Props {
     compromisosDe?: (clave: string) => CompromisoCalendar[];
     onElegirDia: (fecha: Date) => void;
     onAbrir: (id: string) => void;
+    colorearPersona?: boolean;
 }
 
-export function AgendaMovil({ cursor, visitasDe, compromisosDe, onElegirDia, onAbrir }: Props) {
+export function AgendaMovil({ cursor, visitasDe, compromisosDe, onElegirDia, onAbrir, colorearPersona }: Props) {
     const clave = claveDia(cursor);
     const hoy = claveHoy();
     const [compromisoAbierto, setCompromisoAbierto] = useState<CompromisoCalendar | null>(null);
@@ -69,7 +71,7 @@ export function AgendaMovil({ cursor, visitasDe, compromisosDe, onElegirDia, onA
                 ) : (
                     <div className="agenda-list">
                         {filas.map(f => f.tipo === 'visita'
-                            ? <FilaAgenda visita={f.visita} key={f.visita.id} onAbrir={onAbrir} />
+                            ? <FilaAgenda visita={f.visita} key={f.visita.id} onAbrir={onAbrir} colorearPersona={colorearPersona} />
                             : (
                                 <FilaCompromiso
                                     compromiso={f.compromiso}
@@ -145,8 +147,11 @@ function TiraSemana({ cursor, visitasDe, onElegirDia }: Omit<Props, 'onAbrir'>) 
     );
 }
 
-/** Se reutiliza en `Mi día`: misma fila, misma lectura de un vistazo. */
-export function FilaAgenda({ visita, onAbrir }: { visita: Visita; onAbrir: (id: string) => void }) {
+/** Se reutiliza en `Mi día`: misma fila, misma lectura de un vistazo. `colorearPersona` se
+ *  deja apagado ahí (Mi Día no lo pasa) — el color por persona es para la agenda del equipo. */
+export function FilaAgenda({ visita, onAbrir, colorearPersona }: {
+    visita: Visita; onAbrir: (id: string) => void; colorearPersona?: boolean;
+}) {
     const salud = saludDe(visita);
     const estado = estadoDe(visita);
 
@@ -155,13 +160,16 @@ export function FilaAgenda({ visita, onAbrir }: { visita: Visita; onAbrir: (id: 
     const yo = (sesionActual()?.correo || '').trim().toLowerCase();
     const dueno = (visita.educador_correo || '').trim().toLowerCase();
     const esDelEquipo = Boolean(dueno && yo && dueno !== yo);
+    const persona = colorearPersona ? colorDePersona(visita.educador_correo) : '';
 
     return (
         <button
             type="button"
             className={`arow st-${salud}`
                 + (estado === ESTADOS.EN_PROCESO ? ' es-viva' : '')
-                + (esDelEquipo ? ' es-equipo' : '')}
+                + (esDelEquipo ? ' es-equipo' : '')
+                + (persona ? ' es-de-persona' : '')}
+            style={persona ? ({ '--persona': persona, '--persona-texto': textoDePersona(visita.educador_correo) } as React.CSSProperties) : undefined}
             data-id={visita.id}
             data-estado={estado}
             onClick={() => onAbrir(visita.id)}
@@ -174,6 +182,11 @@ export function FilaAgenda({ visita, onAbrir }: { visita: Visita; onAbrir: (id: 
 
             <span className="arow-body">
                 <span className="arow-client">
+                    {persona && (
+                        <span className="avatar-persona" aria-hidden="true">
+                            {inicialDePersona(visita.educador || visita.educador_correo)}
+                        </span>
+                    )}
                     {etiquetaVisita(visita)}
                     {esDelEquipo && (
                         <span className="arow-educador"> · {visita.educador || visita.educador_correo}</span>

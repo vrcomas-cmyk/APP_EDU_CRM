@@ -12,6 +12,7 @@ import {
     tieneCheckOut, sesionActual, hora as formatearHora, esVisitaCliente, etiquetaVisita
 } from '@core/puente';
 import { BanderasVisita } from '@shared/components/Indicadores';
+import { colorDePersona, textoDePersona, inicialDePersona } from '../services/colorPersona';
 import type { Ventana } from '../services/ventana';
 import type { Visita } from '@core/tipos';
 
@@ -24,11 +25,14 @@ interface Props {
     onPointerDownCuerpo: (e: React.PointerEvent<HTMLElement>, visita: Visita, duracionH: number) => void;
     onPointerDownManija: (e: React.PointerEvent<HTMLElement>, visita: Visita, duracionH: number) => void;
     onAbrir: (id: string) => void;
+    /** Solo tiene sentido con más de un educador visible a la vez — lo decide `Calendario.tsx`
+     *  una sola vez para toda la rejilla, no cada tarjeta por su cuenta. */
+    colorearPersona?: boolean;
 }
 
 export function TarjetaVisita({
     visita, columna, columnas, ventana, modo,
-    onPointerDownCuerpo, onPointerDownManija, onAbrir
+    onPointerDownCuerpo, onPointerDownManija, onAbrir, colorearPersona
 }: Props) {
     const salud = saludDe(visita);
     const estado = estadoDe(visita);
@@ -55,12 +59,15 @@ export function TarjetaVisita({
      */
     const movible = estado !== ESTADOS.CANCELADA && !tieneCheckOut(visita) && !esDelEquipo;
 
+    const persona = colorearPersona ? colorDePersona(visita.educador_correo) : '';
+
     const clases = [
         'ev', `st-${salud}`,
         // Late mientras el educador está dentro: es lo único que está pasando AHORA.
         estado === ESTADOS.EN_PROCESO ? 'es-viva' : '',
         duracion < 0.75 ? 'compacta' : '',
         esDelEquipo ? 'es-equipo' : '',
+        persona ? 'es-de-persona' : '',
         // Cuatro o más solapadas: hospital y banderas ya no caben sin partirse a la mitad.
         columnas >= 4 ? 'es-apretado' : ''
     ].filter(Boolean).join(' ');
@@ -88,7 +95,8 @@ export function TarjetaVisita({
                 '--s': desplazamiento.toFixed(3),
                 '--dur': duracion.toFixed(3),
                 '--col': columna,
-                '--cols': columnas
+                '--cols': columnas,
+                ...(persona ? { '--persona': persona, '--persona-texto': textoDePersona(visita.educador_correo) } : {})
             } as React.CSSProperties}
             onPointerDown={(e) => {
                 if (!movible) return;
@@ -98,6 +106,11 @@ export function TarjetaVisita({
             onClick={(e) => { if (!movible) { e.stopPropagation(); onAbrir(visita.id); } }}
         >
             <span className="ev-time">
+                {persona && (
+                    <span className="avatar-persona" aria-hidden="true">
+                        {inicialDePersona(visita.educador || visita.educador_correo)}
+                    </span>
+                )}
                 {duracion >= 1
                     ? `${formatearHora(visita.hora_inicio || '')}–${formatearHora(visita.hora_fin || '')} · ${duracionTexto(visita)}`
                     : visita.hora_inicio || ''}

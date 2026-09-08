@@ -12,14 +12,26 @@ import {
     consultarVisitas, claveHoy, etiquetaDiaLarga, calcularIndicadores, indicadoresPorEducador,
     tieneEquipo, flujosDisponibles, conteoPendientes, opcionesDeFiltro, aplicarFiltro,
     listarCompromisos, tieneCheckIn, saludDe, SALUD, detalleEstado, fechaCorta, cerrarSesion,
+    visitaAbiertaDe, sesionActual,
     type CompromisoCalendar, type Filtro
 } from '@core/puente';
 import type { Visita } from '@core/tipos';
 import { BanderasVisita } from '@shared/components/Indicadores';
+import { Tile } from '@shared/components/Tile';
 import { FilaAgenda } from '@modules/agenda/components/AgendaMovil';
 import { useConexionCalendar } from '@modules/agenda/hooks/useConexionCalendar';
 import { ComboFiltro } from '@shared/components/ComboFiltro';
 import { TablaEducadores } from '@modules/dashboard/components/TablaEducadores';
+
+/** "hace 8min"/"hace 1h 20min" desde un momento ISO. Solo presentación de este banner — la
+ *  permanencia "de verdad" (`permanenciaTexto`) necesita check_out, que aquí todavía no hay. */
+function minutosATexto(momentoISO: string): string {
+    const min = Math.max(0, Math.round((Date.now() - new Date(momentoISO).getTime()) / 60000));
+    const horas = Math.floor(min / 60);
+    const resto = min % 60;
+    if (horas === 0) return `${resto}min`;
+    return resto === 0 ? `${horas}h` : `${horas}h ${resto}min`;
+}
 
 export function MiDia({ onAbrirVisita }: { onAbrirVisita: (id: string) => void }) {
     const hoy = claveHoy();
@@ -71,12 +83,32 @@ export function MiDia({ onAbrirVisita }: { onAbrirVisita: (id: string) => void }
             .sort((a, b) => (b.dia || '').localeCompare(a.dia || ''))
     ), [todas]);
 
+    // Se me olvidó cerrarla: sobre TODAS las visibles, no solo las de hoy — pudo quedar abierta
+    // ayer. `todasVisibles`, no `todas`: el filtro de educador/ejecutivo es para mirar al
+    // equipo, esta alerta es siempre sobre uno mismo.
+    const abierta = useMemo(
+        () => visitaAbiertaDe(todasVisibles, sesionActual()?.correo),
+        [todasVisibles]
+    );
+
     return (
         <div className="vista vista-midia">
             <header className="vista-head">
                 <h2>Mi día</h2>
                 <p className="eyebrow">{etiquetaDiaLarga(hoy)}</p>
             </header>
+
+            {abierta && (
+                <div className="aviso es-en-proceso">
+                    <p>
+                        Tienes una visita sin cerrar en <strong>{abierta.cliente || abierta.hospital || 'sin cliente'}</strong>
+                        {abierta.check_in && ` · llegaste hace ${minutosATexto(abierta.check_in.momento)}`}.
+                    </p>
+                    <button type="button" className="btn-txt" onClick={() => onAbrirVisita(abierta.id)}>
+                        Ir a cerrarla
+                    </button>
+                </div>
+            )}
 
             {tieneEquipo() && (
                 <div className="filtros filtros-cal">
@@ -246,12 +278,3 @@ function FilaPorResolver({ visita, onAbrir }: { visita: Visita; onAbrir: (id: st
     );
 }
 
-function Tile({ etiqueta, valor, nota }: { etiqueta: string; valor: number; nota?: string }) {
-    return (
-        <div className="tile">
-            <span className="tile-lbl">{etiqueta}</span>
-            <span className="tile-val">{valor}</span>
-            {nota && <span className="tile-nota">{nota}</span>}
-        </div>
-    );
-}

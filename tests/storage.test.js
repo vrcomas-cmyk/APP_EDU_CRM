@@ -348,6 +348,26 @@ describe('adoptarVisitasPropias — Calendar', () => {
         assert.equal(adoptada.calendar_event_id, 'evt-otro-dispositivo');
         assert.ok(!adoptada.calendar_pendiente);
     });
+
+    test('no pisa una visita con una actividad sin sellar, aunque ya esté sincronizado=true', () => {
+        // `sincronizarVisitas` (sync.js) marca `sincronizado = true` en cuanto lo SELLADO
+        // coincide con lo enviado — un borrador de actividad nunca viaja, así que el espejo
+        // jamás lo trae. Si esto pisara la visita local con la del espejo, el borrador
+        // desaparecería del almacén mientras alguien lo está llenando.
+        const v = visita({
+            id: 'v-1', sincronizado: true,
+            sectores: [{ id: 's1', nombre: 'Sector', actividades: [{ id: 'a1', tipo: 'Visita', guardada: null }] }]
+        });
+        guardarVisitas([v]);
+
+        // El espejo trae la misma visita, pero sin el borrador (nunca lo recibió).
+        adoptarVisitasPropias([{ ...v, sectores: [{ id: 's1', nombre: 'Sector', actividades: [] }] }],
+            v.educador_correo);
+
+        const final = obtenerVisita('v-1');
+        assert.ok(final.sectores[0].actividades.some(a => a.id === 'a1'),
+            'el borrador sin sellar no debe perderse al bajar el espejo');
+    });
 });
 
 describe('nuevoId', () => {

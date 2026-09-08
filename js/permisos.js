@@ -111,8 +111,14 @@ export async function actualizarPerfil() {
     const sesion = sesionActual();
     if (!sesion || !navigator.onLine) return null;
 
+    // El correo NUNCA se manda: pdt_perfil_de_sesion lo resuelve del lado de Postgres a partir
+    // del sesion_token, el mismo secreto que ya autentica el resto de la superficie
+    // "Supabase directo" (pdt_visitas_guardar_sesion, etc.). Mandar sesion.correo como antes
+    // permitía pedir el perfil de CUALQUIER correo con solo cambiar el parámetro.
+    if (!sesion.sesion_token) return null;
+
     try {
-        const datos = await rpcEstricto('pdt_perfil', { p_correo: sesion.correo });
+        const datos = await rpcEstricto('pdt_perfil_de_sesion', { p_sesion_token: sesion.sesion_token });
         if (!datos || typeof datos !== 'object') throw new Error('Perfil vacío');
 
         // Un correo que no está dado de alta no tiene rol. Se le deja el piso de educador:

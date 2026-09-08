@@ -22,12 +22,14 @@ import { PanelEducadores } from './PanelEducadores';
 import { GestionAccesos } from './GestionAccesos';
 import { PanelFlujos } from './PanelFlujos';
 import { PanelTerritorios } from './PanelTerritorios';
+import { PanelTemas } from './PanelTemas';
 
 const PESTANAS = [
     { id: 'tipos', etiqueta: 'Tipos y campos' },
     { id: 'sectores', etiqueta: 'Sectores' },
     { id: 'listas', etiqueta: 'Listas' },
-    { id: 'educadores', etiqueta: 'Equipo' }
+    { id: 'educadores', etiqueta: 'Equipo' },
+    { id: 'apariencia', etiqueta: 'Apariencia' }
 ] as const;
 
 type Pestana = (typeof PESTANAS)[number]['id'];
@@ -133,6 +135,9 @@ export function Administracion({ avisar, confirmar, onGuardado }: Props) {
                         )}
                         {pestana === 'educadores' && (
                             <PanelEducadores borrador={catalogos.borrador} cambiar={catalogos.cambiar} />
+                        )}
+                        {pestana === 'apariencia' && (
+                            <PanelTemas borrador={catalogos.borrador} cambiar={catalogos.cambiar} confirmar={preguntar} />
                         )}
                     </div>
                 </>

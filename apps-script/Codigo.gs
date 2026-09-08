@@ -158,6 +158,7 @@ const HOJA_ADMINS = 'Admins';
 const HOJA_AREAS = 'Areas';
 const HOJA_UNIDADES = 'Unidades';
 const HOJA_TIPOS_EVIDENCIA = 'TiposEvidencia';
+const HOJA_TEMAS = 'Temas';
 
 // Sectores que Administración decidió NO ofrecer. Se guarda la lista de EXCLUIDOS y no la de
 // activos a propósito: los sectores salen de la hoja de Materiales, que cambia sola cuando
@@ -397,7 +398,8 @@ function doGet() {
             tipos_evidencia: leerTiposEvidencia(db),
             sectores_ocultos: leerSectoresOcultos(db),
             admins: leerAdmins(db),
-            materiales: leerMateriales(db)
+            materiales: leerMateriales(db),
+            temas: leerTemas(db)
         });
     } catch (err) {
         return json({ status: 'error', message: String(err) });
@@ -961,6 +963,29 @@ function leerEducadores(db) {
         salida.push({
             nombre: String(datos[i][0]).trim(),
             correo: String(datos[i][1] || '').trim()
+        });
+    }
+    return salida;
+}
+
+/** Temas de marca personalizados (Administración → Apariencia). Sin pestaña o sin filas,
+ *  arreglo vacío — la PWA se queda con los 3 temas base, que no dependen de esto. */
+function leerTemas(db) {
+    var hoja = db.getSheetByName(HOJA_TEMAS);
+    if (!hoja) return [];
+
+    var datos = hoja.getDataRange().getValues();
+    var salida = [];
+
+    for (var i = 1; i < datos.length; i++) {
+        var clave = String(datos[i][0] || '').trim();
+        if (clave === '') continue;
+        salida.push({
+            clave: clave,
+            nombre: String(datos[i][1] || '').trim(),
+            modo: String(datos[i][2] || 'claro').trim(),
+            paper: String(datos[i][3] || '').trim(),
+            ink: String(datos[i][4] || '').trim()
         });
     }
     return salida;
@@ -1536,13 +1561,19 @@ function guardarCatalogosAdmin(body, identidad) {
     if (Array.isArray(body.admins)) {
         reemplazarHoja(db, HOJA_ADMINS, ['correo'], body.admins.map(function (a) { return [a]; }));
     }
+    if (Array.isArray(body.temas)) {
+        reemplazarHoja(db, HOJA_TEMAS, ['clave', 'nombre', 'modo', 'paper', 'ink'],
+            body.temas.map(function (t) {
+                return [t.clave || '', t.nombre || '', t.modo || 'claro', t.paper || '', t.ink || ''];
+            }));
+    }
 
     // ESPEJO. Solo se mandan las secciones que vinieron en el envío, con la misma condición
     // que usa cada `reemplazarHoja` de arriba: si un despliegue viejo de la PWA no manda una,
     // el espejo conserva la que ya tenía en vez de vaciarla en silencio.
     var secciones = {};
     ['tipos_actividad', 'origenes', 'areas', 'unidades', 'tipos_evidencia',
-     'sectores_ocultos', 'educadores', 'admins'].forEach(function (clave) {
+     'sectores_ocultos', 'educadores', 'admins', 'temas'].forEach(function (clave) {
         if (Array.isArray(body[clave])) secciones[clave] = body[clave];
     });
 

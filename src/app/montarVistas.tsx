@@ -21,6 +21,7 @@ import { Revision } from '@modules/revision/components/Revision';
 import { Administracion } from '@modules/administracion/components/Administracion';
 import { ReporteActividades } from '@modules/reporteActividades/components/ReporteActividades';
 import { Historico } from '@modules/historico/components/Historico';
+import { Supervision } from '@modules/supervision/components/Supervision';
 import type { Avisar } from '@core/puente';
 
 export interface OpcionesVistas {
@@ -114,6 +115,8 @@ function Shell() {
                 {activo === 'reporte-actividades' && <ReporteActividades />}
 
                 {activo === 'historico' && <Historico />}
+
+                {activo === 'supervision' && <Supervision version={version} />}
 
                 {activo === 'revision' && (
                     <Revision

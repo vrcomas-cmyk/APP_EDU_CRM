@@ -20,6 +20,7 @@ import { useArrastreCreacion, useArrastreTarjeta } from '../hooks/useArrastre';
 import { reflejarEnCalendar } from '@modules/visitas/services/calendarSync';
 import { ComboFiltro } from '@shared/components/ComboFiltro';
 import { calcularVentana } from '../services/ventana';
+import { colorDePersona, textoDePersona, inicialDePersona } from '../services/colorPersona';
 import { RejillaHoras } from './RejillaHoras';
 import { VistaMes } from './VistaMes';
 import { AgendaMovil } from './AgendaMovil';
@@ -79,6 +80,17 @@ export function Calendario({
         () => (filtro.educador || filtro.cliente ? aplicarFiltro(todasVisibles, filtro) : todasVisibles),
         [todasVisibles, filtro]
     );
+
+    /**
+     * Un color por persona (C.1/C.2/C.5 del diseño): solo tiene sentido cuando hay MÁS DE UN
+     * educador entre lo que se está viendo ahora mismo — un Gerente sin filtrar ve a todo su
+     * equipo y cae aquí solo; si filtra a uno, el color se apaga solo, sin tocar el filtro
+     * (que sigue siendo de selección única a propósito, ver diseño C.1).
+     */
+    const colorearPorPersona = useMemo(() => {
+        const correos = new Set(visitas.map(v => (v.educador_correo || '').trim().toLowerCase()).filter(Boolean));
+        return correos.size > 1;
+    }, [visitas]);
 
     const porDia = useMemo(() => {
         const mapa = new Map<string, Visita[]>();
@@ -235,8 +247,22 @@ export function Calendario({
         publicarMandos?.({ irAHoy, irADia, setModo });
     }, [publicarMandos, irAHoy, irADia, setModo]);
 
+    // La leyenda necesita el par nombre+correo de quien está visible ahora, no solo el nombre
+    // que ya trae `opciones.educadores` (el color se calcula del correo).
+    const educadoresVisibles = useMemo(() => {
+        const mapa = new Map<string, string>();
+        for (const v of visitas) {
+            const correo = (v.educador_correo || '').trim().toLowerCase();
+            if (correo && v.educador && !mapa.has(correo)) mapa.set(correo, v.educador);
+        }
+        return [...mapa.entries()];
+    }, [visitas]);
+
     const barraFiltros = tieneEquipo() && (
-        <FiltrosCalendario filtro={filtro} opciones={opciones} onCambiar={setFiltro} />
+        <FiltrosCalendario
+            filtro={filtro} opciones={opciones} onCambiar={setFiltro}
+            leyendaPersonas={colorearPorPersona ? educadoresVisibles : null}
+        />
     );
 
     // Antes vivía solo en la rama de Día/Semana: en el celular, que siempre cae en la rama
@@ -281,6 +307,7 @@ export function Calendario({
                     compromisosDe={compromisosDe}
                     onElegirDia={setCursor}
                     onAbrir={onAbrirVisita}
+                    colorearPersona={colorearPorPersona}
                 />
                 {pendiente && (
                     <ModalMotivo
@@ -298,7 +325,7 @@ export function Calendario({
             <>
                 {barraFiltros}
                 {barraConectarCalendar}
-                <VistaMes cursor={cursor} visitasDe={visitasDe} onElegirDia={irADia} />
+                <VistaMes cursor={cursor} visitasDe={visitasDe} onElegirDia={irADia} colorearPersona={colorearPorPersona} />
                 {pendiente && (
                     <ModalMotivo
                         pregunta={pendiente.pregunta}
@@ -324,6 +351,7 @@ export function Calendario({
                 onPointerDownCuerpo={alMover}
                 onPointerDownManija={alRedimensionar}
                 onAbrir={onAbrirVisita}
+                colorearPersona={colorearPorPersona}
             />
             {pendiente && (
                 <ModalMotivo
@@ -342,10 +370,13 @@ export function Calendario({
  * Solo aparece si hay a quién filtrar: sin equipo a cargo, el educador es el único valor
  * posible y ofrecer el select sería un control decorativo.
  */
-function FiltrosCalendario({ filtro, opciones, onCambiar }: {
+function FiltrosCalendario({ filtro, opciones, onCambiar, leyendaPersonas }: {
     filtro: Pick<Filtro, 'educador' | 'cliente'>;
     opciones: ReturnType<typeof opcionesDeFiltro>;
     onCambiar: (f: Pick<Filtro, 'educador' | 'cliente'>) => void;
+    /** `[correo, nombre][]` de quien está coloreado ahora — `null` cuando el color por persona
+     *  está apagado (un solo educador visible, o filtrado a uno). */
+    leyendaPersonas: [string, string][] | null;
 }) {
     const activos = (filtro.educador ? 1 : 0) + (filtro.cliente ? 1 : 0);
 
@@ -363,6 +394,25 @@ function FiltrosCalendario({ filtro, opciones, onCambiar }: {
                 <button type="button" className="btn-txt" onClick={() => onCambiar({ educador: '', cliente: '' })}>
                     Limpiar {activos} filtro{activos === 1 ? '' : 's'}
                 </button>
+            )}
+
+            {leyendaPersonas && leyendaPersonas.length > 0 && (
+                <div className="leyenda-personas">
+                    {leyendaPersonas.map(([correo, nombre]) => (
+                        <button
+                            type="button" key={correo} className="leyenda-persona"
+                            style={{
+                                '--persona': colorDePersona(correo),
+                                '--persona-texto': textoDePersona(correo)
+                            } as React.CSSProperties}
+                            onClick={() => onCambiar({ ...filtro, educador: nombre })}
+                            title={`Ver solo lo de ${nombre}`}
+                        >
+                            <span className="avatar-persona" aria-hidden="true">{inicialDePersona(nombre)}</span>
+                            {nombre}
+                        </button>
+                    ))}
+                </div>
             )}
         </div>
     );

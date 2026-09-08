@@ -384,7 +384,11 @@ function reanudarAutoSync() {
     relojAutoSync = setInterval(() => sincronizar(), INTERVALO_NORMAL_MS);
 }
 
-if ('serviceWorker' in navigator) {
+// `sw.js` solo existe en el build (lo genera `serviceWorkerGenerado()`, vite.config.ts): en
+// `vite dev` esa ruta no existe y el servidor responde con el `index.html` de siempre —
+// registrar ese HTML como service worker no falla en silencio, tira un SecurityError de MIME
+// que no tiene nada que ver con ningún bug de la app, solo ruido de consola en desarrollo.
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js').catch(err => console.error(err));
     });
@@ -655,6 +659,10 @@ async function descargarCatalogoSiSePuede() {
         await descargarCatalogo();
         pintarAccesos();   // el catálogo pudo cambiar
         refrescarTodo();
+        // Los temas personalizados viven en el catálogo (`js/catalogos.js`): si Administración
+        // agregó o quitó uno desde otro dispositivo, el selector del header debe reflejarlo
+        // sin esperar a un recargado. Ver `js/tema.js:initTema`.
+        window.dispatchEvent(new CustomEvent('pdt:catalogo-actualizado'));
     } catch (err) {
         // Silencioso a propósito: el catálogo cacheado sirve, y no hay nada que el
         // educador pueda hacer al respecto en un pasillo.

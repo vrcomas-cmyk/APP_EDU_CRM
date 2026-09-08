@@ -118,6 +118,12 @@ export function etiquetaDia(clave) {
 }
 
 export function etiquetaDiaLarga(clave) {
+    // Una visita nueva nace con `dia: ''` a propósito (fabricas.ts): forzar una fecha por
+    // defecto sembraría una cita que nadie eligió. `desdeClave('')` da Invalid Date, y de ahí
+    // salía "Undefined NaN De Undefined" en el encabezado del drawer — el mismo hueco se
+    // repetiría con cualquier clave que no traiga los tres números.
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(clave || '')) return 'Sin fecha aún';
+
     const f = desdeClave(clave);
     const base = `${DIAS[f.getDay()]} ${f.getDate()} de ${MESES[f.getMonth()]}`;
     const prefijo = etiquetaDia(clave);

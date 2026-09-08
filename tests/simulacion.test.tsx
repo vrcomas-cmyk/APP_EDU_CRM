@@ -13,8 +13,10 @@ const perfilesPorCorreo: Record<string, unknown> = {};
 
 vi.mock('@services/supabase/rpc', async (original) => ({
     ...(await original<Record<string, unknown>>()),
-    rpcEstricto: async (_fn: string, params: { p_correo: string }) => {
-        const perfil = perfilesPorCorreo[params.p_correo];
+    // pdt_perfil_simulado resuelve al ACTOR por sesion_token (no lo manda el cliente) y solo
+    // acepta p_correo_objetivo como parámetro libre: el doble refleja eso, no un p_correo plano.
+    rpcEstricto: async (_fn: string, params: { p_correo_objetivo: string }) => {
+        const perfil = perfilesPorCorreo[params.p_correo_objetivo];
         if (!perfil) throw new Error('correo sin perfil de prueba');
         return perfil;
     }
@@ -27,7 +29,10 @@ import {
 } from '../js/permisos.js';
 
 function sesionDe(correo: string, esAdmin = true) {
-    localStorage.setItem('sesion', JSON.stringify({ correo, nombre: 'Admin', id_token: 't' }));
+    // sesion_token, no id_token: es lo que pdt_perfil_simulado/pdt_perfil_de_sesion usan para
+    // resolver identidad del lado de Postgres. Una sesión sin él (formato anterior) no puede
+    // usar "ver como" hasta volver a iniciar sesión — comportamiento deliberado, no un bug.
+    localStorage.setItem('sesion', JSON.stringify({ correo, nombre: 'Admin', sesion_token: 't' }));
     // El perfil "real" cacheado con el que arranca `perfilReal()`.
     localStorage.setItem('pdt_perfil_cache', JSON.stringify({
         correo, nombre: 'Admin', rol: 'administrador', es_admin: esAdmin,

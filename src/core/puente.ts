@@ -25,7 +25,7 @@ import type {
     PendienteRevision, Comentario, CampoConfigurable, Catalogo, BorradorCatalogo,
     ResultadoFlujo, RolAdmin, CapacidadAdmin, UsuarioAdmin, FlujoAdmin, Estrategia,
     GerenteSector, ReporteActividades, FiltroReporteActividades,
-    FilaHistoricoActividad, FilaHistoricoPlanTrabajo
+    FilaHistoricoActividad, FilaHistoricoPlanTrabajo, TemaPersonalizado
 } from './tipos';
 
 // ---------- estado (salud, ciclo de vida, tiempo) ----------
@@ -48,6 +48,9 @@ export const etiquetaVisita = _estado.etiquetaVisita as (v: Visita) => string;
 export const buscarSolapes = _estado.buscarSolapes as (
     visitas: Visita[], candidata: Visita, ignorarId?: string | null
 ) => Visita[];
+export const visitaAbiertaDe = _estado.visitaAbiertaDe as (
+    visitas: Visita[], correo: string | undefined, ignorarId?: string | null
+) => Visita | null;
 
 // ---------- catálogos ----------
 
@@ -66,6 +69,7 @@ export const tiposEvidencia = _catalogos.tiposEvidencia as () => string[];
 export const unidades = _catalogos.unidades as () => string[];
 export const sectores = _catalogos.sectores as () => string[];
 export const origenes = _catalogos.origenes as () => string[];
+export const temas = _catalogos.temas as () => TemaPersonalizado[];
 /** "Descr. Grupo de Art." de "Materiales", deduplicado — misma fuente y mecanismo que `sectores`. */
 export const gruposArticulo = _catalogos.gruposArticulo as () => string[];
 /** Grupos de artículo que de verdad se trabajan en ESE sector. Sin sector, el catálogo completo. */
@@ -413,6 +417,9 @@ export const miniaturaEvidencia = _vistaprevia.miniaturaEvidencia as (
 export const puede = _permisos.puede as (modulo: string, accion: string) => boolean;
 export const perfilActual = _permisos.perfilActual as () => Perfil | null;
 export const tieneEquipo = _permisos.tieneEquipo as () => boolean;
+/** Correos en el alcance jerárquico de quien pregunta (incluido uno mismo). Lo resuelve
+ *  Postgres de forma recursiva — el cliente solo lee la lista ya armada. */
+export const alcance = _permisos.alcance as () => string[];
 export const esAdministrador = _permisos.esAdministrador as () => boolean;
 
 // ---------- "ver como" (simulación de rol/usuario para probar permisos) ----------

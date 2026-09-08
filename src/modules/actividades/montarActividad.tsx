@@ -66,6 +66,10 @@ export function abrirActividad({
     // No debería llegar aquí (la UI no ofrece "+ Registrar actividad" en modo de solo lectura),
     // pero si algo lo invocara igual, no hay una actividad real que mostrar.
     if (!actId) return () => {};
+    // `const`, no el `actId` mutable de arriba: `render()` de abajo se vuelve a llamar desde
+    // closures (los botones de evidencia), y TypeScript no puede seguir la angostura de un
+    // `let` a través de esa distancia — con `const` queda probado `string` de una vez.
+    const actIdConfirmado: string = actId;
 
     const contenedor = document.createElement('div');
     contenedor.className = 'actividad-host';
@@ -87,54 +91,75 @@ export function abrirActividad({
         queueMicrotask(destruir);
     };
 
-    raiz.render(
-        <StrictMode>
-            <VentanaActividad
-                visitaId={visitaId}
-                sectorId={sectorId}
-                actividadId={actId}
-                avisar={alToast}
-                alCambiar={alCambiar}
-                onCerrar={cerrar}
-                soloLectura={soloLectura}
-                abrirVentanaMaterial={(sector, onAgregar) => {
-                    abrirModalMaterial({
-                        // Los materiales se cuelgan del MISMO host, por el mismo apilado.
-                        host,
-                        sector,
+    /**
+     * Repinta ESTA raíz de React, aparte de la del drawer.
+     *
+     * `abrirActividad` monta en una raíz propia (`createRoot(contenedor)`), separada de la del
+     * drawer — es la misma razón por la que `host` tiene que vivir dentro de `.drawer-raiz` (ver
+     * la nota de arriba). `VentanaActividad` relee el almacén en cada render (`leer()`), así que
+     * repintar de más no cuesta nada; lo caro es NO repintar: sin esto, el drawer de afuera se
+     * entera de un cambio (badges, contador de sectores) pero esta ventana se queda congelada
+     * mostrando lo de antes — exactamente lo que pasaba al subir o quitar una evidencia después
+     * de sellar la actividad: el botón se quedaba en "Procesando…" para siempre aunque el
+     * archivo ya hubiera terminado de guardarse.
+     */
+    const repintar = () => { if (!desmontada) render(); };
+    const alCambiarYRepintar = () => { alCambiar(); repintar(); };
+
+    function render() {
+        raiz.render(
+            <StrictMode>
+                <VentanaActividad
+                    visitaId={visitaId}
+                    sectorId={sectorId}
+                    actividadId={actIdConfirmado}
+                    avisar={alToast}
+                    alCambiar={alCambiarYRepintar}
+                    onCerrar={cerrar}
+                    soloLectura={soloLectura}
+                    abrirVentanaMaterial={(sector, onAgregar) => {
+                        abrirModalMaterial({
+                            // Los materiales se cuelgan del MISMO host, por el mismo apilado.
+                            host,
+                            sector,
+                            alToast,
+                            onAgregar
+                        } as never);
+                    }}
+                    construirEvidencia={(act: Actividad) => {
+                        const fila = document.createDocumentFragment();
+
+                        // La miniatura primero: quien revisa quiere VER el archivo, no leer su nombre.
+                        const mini = miniaturaEvidencia(act);
+                        if (mini) fila.appendChild(mini);
+
+                        // Las funciones vanilla infieren su firma de los valores por defecto del
+                        // JS, más estrechos que lo que de verdad aceptan. En modo de solo lectura,
+                        // `vistaEvidencia` no ofrece "Subir"/"Quitar": esos botones escriben directo
+                        // a `localStorage` (`escribirEvidencia` no pasa por el guardián de
+                        // propiedad), así que mostrarlos sobre la actividad de otra persona
+                        // invitaría a un intento que además de estar mal, ni siquiera fallaría con
+                        // un aviso claro — se quedaría en un limbo que solo se nota al recargar.
+                        fila.appendChild(
+                            soloLectura
+                                ? vistaEvidencia(act)
+                                : controlEvidencia(act, { alCambiar: alCambiarYRepintar, alToast } as never)
+                        );
+                        return fila;
+                    }}
+                    construirComentarios={(act: Actividad, visita: Visita) => hiloComentarios({
+                        ambito: AMBITOS.ACTIVIDAD,
+                        idAmbito: act.id,
+                        visita,
                         alToast,
-                        onAgregar
-                    } as never);
-                }}
-                construirEvidencia={(act: Actividad) => {
-                    const fila = document.createDocumentFragment();
+                        compacto: true
+                    } as never)}
+                />
+            </StrictMode>
+        );
+    }
 
-                    // La miniatura primero: quien revisa quiere VER el archivo, no leer su nombre.
-                    const mini = miniaturaEvidencia(act);
-                    if (mini) fila.appendChild(mini);
-
-                    // Las funciones vanilla infieren su firma de los valores por defecto del
-                    // JS, más estrechos que lo que de verdad aceptan. En modo de solo lectura,
-                    // `vistaEvidencia` no ofrece "Subir"/"Quitar": esos botones escriben directo
-                    // a `localStorage` (`escribirEvidencia` no pasa por el guardián de
-                    // propiedad), así que mostrarlos sobre la actividad de otra persona
-                    // invitaría a un intento que además de estar mal, ni siquiera fallaría con
-                    // un aviso claro — se quedaría en un limbo que solo se nota al recargar.
-                    fila.appendChild(
-                        soloLectura ? vistaEvidencia(act) : controlEvidencia(act, { alCambiar, alToast } as never)
-                    );
-                    return fila;
-                }}
-                construirComentarios={(act: Actividad, visita: Visita) => hiloComentarios({
-                    ambito: AMBITOS.ACTIVIDAD,
-                    idAmbito: act.id,
-                    visita,
-                    alToast,
-                    compacto: true
-                } as never)}
-            />
-        </StrictMode>
-    );
+    render();
 
     return destruir;
 }

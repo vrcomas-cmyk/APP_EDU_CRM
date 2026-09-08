@@ -26,11 +26,12 @@ interface Props {
     onPointerDownCuerpo: (e: React.PointerEvent<HTMLElement>, visita: Visita, duracionH: number) => void;
     onPointerDownManija: (e: React.PointerEvent<HTMLElement>, visita: Visita, duracionH: number) => void;
     onAbrir: (id: string) => void;
+    colorearPersona?: boolean;
 }
 
 export function RejillaHoras({
     claves, clase, ventana, visitasDe, compromisosDe,
-    onPointerDownColumna, onPointerDownCuerpo, onPointerDownManija, onAbrir
+    onPointerDownColumna, onPointerDownCuerpo, onPointerDownManija, onAbrir, colorearPersona
 }: Props) {
     const hoy = claveHoy();
     const horas = useMemo(
@@ -83,6 +84,7 @@ export function RejillaHoras({
                     onPointerDownManija={onPointerDownManija}
                     onAbrir={onAbrir}
                     onAbrirCompromiso={setCompromisoAbierto}
+                    colorearPersona={colorearPersona}
                 />
             ))}
 
@@ -106,11 +108,13 @@ interface PropsColumna {
     onPointerDownManija: Props['onPointerDownManija'];
     onAbrir: Props['onAbrir'];
     onAbrirCompromiso: (c: CompromisoCalendar) => void;
+    colorearPersona?: boolean;
 }
 
 function ColumnaDia({
     clave, esHoy, horas, ventana, visitas, compromisos, clase,
-    onPointerDownColumna, onPointerDownCuerpo, onPointerDownManija, onAbrir, onAbrirCompromiso
+    onPointerDownColumna, onPointerDownCuerpo, onPointerDownManija, onAbrir, onAbrirCompromiso,
+    colorearPersona
 }: PropsColumna) {
     // Visitas Y compromisos de Calendar se reparten en UNA sola pasada. Antes eran dos pasadas
     // independientes: una visita y una junta que se pisan en el reloj no se enteraban una de la
@@ -180,6 +184,7 @@ function ColumnaDia({
                         onPointerDownCuerpo={onPointerDownCuerpo}
                         onPointerDownManija={onPointerDownManija}
                         onAbrir={onAbrir}
+                        colorearPersona={colorearPersona}
                     />
                 ))}
         </div>

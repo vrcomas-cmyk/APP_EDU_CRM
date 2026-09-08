@@ -101,6 +101,17 @@ const ICONOS: Record<ClaveIcono, { titulo: string; cuerpo: JSX.Element }> = {
             </>
         )
     },
+    // Supervisión: ojo. Es "estoy viendo lo que hace mi equipo ahora", no un reporte —de ahí
+    // que no comparta trazo con `dashboard` (barras) ni con `historico` (archivo).
+    supervision: {
+        titulo: 'Supervisión',
+        cuerpo: (
+            <>
+                <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z" />
+                <circle cx="12" cy="12" r="3" />
+            </>
+        )
+    },
     // Administración: engranaje. Sigue siendo el símbolo universal de "configuración".
     administracion: {
         titulo: 'Administración',

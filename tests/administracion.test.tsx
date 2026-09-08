@@ -59,6 +59,7 @@ const borradorSano = (extra: Partial<BorradorCatalogo> = {}): BorradorCatalogo =
     sectores_ocultos: [],
     educadores: [{ nombre: 'Ana', correo: 'ana@x.com' }],
     admins: [],
+    temas: [],
     ...extra
 });
 

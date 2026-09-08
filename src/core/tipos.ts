@@ -382,6 +382,16 @@ export interface Educador {
     correo: string;
 }
 
+/** Un tema de marca creado desde Administración → Apariencia. Solo dos colores se editan
+ *  (`paper`, `ink`); el resto de la paleta se deriva (`derivarTema`, `color.ts`). */
+export interface TemaPersonalizado {
+    clave: string;
+    nombre: string;
+    modo: 'claro' | 'oscuro';
+    paper: string;
+    ink: string;
+}
+
 /** Lo que Administración edita y sube. Es el catálogo entero, no un parche. */
 export interface BorradorCatalogo {
     tipos_actividad: TipoActividad[];
@@ -393,6 +403,7 @@ export interface BorradorCatalogo {
     educadores: Educador[];
     /** Correos, no nombres: el correo es lo que la sesión verifica. */
     admins: string[];
+    temas: TemaPersonalizado[];
 }
 
 /** Lo que hay guardado en local. Todo opcional: puede no haber sincronizado nunca. */

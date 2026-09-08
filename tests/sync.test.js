@@ -235,4 +235,10 @@ describe('sincronizarVisitas — acuse por huella, no por id', () => {
 
         assert.ok(leerVisitas().every(v => v.sincronizado === true));
     });
+
+    // El caso de la actividad sin sellar (`soloGuardadas` la recorta de la huella, así que la
+    // visita SÍ se marca sincronizada aunque ese borrador nunca viajó) se protege en
+    // `adoptarVisitasPropias`, no aquí — ver tests/storage.test.js. Marcar sincronizado=true
+    // sigue siendo correcto: es lo que evita reenviar y re-notificar en cada ciclo lo que ya
+    // se mandó.
 });

@@ -12,6 +12,7 @@ import {
     etiquetaVisita
 } from '@core/puente';
 import { PuntoSalud } from '@shared/components/Indicadores';
+import { colorDePersona } from '../services/colorPersona';
 import type { Visita } from '@core/tipos';
 
 /** Más de tres líneas no caben. Una celda que intenta mostrarlo todo no muestra nada. */
@@ -21,9 +22,10 @@ interface Props {
     cursor: Date;
     visitasDe: (clave: string) => Visita[];
     onElegirDia: (dia: string) => void;
+    colorearPersona?: boolean;
 }
 
-export function VistaMes({ cursor, visitasDe, onElegirDia }: Props) {
+export function VistaMes({ cursor, visitasDe, onElegirDia, colorearPersona }: Props) {
     const hoy = claveHoy();
     const mesActual = cursor.getMonth();
     const dias = useMemo(() => diasDeCuadriculaMes(cursor), [cursor]);
@@ -53,7 +55,7 @@ export function VistaMes({ cursor, visitasDe, onElegirDia }: Props) {
                         <span className="mes-n">{fecha.getDate()}</span>
 
                         {delDia.slice(0, MAX_POR_CELDA).map(v => (
-                            <LineaMes visita={v} key={v.id} />
+                            <LineaMes visita={v} key={v.id} colorearPersona={colorearPersona} />
                         ))}
 
                         {delDia.length > MAX_POR_CELDA && (
@@ -66,8 +68,9 @@ export function VistaMes({ cursor, visitasDe, onElegirDia }: Props) {
     );
 }
 
-function LineaMes({ visita }: { visita: Visita }) {
+function LineaMes({ visita, colorearPersona }: { visita: Visita; colorearPersona?: boolean }) {
     const salud = saludDe(visita);
+    const persona = colorearPersona ? colorDePersona(visita.educador_correo) : '';
 
     // Del equipo, no propia: mismo criterio que la tarjeta del calendario y la agenda móvil.
     // La celda de Mes es demasiado angosta para el nombre completo, así que aquí solo se
@@ -83,8 +86,13 @@ function LineaMes({ visita }: { visita: Visita }) {
         : `${visita.hora_inicio || ''} · ${etiqueta}`;
 
     return (
-        <span className={`mes-ev st-${salud}` + (esDelEquipo ? ' es-equipo' : '')} title={titulo}>
+        <span
+            className={`mes-ev st-${salud}` + (esDelEquipo ? ' es-equipo' : '') + (persona ? ' es-de-persona' : '')}
+            style={persona ? ({ '--persona': persona } as React.CSSProperties) : undefined}
+            title={titulo}
+        >
             <PuntoSalud salud={salud} />
+            {persona && <span className="dot-persona" aria-hidden="true" />}
             <span className="t">{visita.hora_inicio || ''}</span>
             <span className="c">{etiqueta}</span>
         </span>

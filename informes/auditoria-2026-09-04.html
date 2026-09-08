@@ -1,0 +1,566 @@
+<title>Auditoría EDU CRM</title>
+<meta name="description" content="Auditoría funcional, técnica y de seguridad de la PWA de visitas educativas — permisos, sincronización offline y RLS.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --bg:#f3f6f4;
+  --surface:#ffffff;
+  --surface-2:#eaf0ed;
+  --border:#d7e1dc;
+  --border-strong:#b9c9c1;
+  --text:#151f1a;
+  --text-muted:#54655d;
+  --text-faint:#7c8c84;
+  --accent:#0e6e5a;
+  --accent-strong:#0a5646;
+  --accent-soft:#e1f1ec;
+  --critical:#a3271e;
+  --critical-soft:#fbe7e4;
+  --high:#a15a10;
+  --high-soft:#faecd9;
+  --medium:#7d6600;
+  --medium-soft:#f8f0c9;
+  --low:#3c5c74;
+  --low-soft:#e6edf3;
+  --ok:#1c7a4b;
+  --ok-soft:#e1f3e8;
+  --shadow: 0 1px 2px rgba(20,30,25,.06), 0 8px 24px -12px rgba(20,30,25,.12);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e1613;
+    --surface:#141e1a;
+    --surface-2:#1a2622;
+    --border:#26362f;
+    --border-strong:#33473d;
+    --text:#e9f1ec;
+    --text-muted:#a8bab1;
+    --text-faint:#7e948a;
+    --accent:#3fcfa8;
+    --accent-strong:#6fe0c0;
+    --accent-soft:#15342c;
+    --critical:#ff8378;
+    --critical-soft:#3a1a17;
+    --high:#f0b46b;
+    --high-soft:#3a2a12;
+    --medium:#e8d16b;
+    --medium-soft:#332c0e;
+    --low:#93b6d6;
+    --low-soft:#182734;
+    --ok:#6fdba2;
+    --ok-soft:#123626;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 30px -14px rgba(0,0,0,.6);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e1613;
+  --surface:#141e1a;
+  --surface-2:#1a2622;
+  --border:#26362f;
+  --border-strong:#33473d;
+  --text:#e9f1ec;
+  --text-muted:#a8bab1;
+  --text-faint:#7e948a;
+  --accent:#3fcfa8;
+  --accent-strong:#6fe0c0;
+  --accent-soft:#15342c;
+  --critical:#ff8378;
+  --critical-soft:#3a1a17;
+  --high:#f0b46b;
+  --high-soft:#3a2a12;
+  --medium:#e8d16b;
+  --medium-soft:#332c0e;
+  --low:#93b6d6;
+  --low-soft:#182734;
+  --ok:#6fdba2;
+  --ok-soft:#123626;
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 30px -14px rgba(0,0,0,.6);
+}
+
+*{box-sizing:border-box}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  font-size:15.5px;
+  line-height:1.6;
+}
+h1,h2,h3,h4{
+  font-family:"Space Grotesk", ui-sans-serif, sans-serif;
+  color:var(--text);
+  text-wrap:balance;
+  line-height:1.2;
+  margin:0;
+}
+code, .mono{ font-family:"IBM Plex Mono", ui-monospace, monospace; }
+a{ color:var(--accent-strong); }
+::selection{ background:var(--accent-soft); }
+
+.wrap{ max-width:1180px; margin:0 auto; padding:0 28px 120px; }
+
+/* ---------- header ---------- */
+header.hero{
+  border-bottom:1px solid var(--border);
+  background:
+    radial-gradient(1100px 340px at 12% -10%, var(--accent-soft), transparent 60%),
+    var(--surface);
+}
+.hero-inner{ max-width:1180px; margin:0 auto; padding:56px 28px 40px; }
+.eyebrow{
+  display:inline-flex; align-items:center; gap:8px;
+  font-family:"IBM Plex Mono", monospace;
+  font-size:12.5px; letter-spacing:.06em; text-transform:uppercase;
+  color:var(--accent-strong);
+  background:var(--accent-soft);
+  border:1px solid var(--border-strong);
+  padding:5px 10px 5px 8px; border-radius:999px;
+}
+.eyebrow .dot{ width:6px;height:6px;border-radius:50%;background:var(--accent-strong); }
+h1.title{ font-size:clamp(30px,4vw,44px); font-weight:700; margin-top:18px; max-width:16ch; }
+.subtitle{ color:var(--text-muted); font-size:17px; max-width:62ch; margin-top:12px; }
+.meta-row{ display:flex; flex-wrap:wrap; gap:8px 18px; margin-top:20px; font-size:13.5px; color:var(--text-faint); font-family:"IBM Plex Mono",monospace; }
+.meta-row b{ color:var(--text-muted); font-weight:500; }
+
+.stat-grid{
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  gap:1px; background:var(--border);
+  border:1px solid var(--border); border-radius:12px; overflow:hidden;
+  margin-top:32px;
+}
+.stat{ background:var(--surface); padding:18px 20px; }
+.stat .n{ font-family:"Space Grotesk",sans-serif; font-size:28px; font-weight:700; font-variant-numeric:tabular-nums; }
+.stat .n.crit{ color:var(--critical); }
+.stat .n.ok{ color:var(--ok); }
+.stat .l{ color:var(--text-faint); font-size:12.5px; margin-top:2px; text-transform:uppercase; letter-spacing:.04em; }
+
+/* ---------- layout: toc + content ---------- */
+.layout{ display:grid; grid-template-columns:220px 1fr; gap:48px; margin-top:44px; align-items:start; }
+@media (max-width:880px){ .layout{ grid-template-columns:1fr; } nav.toc{ position:static; order:2; } }
+
+nav.toc{ position:sticky; top:24px; font-size:13.5px; }
+nav.toc .toc-h{ font-family:"IBM Plex Mono",monospace; text-transform:uppercase; letter-spacing:.06em; color:var(--text-faint); font-size:11.5px; margin-bottom:10px; }
+nav.toc ol{ list-style:none; margin:0; padding:0; border-left:1px solid var(--border); }
+nav.toc li{ margin:0; }
+nav.toc a{
+  display:block; padding:6px 0 6px 14px; color:var(--text-muted); text-decoration:none;
+  border-left:2px solid transparent; margin-left:-1px;
+}
+nav.toc a:hover{ color:var(--text); border-left-color:var(--border-strong); }
+
+main{ min-width:0; }
+section{ margin-bottom:64px; scroll-margin-top:24px; }
+.sec-head{ display:flex; align-items:baseline; gap:12px; margin-bottom:18px; }
+.sec-num{ font-family:"IBM Plex Mono",monospace; color:var(--text-faint); font-size:14px; }
+h2{ font-size:24px; font-weight:700; }
+h3{ font-size:17px; font-weight:600; margin:28px 0 12px; }
+p{ margin:0 0 14px; color:var(--text); }
+p.lead{ font-size:16.5px; color:var(--text-muted); }
+ul.plain, ol.plain{ margin:0 0 14px; padding-left:22px; }
+ul.plain li, ol.plain li{ margin-bottom:6px; }
+
+/* ---------- badges ---------- */
+.badge{
+  display:inline-flex; align-items:center; gap:5px;
+  font-family:"IBM Plex Mono",monospace; font-size:11.5px; font-weight:500;
+  letter-spacing:.02em; text-transform:uppercase;
+  padding:2.5px 8px; border-radius:5px; white-space:nowrap;
+}
+.badge.critical{ background:var(--critical-soft); color:var(--critical); }
+.badge.high{ background:var(--high-soft); color:var(--high); }
+.badge.medium{ background:var(--medium-soft); color:var(--medium); }
+.badge.low{ background:var(--low-soft); color:var(--low); }
+.badge.ok{ background:var(--ok-soft); color:var(--ok); }
+.badge.neutral{ background:var(--surface-2); color:var(--text-muted); border:1px solid var(--border); }
+.fpath{
+  font-family:"IBM Plex Mono",monospace; font-size:12.5px; color:var(--accent-strong);
+  background:var(--accent-soft); padding:1.5px 6px; border-radius:4px; word-break:break-all;
+}
+
+/* ---------- finding cards ---------- */
+.finding{
+  background:var(--surface); border:1px solid var(--border); border-radius:10px;
+  padding:18px 20px; margin-bottom:14px; box-shadow:var(--shadow);
+  border-left:3px solid var(--border-strong);
+}
+.finding.critical{ border-left-color:var(--critical); }
+.finding.high{ border-left-color:var(--high); }
+.finding.medium{ border-left-color:var(--medium); }
+.finding.low{ border-left-color:var(--low); }
+.f-head{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-bottom:8px; }
+.f-title{ font-weight:600; font-size:15.5px; flex:1; min-width:200px; }
+.f-body p{ font-size:14.5px; color:var(--text-muted); margin-bottom:8px; }
+.f-body p:last-child{ margin-bottom:0; }
+.f-body strong.k{ color:var(--text); font-weight:600; }
+.f-repro{ margin-top:10px; padding-top:10px; border-top:1px dashed var(--border); }
+.f-repro ol{ margin:6px 0 0; padding-left:20px; font-size:14px; color:var(--text-muted); }
+.f-repro ol li{ margin-bottom:3px; }
+
+/* ---------- tables ---------- */
+.tbl-wrap{ overflow-x:auto; border:1px solid var(--border); border-radius:10px; background:var(--surface); box-shadow:var(--shadow); }
+table{ border-collapse:collapse; width:100%; font-size:13.5px; min-width:640px; }
+th, td{ padding:9px 12px; text-align:left; border-bottom:1px solid var(--border); vertical-align:top; }
+thead th{
+  background:var(--surface-2); font-family:"IBM Plex Mono",monospace; font-weight:500;
+  font-size:11.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--text-faint);
+  position:sticky; top:0;
+}
+tbody tr:last-child td{ border-bottom:none; }
+tbody tr:hover{ background:var(--surface-2); }
+td.center, th.center{ text-align:center; }
+.yes{ color:var(--ok); font-weight:600; }
+.no{ color:var(--text-faint); }
+.matrix td:first-child, .matrix th:first-child{ position:sticky; left:0; background:var(--surface); font-weight:500; }
+.matrix thead th:first-child{ background:var(--surface-2); }
+
+/* ---------- status pills for capability matrix ---------- */
+.cap{ display:inline-block; padding:1px 7px; border-radius:5px; font-size:12px; font-family:"IBM Plex Mono",monospace; }
+.cap.full{ background:var(--ok-soft); color:var(--ok); }
+.cap.none{ background:var(--surface-2); color:var(--text-faint); }
+.cap.own{ background:var(--low-soft); color:var(--low); }
+
+/* ---------- test file list ---------- */
+.testfile{
+  display:grid; grid-template-columns:1fr auto; gap:4px 16px; align-items:baseline;
+  padding:12px 16px; border:1px solid var(--border); border-radius:8px; background:var(--surface);
+  margin-bottom:8px; box-shadow:var(--shadow);
+}
+.testfile .fn{ font-family:"IBM Plex Mono",monospace; font-size:13.5px; color:var(--text); font-weight:500; }
+.testfile .desc{ grid-column:1 / -1; color:var(--text-muted); font-size:13.5px; }
+.testfile .res{ font-family:"IBM Plex Mono",monospace; font-size:12px; }
+
+/* ---------- callout ---------- */
+.callout{
+  border:1px solid var(--border-strong); background:var(--surface-2); border-radius:10px;
+  padding:16px 18px; margin:18px 0; font-size:14.5px; color:var(--text-muted);
+}
+.callout.crit{ background:var(--critical-soft); border-color:var(--critical); color:var(--text); }
+.callout strong{ color:var(--text); }
+
+/* ---------- priority list ---------- */
+.plist{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:10px; }
+.plist li{
+  display:grid; grid-template-columns:auto 1fr; gap:14px; align-items:start;
+  background:var(--surface); border:1px solid var(--border); border-radius:9px; padding:14px 16px;
+  box-shadow:var(--shadow);
+}
+.plist .rank{ font-family:"Space Grotesk",sans-serif; font-weight:700; font-size:20px; color:var(--text-faint); width:28px; }
+
+footer{ margin-top:80px; padding-top:24px; border-top:1px solid var(--border); color:var(--text-faint); font-size:13px; }
+</style>
+
+<header class="hero">
+  <div class="hero-inner">
+    <span class="eyebrow"><span class="dot"></span>Auditoría funcional · técnica · seguridad</span>
+    <h1 class="title">APP_EDU_CRM — Plan de Trabajo DEGASA</h1>
+    <p class="subtitle">Auditoría de la PWA de registro de visitas para educadores clínicos: código, permisos, migraciones, sincronización offline y comportamiento como si tres equipos reales — Educador, Analista, Gerente — la usaran hoy en producción.</p>
+    <div class="meta-row">
+      <span><b>Fecha:</b> 2026-09-04</span>
+      <span><b>Rama:</b> main</span>
+      <span><b>Commit base:</b> 4e8dc74</span>
+      <span><b>Stack:</b> React + TS + Vite · Supabase (Postgres) · Google Apps Script</span>
+    </div>
+    <div class="stat-grid">
+      <div class="stat"><div class="n">51</div><div class="l">Archivos de test</div></div>
+      <div class="stat"><div class="n ok">832</div><div class="l">Pruebas en verde</div></div>
+      <div class="stat"><div class="n crit">14</div><div class="l">Pruebas en rojo</div></div>
+      <div class="stat"><div class="n">6</div><div class="l">Archivos nuevos</div></div>
+      <div class="stat"><div class="n">tsc ✓</div><div class="l">Type-check</div></div>
+      <div class="stat"><div class="n">build ✓</div><div class="l">Vite build</div></div>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+<div class="layout">
+
+<nav class="toc">
+  <div class="toc-h">Contenido</div>
+  <ol>
+    <li><a href="#resumen">1. Resumen ejecutivo</a></li>
+    <li><a href="#pruebas">2. Pruebas agregadas</a></li>
+    <li><a href="#resultados">3. Resultados de ejecución</a></li>
+    <li><a href="#fallas">4. Fallas encontradas</a></li>
+    <li><a href="#faltantes">5. Funcionalidades faltantes</a></li>
+    <li><a href="#matriz">6. Matriz de permisos</a></li>
+    <li><a href="#riesgos">7. Riesgos de producción</a></li>
+    <li><a href="#recomendaciones">8. Recomendaciones</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<section id="resumen">
+  <div class="sec-head"><span class="sec-num">01</span><h2>Resumen ejecutivo</h2></div>
+  <p class="lead">La base de código es notablemente madura para su tamaño: 45 archivos de prueba preexistentes (832 pruebas), separación limpia entre dominio puro y efectos, identidad de escritura siempre re-verificada en el servidor (nunca confía en lo que manda el cliente), y un patrón de "prueba estática" ya establecido para invariantes de seguridad (espejo Sheets↔Supabase, sesiones por dispositivo). No es una app improvisada.</p>
+  <p>Dicho esto, la auditoría encontró <strong>dos huecos de seguridad críticos en el backend de Supabase</strong> que no dependen de ningún bug de frontend — son alcanzables directamente con la clave anónima pública que ya viaja en el bundle del cliente — y un puñado de brechas funcionales reales frente a los requisitos de negocio descritos: el Analista no puede aprobar evidencias pese a que el negocio lo pide, cancelar una visita no exige motivo aunque reagendar sí, y "cita de seguimiento" —el caso de uso explícito de "el cliente pide volver otro día por una evidencia"— no existe como flujo, solo como intención de producto.</p>
+  <p>Todo lo que sigue distingue explícitamente: <span class="badge ok">implementado y aprobado</span> <span class="badge high">implementado con bug</span> <span class="badge medium">parcial</span> <span class="badge neutral">inexistente</span> — con archivo y línea citados en cada caso, y una prueba automatizada nueva que lo demuestra donde fue posible escribirla sin tocar una base de datos real.</p>
+  <div class="callout crit">
+    <strong>Lo más urgente:</strong> <span class="fpath">pruebas_datos_chicos.sql</span> (sin trackear, visible en <code>git status</code>) contiene refresh tokens de Google OAuth en texto plano de 5 cuentas reales de DEGASA. Y <span class="fpath">pdt_visitas_en_alcance(text,date,date,int,boolean)</span> —la firma con <code>p_todas</code>— no tiene ningún <code>REVOKE</code> que la cierre a <code>service_role</code>: con la clave anónima pública, cualquiera puede pedir <em>todas</em> las visitas de la empresa. Ver sección 4.
+  </div>
+</section>
+
+<section id="pruebas">
+  <div class="sec-head"><span class="sec-num">02</span><h2>Pruebas agregadas</h2></div>
+  <p>Antes de escribir una sola prueba nueva se auditaron los 45 archivos existentes para no duplicar cobertura ya sólida (check-in/out, reagendar, cancelar motivo básico, revisión/aprobación, sync por lotes y por huella, migraciones de almacenamiento, simulación "ver como", sesiones por dispositivo). Las 6 pruebas nuevas cierran huecos reales que esa cobertura no tocaba — todas en <span class="fpath">tests/auditoria-*.test.ts</span>, separadas del resto para que sea evidente qué es auditoría y qué es la suite original.</p>
+
+  <div class="testfile">
+    <span class="fn">auditoria-seguridad-rpc.test.ts</span><span class="res badge critical">7 pruebas · 6 en rojo</span>
+    <span class="desc">Lee las migraciones SQL y verifica que las funciones <code>security definer</code> sensibles tengan <code>REVOKE</code> de <code>anon</code>/<code>authenticated</code>. Documenta la fuga de <code>pdt_visitas_en_alcance</code>, <code>pdt_eventos_guardar</code>, <code>pdt_comentarios_guardar</code>, <code>pdt_catalogos_guardar</code>, <code>pdt_calendar_compromisos_*</code> y <code>pdt_perfil</code>.</span>
+  </div>
+  <div class="testfile">
+    <span class="fn">auditoria-cancelar-motivo.test.ts</span><span class="res badge high">3 pruebas · 2 en rojo</span>
+    <span class="desc">Verifica que <code>cancelarVisita</code> exija motivo igual que <code>reagendarVisita</code>. Hoy no lo exige a nivel de dominio.</span>
+  </div>
+  <div class="testfile">
+    <span class="fn">auditoria-evidencias.test.ts</span><span class="res badge ok">13 pruebas · todas en verde</span>
+    <span class="desc"><code>js/evidencias.js</code> no tenía NINGÚN archivo de prueba dedicado. Cierra el hueco: tipo de archivo inválido, PDF &gt;10MB, límite exacto, estado local/pendiente, quitar y volver a subir, comportamiento offline.</span>
+  </div>
+  <div class="testfile">
+    <span class="fn">auditoria-comentario-evidencia.test.ts</span><span class="res badge medium">2 pruebas · 1 en rojo</span>
+    <span class="desc">Confirma que visita/sector/actividad tienen punto de entrada de comentarios en la UI, y que "evidencia" —modelado pero no conectado— no lo tiene.</span>
+  </div>
+  <div class="testfile">
+    <span class="fn">auditoria-cita-seguimiento.test.ts</span><span class="res badge medium">2 pruebas · 2 en rojo</span>
+    <span class="desc">Especificación ejecutable del requisito "crear una cita de seguimiento desde una visita existente": no hay campo de enlace ni función de dominio para esto hoy.</span>
+  </div>
+  <div class="testfile">
+    <span class="fn">auditoria-exportar.test.ts</span><span class="res badge medium">3 pruebas · 2 en rojo</span>
+    <span class="desc">El permiso <code>visitas.exportar</code> existe en la base de datos; ningún componente lo usa ni existe función de exportación.</span>
+  </div>
+
+  <p style="margin-top:18px">También se confirmó, sin necesidad de una prueba nueva, la que ya existía: <span class="fpath">tests/equipo-productivo.test.ts:209-217</span> — <em>"REQUISITO: Analista puede confirmar evidencias"</em> — sigue en rojo. Es exactamente el caso que este encargo pedía evidenciar si el permiso no existiera, y alguien en el equipo ya lo había dejado documentado así.</p>
+</section>
+
+<section id="resultados">
+  <div class="sec-head"><span class="sec-num">03</span><h2>Resultados de ejecución</h2></div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Comando</th><th>Resultado</th><th>Detalle</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">npx vitest run</td><td><span class="badge critical">14 fallas</span></td><td>832 pruebas en verde · 14 en rojo · 51 archivos (45 preexistentes + 6 nuevos) · 33.9s</td></tr>
+        <tr><td class="mono">npx tsc --noEmit</td><td><span class="badge ok">limpio</span></td><td>Sin errores de tipos, incluidos los archivos nuevos</td></tr>
+        <tr><td class="mono">npx vite build</td><td><span class="badge ok">limpio</span></td><td>Build en 0.3–1.3s · único aviso: un chunk &gt;500KB (no bloqueante)</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p style="margin-top:14px">Las 14 fallas son <strong>intencionales</strong> — cada una es una especificación ejecutable de un requisito de negocio no cumplido hoy, no un error de la prueba. Ninguna falla fue ocultada, silenciada ni marcada <code>skip</code>.</p>
+</section>
+
+<section id="fallas">
+  <div class="sec-head"><span class="sec-num">04</span><h2>Fallas encontradas</h2></div>
+
+  <h3>Seguridad — crítica</h3>
+
+  <div class="finding critical">
+    <div class="f-head"><span class="badge critical">Crítica</span><span class="f-title">Refresh tokens de Google OAuth en texto plano, en el working tree</span></div>
+    <div class="f-body">
+      <p><span class="fpath">supabase/migrations/pruebas_datos_chicos.sql:33</span> — archivo sin trackear (<code>git status</code>) con un <code>insert into pdt_google_credenciales</code> que contiene refresh tokens reales de 5 cuentas DEGASA (incluida <code>vcomas@degasa.com</code>) con scope <code>calendar.events</code>. <code>.gitignore</code> no cubre estos volcados.</p>
+      <p><strong class="k">Impacto:</strong> quien obtenga ese archivo tiene acceso directo al Google Calendar de esas 5 personas sin pasar por la app.</p>
+      <div class="f-repro"><strong class="k">Reproducir:</strong>
+        <ol><li>Abrir <span class="fpath">supabase/migrations/pruebas_datos_chicos.sql</span> línea 33.</li><li>Confirmar que el JSON contiene <code>refresh_token</code> en claro.</li></ol>
+      </div>
+    </div>
+  </div>
+
+  <div class="finding critical">
+    <div class="f-head"><span class="badge critical">Crítica</span><span class="f-title">pdt_visitas_en_alcance(…, p_todas) sin REVOKE: fuga total de visitas</span></div>
+    <div class="f-body">
+      <p><span class="fpath">supabase/migrations/20260727d_pdt_admin_ve_todo.sql:20-129</span> crea la firma de 5 parámetros de <code>pdt_visitas_en_alcance</code> (agrega <code>p_todas boolean</code>). Postgres concede <code>EXECUTE</code> a <code>PUBLIC</code> por defecto a toda función nueva. La firma de 4 parámetros SÍ está cerrada (<span class="fpath">20260723b_pdt_excepciones_cliente.sql:327-328</span>), pero Postgres trata firmas con distinto número de parámetros como funciones DISTINTAS — ese revoke no protege a la de 5, y ninguna migración posterior se lo aplica.</p>
+      <p><strong class="k">Impacto:</strong> con la clave anónima pública (viaja en el bundle del cliente), cualquiera puede invocar <code>pdt_visitas_en_alcance(p_correo:'x', p_todas:true)</code> por PostgREST y descargar TODAS las visitas de la empresa — notas, contactos, evidencias, materiales — sin sesión ni pertenencia jerárquica.</p>
+      <div class="f-repro"><strong class="k">Reproducir (verificación estática, sin tocar la BD real):</strong>
+        <ol><li><code>npx vitest run tests/auditoria-seguridad-rpc.test.ts -t "5 parámetros"</code></li><li>Confirmar en <span class="fpath">supabase/migrations/*.sql</span> que ningún <code>revoke execute on function pdt_visitas_en_alcance(text, date, date, int, boolean)</code> existe.</li><li>Para confirmación definitiva contra la base real: <code>select p.proname, p.proacl from pg_proc p where proname='pdt_visitas_en_alcance'</code>, o <code>get_advisors</code> de Supabase.</li></ol>
+      </div>
+    </div>
+  </div>
+
+  <div class="finding critical">
+    <div class="f-head"><span class="badge critical">Crítica</span><span class="f-title">Escritura no autenticada: eventos, comentarios y catálogo global</span></div>
+    <div class="f-body">
+      <p><span class="fpath">supabase/migrations/20260719b_pdt_espejo_completo.sql</span> — <code>pdt_eventos_guardar</code> (línea 118), <code>pdt_comentarios_guardar</code> (línea 163) y <code>pdt_catalogos_guardar</code> (línea 215) nunca reciben <code>REVOKE</code>/<code>GRANT</code> en ninguna migración posterior. El comentario interno asume identidad "ya verificada por Apps Script", pero eso solo es cierto si la ejecución está restringida a <code>service_role</code>.</p>
+      <p><strong class="k">Impacto:</strong> cualquiera con la clave anónima puede insertar eventos/comentarios falsificando <code>p_educador_correo</code>/<code>p_usuario_correo</code>, y <strong>reemplazar el catálogo publicado completo</strong> (tipos de actividad, sectores, listas) vía <code>pdt_catalogos_guardar</code>.</p>
+    </div>
+  </div>
+
+  <h3>Seguridad — alta</h3>
+
+  <div class="finding high">
+    <div class="f-head"><span class="badge high">Alta</span><span class="f-title">pdt_perfil expone organigrama, rol y permisos de cualquier correo (IDOR)</span></div>
+    <div class="f-body">
+      <p><span class="fpath">supabase/migrations/20260723b_pdt_excepciones_cliente.sql:49-129</span>, <code>grant execute … to anon</code> en la línea 129. <code>p_correo</code> es texto libre que el cliente elige — no hay <code>auth.uid()</code>/<code>auth.jwt()</code> en todo el proyecto (verificado: 0 coincidencias). El propio código reconoce en otro lugar que exponer el organigrama en bruto a cualquiera con la anon key es justo lo que se quiere evitar (<span class="fpath">20260718_pdt_roles_permisos_jerarquia.sql:158-160</span>), pero <code>pdt_perfil</code> hace exactamente eso.</p>
+      <p><strong class="k">Impacto:</strong> con convención de correo corporativo predecible, cualquiera reconstruye el rol, los permisos y el organigrama completo (campo <code>alcance</code>) de cualquier empleado.</p>
+    </div>
+  </div>
+
+  <div class="finding high">
+    <div class="f-head"><span class="badge high">Alta</span><span class="f-title">Compromisos de calendario del equipo sin REVOKE</span></div>
+    <div class="f-body">
+      <p><span class="fpath">supabase/migrations/20260813_pdt_calendar_compromisos.sql:38,97</span> — <code>pdt_calendar_compromisos_guardar</code> y <code>pdt_calendar_compromisos_en_alcance</code>, mismo patrón: sin <code>REVOKE</code>/<code>GRANT</code> en ningún archivo. Permite escribir compromisos a nombre de cualquier correo y leer el calendario "en alcance" de cualquier jerarquía con <code>p_todas</code>.</p>
+    </div>
+  </div>
+
+  <h3>Bugs funcionales — alta</h3>
+
+  <div class="finding high">
+    <div class="f-head"><span class="badge high">Alta</span><span class="f-title">cancelarVisita no exige motivo (reagendarVisita sí)</span></div>
+    <div class="f-body">
+      <p><span class="fpath">js/visita.js:147-156</span> acepta <code>motivo || ''</code> sin validar. <span class="fpath">js/visita.js:103</span> (reagendar) sí valida en la misma capa. Solo <span class="fpath">VisitaDrawer.tsx:508</span> deshabilita el botón si el campo está vacío — un guardarraíl de UI, no de dominio.</p>
+      <p><strong class="k">Impacto:</strong> cualquier otro caller de <code>cancelarVisita</code> (otra pantalla, un script, la consola del navegador) cancela sin dejar motivo, rompiendo el requisito "cancelar con motivo".</p>
+      <div class="f-repro"><strong class="k">Reproducir:</strong>
+        <ol><li><code>npx vitest run tests/auditoria-cancelar-motivo.test.ts</code></li><li>O en consola: <code>cancelarVisita(idDeUnaVisita, '')</code> → <code>{ok: true, ...}</code>.</li></ol>
+      </div>
+    </div>
+  </div>
+
+  <h3>Requisitos no cumplidos — alta</h3>
+
+  <div class="finding high">
+    <div class="f-head"><span class="badge high">Alta</span><span class="f-title">El Analista no puede aprobar/rechazar evidencias</span></div>
+    <div class="f-body">
+      <p>La semilla de permisos (<span class="fpath">supabase/migrations/20260718_pdt_roles_permisos_jerarquia.sql:199-212</span>) solo concede <code>evidencias.aprobar</code>/<code>rechazar</code>/<code>solicitar_correccion</code> a Gerente y Administrador. El Analista solo tiene <code>evidencias.consultar</code>. Ya existía una prueba que lo documenta: <span class="fpath">tests/equipo-productivo.test.ts:209-217</span>, sigue en rojo.</p>
+      <p><strong class="k">Nota:</strong> el sistema de roles es editable desde Administración → Accesos, así que corregirlo no requiere código — requiere que un administrador reasigne el permiso, si el negocio confirma que así debe ser.</p>
+    </div>
+  </div>
+
+  <h3>Requisitos no cumplidos — media</h3>
+
+  <div class="finding medium">
+    <div class="f-head"><span class="badge medium">Media</span><span class="f-title">"Cita de seguimiento desde una visita existente" no existe</span></div>
+    <div class="f-body">
+      <p>El caso de negocio explícito ("el cliente pide regresar otro día por una evidencia") no tiene función de dominio ni campo de enlace. <code>duplicarVisita</code> (<span class="fpath">src/modules/visitas/services/fabricas.ts:84-114</span>) crea una visita nueva pero sin ninguna referencia de vuelta al original ni motivo de seguimiento; <code>reagendas[]</code> es historial de LA MISMA visita, no una visita nueva enlazada.</p>
+      <p><strong class="k">Impacto:</strong> el Gerente, al revisar, no puede ver "esta visita quedó con una evidencia pendiente que se recoge después" como una relación explícita entre dos visitas.</p>
+    </div>
+  </div>
+
+  <div class="finding medium">
+    <div class="f-head"><span class="badge medium">Media</span><span class="f-title">Comentarios de ámbito "evidencia" no alcanzables desde la UI</span></div>
+    <div class="f-body">
+      <p><code>AMBITOS.EVIDENCIA</code> existe en <span class="fpath">js/comentarios.js:36</span> y <code>AmbitoComentario</code> lo incluye en <span class="fpath">src/core/tipos.ts:240</span>, pero ningún componente de <span class="fpath">src/modules/**</span> lo usa — solo visita (<span class="fpath">VisitaDrawer.tsx:382</span>), sector (<span class="fpath">NivelSector.tsx:74</span>) y actividad (<span class="fpath">montarActividad.tsx:129</span>) están conectados.</p>
+    </div>
+  </div>
+
+  <div class="finding medium">
+    <div class="f-head"><span class="badge medium">Media</span><span class="f-title">Exportación de datos: el permiso existe, la función no</span></div>
+    <div class="f-body">
+      <p><code>visitas.exportar</code> está asignado a Analista y Gerente en la semilla de roles, pero no se encontró ningún botón, función CSV/Excel/PDF ni uso de <code>puede('visitas','exportar')</code> en <span class="fpath">src/</span>.</p>
+    </div>
+  </div>
+
+  <div class="finding medium">
+    <div class="f-head"><span class="badge medium">Media</span><span class="f-title">Generar visita desde varias estrategias solo vincula la primera</span></div>
+    <div class="f-body">
+      <p><span class="fpath">src/modules/estrategias/components/Estrategias.tsx:305</span> — si se eligen estrategias de sectores distintos para una misma visita, <code>id_estrategia</code> solo guarda <code>seleccionadas[0]?.id</code>. Los sectores de las demás estrategias sí se agregan a la visita, pero el avance de esas estrategias no queda registrado.</p>
+    </div>
+  </div>
+
+  <div class="finding low">
+    <div class="f-head"><span class="badge low">Baja</span><span class="f-title">"Prospecto" es un sub-flag, no un 4º tipo de visita formal</span></div>
+    <div class="f-body">
+      <p><span class="fpath">src/core/tipos.ts:138,147</span> — solo existen 3 valores de <code>tipo</code> (<code>cliente</code>|<code>administrativo</code>|<code>evento</code>); "prospecto" es <code>es_prospecto?: boolean</code>, aplicable únicamente dentro de <code>tipo:'cliente'</code>. Si el negocio pidió 4 tipos como categorías paralelas, confirmar si este diseño (correcto y probado) cumple la intención.</p>
+    </div>
+  </div>
+
+  <h3>Requisitos ambiguos</h3>
+  <div class="finding low">
+    <div class="f-head"><span class="badge neutral">Ambiguo</span><span class="f-title">Qué campos de la plantilla debe conservar "Duplicar visita"</span></div>
+    <div class="f-body">
+      <p>El requisito solo especifica que se copien cliente/hospital/sectores/objetivos/origen/solicitante y que NO se copien actividades/evidencias/check-in-out/comentarios/historial. <code>duplicarVisita</code> tampoco copia <code>zona</code>, <code>ejecutivo</code>, <code>id_estrategia</code> ni <code>es_prospecto</code> — ninguno de los dos lados de la lista los menciona. Recomendación: confirmar con negocio si una visita duplicada debe conservar su vínculo a Estrategia y su zona/ejecutivo, o si repetir la búsqueda de cliente (que los resuelve solos) es la conducta esperada.</p>
+    </div>
+  </div>
+</section>
+
+<section id="faltantes">
+  <div class="sec-head"><span class="sec-num">05</span><h2>Funcionalidades: estado real por requisito</h2></div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Requisito</th><th>Estado</th><th>Evidencia</th></tr></thead>
+      <tbody>
+        <tr><td>4 tipos de visita (cliente/admin/evento/prospecto)</td><td><span class="badge low">Parcial</span></td><td>3 tipos + 1 sub-flag, ver hallazgo §4</td></tr>
+        <tr><td>Objetivo / origen / solicitante por sector</td><td><span class="badge ok">Implementado</span></td><td class="fpath">sectores/validators/requisitos.ts:14-22</td></tr>
+        <tr><td>Borrador de actividad no sincroniza como terminada</td><td><span class="badge ok">Implementado</span></td><td class="fpath">js/sync.js:69-84,109</td></tr>
+        <tr><td>Evidencia: tipo/tamaño válidos, offline, reintento</td><td><span class="badge ok">Implementado</span></td><td class="fpath">js/evidencias.js — cubierto ahora por 13 pruebas nuevas</td></tr>
+        <tr><td>Comentarios en visita/sector/actividad</td><td><span class="badge ok">Implementado</span></td><td class="fpath">js/comentarios.js</td></tr>
+        <tr><td>Comentarios en evidencia</td><td><span class="badge neutral">Inexistente en UI</span></td><td>modelado, sin punto de entrada</td></tr>
+        <tr><td>Histórico de comentarios por hospital</td><td><span class="badge ok">Implementado</span></td><td class="fpath">js/comentarios.js:78-87</td></tr>
+        <tr><td>Hilo de respuestas a comentarios</td><td><span class="badge low">Parcial</span></td><td>log cronológico plano, sin <code>id_padre</code></td></tr>
+        <tr><td>Estrategias: CRUD + generar visita</td><td><span class="badge ok">Implementado</span></td><td class="fpath">Estrategias.tsx — con bug §4 en multi-estrategia</td></tr>
+        <tr><td>Check-in/out con GPS opcional, no bloqueante</td><td><span class="badge ok">Implementado</span></td><td class="fpath">js/geo.js, js/visita.js:21-90</td></tr>
+        <tr><td>Reagendar con motivo e historial</td><td><span class="badge ok">Implementado</span></td><td class="fpath">js/visita.js:98-139</td></tr>
+        <tr><td>Cancelar con motivo</td><td><span class="badge high">Bug</span></td><td>ver hallazgo §4</td></tr>
+        <tr><td>Duplicar visita (estructura, no lo ocurrido)</td><td><span class="badge ok">Implementado</span></td><td class="fpath">fabricas.ts:84-114</td></tr>
+        <tr><td>Cita de seguimiento enlazada a la visita original</td><td><span class="badge neutral">Inexistente</span></td><td>ver hallazgo §4</td></tr>
+        <tr><td>Validación de traslapes / horarios / fechas pasadas</td><td><span class="badge low">Parcial</span></td><td>traslape solo informativo, no bloqueante</td></tr>
+        <tr><td>Sync offline: cola por lotes, sin duplicar, con reintento</td><td><span class="badge ok">Implementado</span></td><td class="fpath">js/sync.js — lotes de 25, huella anti-carrera</td></tr>
+        <tr><td>Resolución de conflicto local vs. remoto</td><td><span class="badge low">Parcial</span></td><td>"gana lo local" sin comparar timestamps entre dos ediciones remotas distintas</td></tr>
+        <tr><td>Integración Google Calendar (crear/actualizar/borrar)</td><td><span class="badge ok">Implementado</span></td><td class="fpath">js/googleCalendar.js, calendarSync.ts</td></tr>
+        <tr><td>Sesión expirada → aviso o redirect a login</td><td><span class="badge low">Parcial</span></td><td>reintenta indefinidamente en silencio, sin distinguir sesión inválida</td></tr>
+        <tr><td>Cola de revisión: aprobar/rechazar/corregir con historial</td><td><span class="badge ok">Implementado</span></td><td class="fpath">js/revisiones.js</td></tr>
+        <tr><td>Analista aprueba/rechaza evidencias</td><td><span class="badge neutral">No concedido</span></td><td>ver hallazgo §4</td></tr>
+        <tr><td>Exportación de datos (CSV/Excel/PDF)</td><td><span class="badge neutral">Inexistente</span></td><td>permiso existe, función no</td></tr>
+        <tr><td>Filtros de Dashboard/Histórico</td><td><span class="badge low">Parcial</span></td><td>Histórico solo filtra fecha/educador; sin filtro de Zona en ningún lado</td></tr>
+        <tr><td>Simulación "ver como" sin poder escribir</td><td><span class="badge ok">Implementado</span></td><td class="fpath">js/simulacion.js — solo-lectura verificado en dos capas</td></tr>
+        <tr><td>Anti-suplantación de identidad en escritura</td><td><span class="badge ok">Implementado</span></td><td>identidad siempre re-verificada server-side</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="matriz">
+  <div class="sec-head"><span class="sec-num">06</span><h2>Matriz de permisos real</h2></div>
+  <p>Construida leyendo la semilla de roles en <span class="fpath">supabase/migrations/20260718_pdt_roles_permisos_jerarquia.sql</span> y sus extensiones — no el nombre del rol. <span class="cap own">por dueño</span> significa: la acción no depende de ningún permiso <code>modulo.accion</code>, solo de que <code>educador_correo</code> de la fila coincida con la sesión (ni siquiera el administrador se salta esta regla, <span class="fpath">edicion-propiedad.test.ts:70-79</span>).</p>
+  <div class="tbl-wrap">
+    <table class="matrix">
+      <thead><tr><th>Capacidad</th><th class="center">Educador</th><th class="center">Analista</th><th class="center">Gerente</th></tr></thead>
+      <tbody>
+        <tr><td>Ver sus propias visitas</td><td class="center"><span class="cap full">✓</span></td><td class="center"><span class="cap full">✓ (equipo)</span></td><td class="center"><span class="cap full">✓ (equipo)</span></td></tr>
+        <tr><td>Crear visita</td><td class="center"><span class="cap full">✓</span></td><td class="center"><span class="cap none">✗</span></td><td class="center"><span class="cap full">✓</span></td></tr>
+        <tr><td>Check-in / check-out / reagendar / cancelar / duplicar</td><td class="center" colspan="3" style="text-align:center"><span class="cap own">por dueño de la fila — ningún permiso lo gatea</span></td></tr>
+        <tr><td>Crear actividad / materiales / subir evidencia</td><td class="center"><span class="cap full">✓</span></td><td class="center"><span class="cap none">✗</span></td><td class="center"><span class="cap none">✗</span></td></tr>
+        <tr><td>Consultar visitas/actividades/materiales/evidencias</td><td class="center"><span class="cap full">✓ (lo suyo)</span></td><td class="center"><span class="cap full">✓</span></td><td class="center"><span class="cap full">✓</span></td></tr>
+        <tr><td>Aprobar / rechazar evidencia</td><td class="center"><span class="cap none">✗</span></td><td class="center"><span class="cap none">✗ (gap §4)</span></td><td class="center"><span class="cap full">✓</span></td></tr>
+        <tr><td>Calificar visita (calidad_visita)</td><td class="center"><span class="cap none">✗</span></td><td class="center"><span class="cap none">✗</span></td><td class="center"><span class="cap full">✓</span></td></tr>
+        <tr><td>Revisar retrasos / cumplimiento / documentación</td><td class="center"><span class="cap none">✗</span></td><td class="center"><span class="cap none">✗</span></td><td class="center"><span class="cap full">✓</span></td></tr>
+        <tr><td>Comentar / responder</td><td class="center"><span class="cap full">✓</span></td><td class="center"><span class="cap none">✗ (solo leer)</span></td><td class="center"><span class="cap full">✓</span></td></tr>
+        <tr><td>Ver dashboard de equipo</td><td class="center"><span class="cap none">✗</span></td><td class="center"><span class="cap full">✓</span></td><td class="center"><span class="cap full">✓</span></td></tr>
+        <tr><td>Ver histórico / reporte de actividades</td><td class="center"><span class="cap none">✗</span></td><td class="center"><span class="cap none">✗ (gap)</span></td><td class="center"><span class="cap full">✓</span></td></tr>
+        <tr><td>Ver / gestionar estrategias</td><td class="center"><span class="cap full">✓</span></td><td class="center"><span class="cap none">✗</span></td><td class="center"><span class="cap full">✓</span></td></tr>
+        <tr><td>Exportar visitas</td><td class="center"><span class="cap none">✗</span></td><td class="center"><span class="cap full">✓ (permiso; sin función)</span></td><td class="center"><span class="cap full">✓ (permiso; sin función)</span></td></tr>
+        <tr><td>Alcance de datos</td><td class="center">solo su propio correo</td><td class="center">su jerarquía (<code>pdt_alcance</code> recursivo)</td><td class="center">su jerarquía + zonas propias</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p style="margin-top:14px;font-size:13.5px;color:var(--text-faint)">El alcance jerárquico lo calcula siempre Postgres (<code>pdt_alcance</code>, recursivo, corta ciclos) — el cliente nunca lo deriva. No hay <code>CREATE POLICY</code> en tablas de negocio: RLS está habilitado sin políticas (deny-all correcto para acceso directo), y toda la autorización real vive en funciones <code>security definer</code> — que es justo donde aparecieron los huecos de la sección 4.</p>
+</section>
+
+<section id="riesgos">
+  <div class="sec-head"><span class="sec-num">07</span><h2>Riesgos de producción</h2></div>
+  <ul class="plain">
+    <li><strong>Fuga de datos de negocio a gran escala</strong> — la combinación de <code>pdt_visitas_en_alcance(...,p_todas)</code> sin candado y la clave anónima pública es explotable hoy, sin credenciales, desde fuera de la app.</li>
+    <li><strong>Reconocimiento de organigrama</strong> — <code>pdt_perfil</code> sin verificación de sesión permite mapear jerarquía y permisos de cualquier empleado antes de un ataque dirigido.</li>
+    <li><strong>Integridad del catálogo</strong> — <code>pdt_catalogos_guardar</code> abierto permite sustituir silenciosamente los tipos de actividad/sectores que ve todo el equipo.</li>
+    <li><strong>Conflicto de concurrencia silencioso</strong> — dos dispositivos editando sectores/actividades de la misma visita casi simultáneamente: el segundo POST borra y reinserta el árbol completo (<code>delete from pdt_sectores where id_visita=...</code>), sin merge. Bajo uso normal es raro; con reconexión tardía tras días offline, no.</li>
+    <li><strong>Sesión revocada sin aviso</strong> — un usuario cuya sesión fue invalidada (por un admin, o expiración) queda reintentando en silencio indefinidamente sin saber que debe volver a iniciar sesión.</li>
+    <li><strong>Credenciales OAuth reales en el working tree</strong> — mientras <code>pruebas_datos_chicos.sql</code> siga ahí sin <code>.gitignore</code>, un <code>git add -A</code> descuidado lo publica.</li>
+  </ul>
+</section>
+
+<section id="recomendaciones">
+  <div class="sec-head"><span class="sec-num">08</span><h2>Recomendaciones priorizadas</h2></div>
+  <ol class="plist">
+    <li><span class="rank">1</span><div><span class="badge critical">Crítica</span> <strong>Cerrar con REVOKE/GRANT</strong> las 6 funciones de la sección 4 (<code>pdt_visitas_en_alcance</code> de 5 args, <code>pdt_eventos_guardar</code>, <code>pdt_comentarios_guardar</code>, <code>pdt_catalogos_guardar</code>, <code>pdt_calendar_compromisos_*</code>) a <code>service_role</code>, igual que ya está hecho para el resto. Correr <code>get_advisors</code> de Supabase para confirmar que no queden más funciones nuevas sin el mismo candado — el equipo ya se topó con este patrón una vez (<code>20260826_pdt_realtime.sql</code>).</div></li>
+    <li><span class="rank">2</span><div><span class="badge critical">Crítica</span> <strong>Rotar los refresh tokens</strong> de las 5 cuentas expuestas en <code>pruebas_datos_chicos.sql</code>, mover ese archivo (y los <code>tx_*.sql</code>/<code>pruebas_*.sql</code> hermanos) fuera de <code>supabase/migrations/</code>, y agregarlos a <code>.gitignore</code>.</div></li>
+    <li><span class="rank">3</span><div><span class="badge high">Alta</span> <strong>Verificar sesión en pdt_perfil</strong> — que resuelva el correo desde <code>sesion_token</code> (patrón ya usado correctamente en <code>pdt_correo_de_sesion</code>) en vez de aceptarlo como parámetro libre.</div></li>
+    <li><span class="rank">4</span><div><span class="badge high">Alta</span> <strong>Decidir y aplicar</strong> si el Analista debe tener <code>evidencias.aprobar</code>/<code>rechazar</code>/<code>solicitar_correccion</code> — es un cambio de datos (Administración → Accesos), no de código.</div></li>
+    <li><span class="rank">5</span><div><span class="badge high">Alta</span> <strong>Mover la validación de motivo</strong> de <code>cancelarVisita</code> a la capa de dominio (<code>js/visita.js</code>), igual que <code>reagendarVisita</code>.</div></li>
+    <li><span class="rank">6</span><div><span class="badge medium">Media</span> <strong>Diseñar "cita de seguimiento"</strong> como campo/función explícita si el negocio confirma que es un flujo distinto de "duplicar" o "reagendar" — el caso descrito (evidencia pendiente) lo sugiere.</div></li>
+    <li><span class="rank">7</span><div><span class="badge medium">Media</span> <strong>Detectar sesión inválida</strong> en la cola de sincronización y disparar un mensaje visible + opción de volver a iniciar sesión, en vez de reintentar en silencio.</div></li>
+    <li><span class="rank">8</span><div><span class="badge low">Baja</span> <strong>Construir la función de exportación</strong> que el permiso <code>visitas.exportar</code> ya anticipa, o retirar el permiso si no está en el roadmap cercano.</div></li>
+  </ol>
+</section>
+
+</main>
+</div>
+</div>
+
+<footer>
+  <div class="wrap" style="padding:0">Auditoría generada el 2026-09-04 sobre <span class="fpath">C:\Users\vcomas\Documents\Reportes\APP_EDU_CRM</span> · 5 agentes de investigación en paralelo + verificación directa de cada hallazgo citado · pruebas nuevas en <span class="fpath">tests/auditoria-*.test.ts</span>, sin tocar lógica de producción.</div>
+</footer>

@@ -160,6 +160,22 @@ export function eliminarVisita(id) {
 const normCorreo = (s) => String(s || '').trim().toLowerCase();
 
 /**
+ * ¿Tiene esta visita una actividad a medio llenar?
+ *
+ * `sincronizarVisitas` (sync.js) sube solo las actividades SELLADAS — un borrador es una
+ * actividad que se está registrando ahora mismo, y no viaja hasta que alguien presiona
+ * "Guardar actividad". Por eso su huella de subida recorta esos borradores tanto del ANTES
+ * como del DESPUÉS del POST, y la visita se marca `sincronizado = true` en cuanto lo que SÍ
+ * viajó coincide — con el borrador viviendo solo en este teléfono. Eso es correcto para no
+ * reenviar de más, pero significa que `sincronizado === true` ya no alcanza para decidir si el
+ * espejo puede pisar esta visita: el espejo nunca vio ese borrador, y adoptarlo lo borraría de
+ * abajo de la ventana que lo está mostrando.
+ */
+function tieneActividadesSinSellar(visita) {
+    return (visita.sectores || []).some(s => (s.actividades || []).some(a => !a.guardada));
+}
+
+/**
  * Adopta en este dispositivo las visitas PROPIAS que trajo el espejo del equipo.
  *
  * Es lo que hace posible seguir trabajando desde otro dispositivo: sin esto, el espejo solo
@@ -167,8 +183,9 @@ const normCorreo = (s) => String(s || '').trim().toLowerCase();
  * localStorage no aparece en "mis pendientes" ni se puede hacer check-in/out sobre ella.
  *
  * Misma regla que `fusionarEstrategiasEquipo`: el servidor manda, salvo lo que este mismo
- * dispositivo ya haya tocado y todavía no subió (`sincronizado === false`) o esté a medio
- * capturar (`borrador === true`) — eso el servidor ni siquiera lo vio; pisarlo lo borraría.
+ * dispositivo ya haya tocado y todavía no subió (`sincronizado === false`), esté a medio
+ * capturar (`borrador === true`), o tenga una actividad sin sellar que el espejo nunca recibió
+ * (`tieneActividadesSinSellar`) — nada de eso lo vio el servidor; pisarlo lo borraría.
  * También se respetan las visitas locales de OTRO correo (no debería haberlas, pero adoptar
  * no es el lugar para decidir borrarlas).
  */
@@ -181,7 +198,9 @@ export function adoptarVisitasPropias(remotas, correo) {
 
     const locales = leerVisitas();
     const protegidas = new Set(
-        locales.filter(v => v.sincronizado === false || v.borrador).map(v => v.id)
+        locales
+            .filter(v => v.sincronizado === false || v.borrador || tieneActividadesSinSellar(v))
+            .map(v => v.id)
     );
     const ajenas = locales.filter(v => normCorreo(v.educador_correo) !== propio);
     const propiasProtegidas = locales.filter(
