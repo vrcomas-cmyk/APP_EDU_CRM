@@ -69,8 +69,8 @@
  *      Hay que crear versión NUEVA: la implementación sirve la versión con la que se publicó,
  *      así que guardar el código no basta.
  *      Editar la implementación existente CONSERVA la URL /exec que la PWA ya tiene. Si creas
- *      una implementación NUEVA, la URL cambia y hay que actualizar GOOGLE_SCRIPT_URL en
- *      js/sync.js.
+ *      una implementación NUEVA, la URL cambia y hay que actualizar VITE_APPS_SCRIPT_URL en
+ *      el .env del proyecto (lo lee src/services/config.ts).
  *
  * Dos documentos, como en la versión anterior:
  *   - Catálogos (Clientes / Materiales / Educadores): se LEEN de SHEET_DB_ID.

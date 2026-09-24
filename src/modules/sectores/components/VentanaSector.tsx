@@ -14,10 +14,10 @@
  * "volver" intermedio era un clic que no aportaba nada.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { sectores as catalogoSectores, origenes, leerEstrategias, type Avisar } from '@core/puente';
 
-import { faltaEnSector, sectorCompleto, conservables, sectoresLibres } from '../validators/requisitos';
+import { faltaEnSector, sectorCompleto, podarAgregadosIncompletos, sectoresLibres } from '../validators/requisitos';
 import { filtrarSectores } from '../services/busqueda';
 import * as repo from '@modules/visitas/repository/visitasRepo';
 import type { Sector, Visita } from '@core/tipos';
@@ -42,6 +42,11 @@ export function VentanaSector({
     );
     const [version, setVersion] = useState(0);
 
+    // Sectores agregados durante ESTA sesión de la ventana (ver `onElegir` abajo). Solo estos
+    // se podan si quedan incompletos al cerrar — los que ya existían al abrir (p.ej. precreados
+    // al generar la visita desde una Estrategia con varios sectores) nunca se tocan aquí.
+    const agregadosEnSesion = useRef<Set<string>>(new Set());
+
     const visita = repo.obtenerVisita(visitaId);
 
     const editar = useCallback((mutador: (v: Visita) => void) => {
@@ -50,9 +55,9 @@ export function VentanaSector({
         alCambiar();
     }, [visitaId, alCambiar]);
 
-    /** Al cerrar, lo que quedó a medias se descarta. Ver `conservables`. */
+    /** Al cerrar, lo que quedó a medias se descarta. Ver `podarAgregadosIncompletos`. */
     const cerrar = useCallback(() => {
-        editar(v => { v.sectores = conservables(v.sectores || []); });
+        editar(v => { v.sectores = podarAgregadosIncompletos(v.sectores || [], agregadosEnSesion.current); });
         onCerrar();
     }, [editar, onCerrar]);
 
@@ -63,7 +68,7 @@ export function VentanaSector({
 
             // Escape desde el formulario regresa al buscador; solo cierra desde el buscador.
             if (paso.tipo === 'completar') {
-                editar(v => { v.sectores = conservables(v.sectores || []); });
+                editar(v => { v.sectores = podarAgregadosIncompletos(v.sectores || [], agregadosEnSesion.current); });
                 setPaso({ tipo: 'elegir' });
             } else {
                 cerrar();
@@ -117,6 +122,7 @@ export function VentanaSector({
                         visita={visita}
                         onElegir={(nombre) => {
                             const id = repo.nuevoId('s');
+                            agregadosEnSesion.current.add(id);
                             editar(v => {
                                 (v.sectores ||= []).push({
                                     id, nombre, objetivo: '', origen: [],

@@ -1417,6 +1417,10 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
   opacity: .4; cursor: not-allowed; filter: none;
 }
 
+.btn-google-entrada-error {
+  margin-top: 8px; font-size: 13px; color: var(--st-miss);
+}
+
 .modal-foot {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   margin-top: 4px; padding-top: 12px; border-top: 1px solid var(--rule);

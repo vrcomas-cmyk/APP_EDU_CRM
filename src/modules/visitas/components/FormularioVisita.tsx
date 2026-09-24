@@ -265,17 +265,17 @@ function CampoCliente({ visita, editar }: { visita: Visita; editar: Props['edita
         <>
             <Combo
                 etiqueta="Cliente"
-                valor={visita.cliente || ''}
-                placeholder={prospecto ? 'Nombre del prospecto…' : 'Busca N° o razón social…'}
+                valor={prospecto ? 'Prospecto' : (visita.cliente || '')}
+                placeholder="Busca N° o razón social…"
+                deshabilitado={prospecto}
                 opciones={opciones}
                 total={clientes.length}
                 onElegir={(c) => editar(v => {
                     v.cliente = c;
                     // Zona y Ejecutivo se resuelven solos al ELEGIR un cliente real del
-                    // catálogo: escribir texto libre (abajo) no dispara la búsqueda, porque
-                    // todavía no es un cliente que exista en la hoja de Clientes. Elegir uno
-                    // real desmarca "prospecto" — contradiría lo que se acaba de elegir.
-                    v.es_prospecto = false;
+                    // catálogo: escribir texto libre no lo hace, porque un texto suelto no es
+                    // necesariamente un cliente que exista en el catálogo — ver validación en
+                    // `faltaParaGuardar`, que bloquea Guardar si no coincide con uno real.
                     v.zona = zonaDeCliente(c);
                     v.ejecutivo = ejecutivoDeZona(v.zona);
                 })}
@@ -288,12 +288,20 @@ function CampoCliente({ visita, editar }: { visita: Visita; editar: Props['edita
                     checked={prospecto}
                     onChange={(e) => editar(v => {
                         v.es_prospecto = e.target.checked;
-                        // Un prospecto no está en el catálogo: Zona/Ejecutivo/Estrategia son
-                        // datos QUE VIENEN de ahí, así que no hay nada honesto que resolver.
                         if (e.target.checked) {
+                            // Un prospecto no está en el catálogo: Cliente pasa a ser un valor
+                            // fijo y se bloquea — lo que identifica al prospecto de verdad
+                            // (Hospital y el resto de campos) se llena a mano, como ya funciona.
+                            // Zona/Ejecutivo/Estrategia son datos QUE VIENEN del catálogo, así
+                            // que tampoco hay nada honesto que resolver para ellos.
+                            v.cliente = 'Prospecto';
                             v.zona = undefined;
                             v.ejecutivo = undefined;
                             v.id_estrategia = undefined;
+                        } else {
+                            // Al desmarcar, "Prospecto" no es un cliente real: se limpia para
+                            // obligar a elegir uno de verdad del catálogo.
+                            v.cliente = '';
                         }
                     })}
                 />

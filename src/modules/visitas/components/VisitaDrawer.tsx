@@ -440,7 +440,13 @@ export function VisitaDrawer({
                     onCerrar={cerrar}
                     onGuardar={guardarVisita}
                     onDuplicar={() => duplicar(visita)}
-                    onReagendar={() => setReagendando(r => !r)}
+                    onReagendar={() => {
+                        // Reagendar vive en la pestaña Historial: si se activa desde Captura o
+                        // Sectores sin cambiar de pestaña, el formulario se monta pero no hay
+                        // nada visible en pantalla — parece que el botón no hizo nada.
+                        setReagendando(r => !r);
+                        setPestana('historial');
+                    }}
                     onCancelar={() => setPidiendoCancelacion(true)}
                 />
             </aside>
