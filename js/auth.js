@@ -80,6 +80,10 @@ export function pintarBotonEntrada(contenedor) {
     boton.className = 'btn-google-entrada';
     boton.textContent = 'Iniciar sesión con Google';
 
+    const mensajeError = document.createElement('p');
+    mensajeError.className = 'btn-google-entrada-error';
+    mensajeError.hidden = true;
+
     cargarGSI().then(() => {
         if (!window.google?.accounts?.oauth2) {
             contenedor.textContent = 'Sin conexión. Conéctate para iniciar sesión.';
@@ -90,38 +94,100 @@ export function pintarBotonEntrada(contenedor) {
     boton.disabled = true;
 
     boton.addEventListener('click', () => {
-        if (!gsiListo) return;
+        if (!gsiListo || boton.disabled) return;
         const cliente = clienteCodigoDe();
-        cliente.callback = (resp) => {
+        cliente.callback = async (resp) => {
             if (resp.error) {
                 console.error('No se pudo iniciar sesión con Google:', resp.error);
+                mostrarError('No se pudo iniciar sesión con Google.');
                 return;
             }
-            canjearCodigo(resp.code);
+            mensajeError.hidden = true;
+            boton.disabled = true;
+            boton.textContent = 'Conectando…';
+            try {
+                await canjearCodigo(resp.code);
+            } catch (err) {
+                mostrarError(mensajeAmigable(err));
+            } finally {
+                boton.disabled = false;
+                boton.textContent = 'Iniciar sesión con Google';
+            }
         };
         cliente.requestCode();
     });
 
+    function mostrarError(texto) {
+        mensajeError.textContent = texto + ' Inténtalo de nuevo.';
+        mensajeError.hidden = false;
+    }
+
     contenedor.appendChild(boton);
+    contenedor.appendChild(mensajeError);
 }
 
+function mensajeAmigable(err) {
+    if (err?.tipo === 'respuesta_no_json') {
+        // Típico de un arranque en frío del despliegue de Apps Script: la petición llega,
+        // pero Google todavía no la enrutó al script y devuelve una página en vez de JSON.
+        return 'El servidor tardó en responder (posible arranque en frío).';
+    }
+    if (err?.tipo === 'rechazado') {
+        return err.message || 'Google rechazó el inicio de sesión.';
+    }
+    return 'No se pudo conectar con el servidor de inicio de sesión.';
+}
+
+function esperar(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+const ESPERAS_REINTENTO_MS = [800, 2000];
+
+/**
+ * Un solo fallo (red lenta, arranque en frío del despliegue de Apps Script) no debería mandar
+ * a la persona de vuelta al botón: se reintenta un par de veces con una espera corta antes de
+ * darse por vencido de verdad.
+ */
 async function canjearCodigo(code) {
+    let ultimoError;
+    for (let intento = 0; intento <= ESPERAS_REINTENTO_MS.length; intento++) {
+        if (intento > 0) await esperar(ESPERAS_REINTENTO_MS[intento - 1]);
+        try {
+            return await intentarCanjearCodigo(code);
+        } catch (err) {
+            ultimoError = err;
+            console.error(`No se pudo canjear el código de Google (intento ${intento + 1}):`, err);
+            // Un rechazo explícito de Google (código inválido/expirado, ya de un solo uso) no
+            // se arregla reintentando con el mismo código: hay que abortar de una.
+            if (err?.tipo === 'rechazado') throw err;
+        }
+    }
+    throw ultimoError;
+}
+
+async function intentarCanjearCodigo(code) {
+    const resp = await fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'canjearCodigoGoogle', code })
+    });
+
+    const tipoContenido = resp.headers.get('content-type') || '';
+    if (!tipoContenido.includes('application/json')) {
+        throw Object.assign(new Error('Respuesta no es JSON'), { tipo: 'respuesta_no_json' });
+    }
+
     let datos;
     try {
-        const resp = await fetch(APPS_SCRIPT_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify({ action: 'canjearCodigoGoogle', code })
-        });
         datos = await resp.json();
     } catch (err) {
-        console.error('No se pudo canjear el código de Google:', err);
-        return;
+        throw Object.assign(new Error('Respuesta no es JSON válido'), { tipo: 'respuesta_no_json', cause: err });
     }
 
     if (datos.status === 'error') {
         console.error('Login rechazado:', datos.message);
-        return;
+        throw Object.assign(new Error(datos.message), { tipo: 'rechazado', message: datos.message });
     }
 
     const sesion = {
@@ -133,6 +199,7 @@ async function canjearCodigo(code) {
     };
     localStorage.setItem(CLAVE_SESION, JSON.stringify(sesion));
     alCambiarSesion(sesion);
+    return sesion;
 }
 
 export function sesionActual() {
