@@ -74,13 +74,20 @@ export function comentariosDeVisita(idVisita) {
  *
  * Excluye la visita en curso: al programar, lo que interesa es el antecedente, no lo que uno
  * mismo acaba de escribir.
+ *
+ * `cliente` es obligatorio en la práctica: el nombre de un hospital NO es único — dos clientes
+ * distintos pueden tener cada uno un hospital con el mismo nombre — así que filtrar solo por
+ * hospital mezclaba el histórico de uno con el del otro. Cada comentario ya guarda su cliente
+ * (`comentar()`, arriba), así que cruzarlo aquí no pierde ningún dato viejo.
  */
-export function historicoDeHospital(hospital, { excluirVisita = null, limite = 5 } = {}) {
-    const clave = String(hospital || '').trim().toLowerCase();
-    if (!clave || !puede('comentarios', 'leer')) return [];
+export function historicoDeHospital(hospital, cliente, { excluirVisita = null, limite = 5 } = {}) {
+    const claveHospital = String(hospital || '').trim().toLowerCase();
+    const claveCliente = String(cliente || '').trim().toLowerCase();
+    if (!claveHospital || !claveCliente || !puede('comentarios', 'leer')) return [];
 
     return leerComentarios()
-        .filter(c => String(c.hospital || '').trim().toLowerCase() === clave)
+        .filter(c => String(c.hospital || '').trim().toLowerCase() === claveHospital
+                  && String(c.cliente || '').trim().toLowerCase() === claveCliente)
         .filter(c => !excluirVisita || c.id_visita !== excluirVisita)
         .sort((a, b) => String(b.momento).localeCompare(String(a.momento)))
         .slice(0, limite);

@@ -47,7 +47,11 @@ export function VentanaActividad({
     const leer = useCallback(() => {
         const visita = repo.obtenerVisita(visitaId);
         const sector = visita?.sectores?.find(s => s.id === sectorId) ?? null;
-        const actividad = sector?.actividades?.find(a => a.id === actividadId) ?? null;
+        // Por id en TODOS los sectores, no solo en `sectorId`: una actividad de "Subir
+        // Actividad" con varios sectores vive físicamente en uno solo (su "ancla"), y puede
+        // abrirse desde cualquiera de los sectores que también cubre (`sectores_ids`).
+        const actividad = visita?.sectores?.flatMap(s => s.actividades || [])
+            .find(a => a.id === actividadId) ?? null;
         return { visita, sector, actividad };
     }, [visitaId, sectorId, actividadId]);
 
@@ -55,21 +59,25 @@ export function VentanaActividad({
 
     const editar = useCallback((mutador: (a: Actividad) => void) => {
         repo.actualizarVisita(visitaId, v => {
-            const s = v.sectores?.find(x => x.id === sectorId);
-            const a = s?.actividades?.find(x => x.id === actividadId);
+            const a = v.sectores?.flatMap(s => s.actividades || []).find(x => x.id === actividadId);
             if (a) mutador(a);
         });
         setVersion(n => n + 1);
         alCambiar();
-    }, [visitaId, sectorId, actividadId, alCambiar]);
+    }, [visitaId, actividadId, alCambiar]);
 
     const eliminar = useCallback(() => {
         repo.actualizarVisita(visitaId, v => {
-            const s = v.sectores?.find(x => x.id === sectorId);
-            if (s) s.actividades = (s.actividades || []).filter(a => a.id !== actividadId);
+            // Se busca en TODOS los sectores por si la actividad no vive en `sectorId` (ver
+            // `leer` arriba) — se quita de donde de verdad esté.
+            for (const s of v.sectores || []) {
+                const antes = (s.actividades || []).length;
+                s.actividades = (s.actividades || []).filter(a => a.id !== actividadId);
+                if ((s.actividades?.length ?? 0) !== antes) break;
+            }
         });
         alCambiar();
-    }, [visitaId, sectorId, actividadId, alCambiar]);
+    }, [visitaId, actividadId, alCambiar]);
 
     /**
      * Un borrador en el que no se escribió nada se descarta al cerrar. No es trabajo perdido:

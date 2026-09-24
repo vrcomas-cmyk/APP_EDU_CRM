@@ -9,7 +9,7 @@
 
 import {
     estadoSector, etiquetaSector, estaGuardada, requiereEvidencia, bloqueoParaActividades,
-    hiloComentarios, AMBITOS, type Avisar
+    actividadesDeSector, hiloComentarios, AMBITOS, type Avisar
 } from '@core/puente';
 import type { Visita, Sector, Actividad } from '@core/tipos';
 import { Dato } from '@shared/components/Dato';
@@ -86,7 +86,7 @@ function BloqueActividades({ visita, sector, onAbrirActividad, soloLectura }: {
     visita: Visita; sector: Sector; onAbrirActividad: (actividadId: string | null) => void;
     soloLectura?: boolean;
 }) {
-    const actividades = sector.actividades || [];
+    const actividades = actividadesDeSector(visita, sector);
 
     // Hay estados en que capturar no tiene sentido —cancelada, sin haber llegado— y el motivo
     // se muestra en vez de un botón muerto.
@@ -145,11 +145,15 @@ function FilaActividad({ actividad, numero, onAbrir }: {
     const guardada = estaGuardada(actividad);
     const debeEvidencia = requiereEvidencia(actividad);
     const subida = actividad.evidencia?.estado === 'subida';
+    // "Subir Actividad" con más de un sector: un solo registro, varios sectores como
+    // referencia — se anuncia aquí para que no parezca una actividad recortada.
+    const otrosSectores = (actividad.sectores_ids?.length || 0) - 1;
 
     const sub = [
         actividad.area_visitada,
         (actividad.contacto?.nombre || '').trim(),
-        (actividad.materiales || []).length ? `${actividad.materiales!.length} mat.` : ''
+        (actividad.materiales || []).length ? `${actividad.materiales!.length} mat.` : '',
+        otrosSectores > 0 ? `también en ${otrosSectores} sector${otrosSectores === 1 ? '' : 'es'} más` : ''
     ].filter(Boolean).join(' · ') || 'Sin capturar';
 
     return (
