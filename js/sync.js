@@ -101,6 +101,22 @@ function soloGuardadas(visita) {
 // bloquea a los demás: cada lote se sube y se marca por separado.
 const LOTE_VISITAS = 25;
 
+// Varios lotes en vuelo a la vez, no uno detrás de otro: alguien con cientos de visitas
+// pendientes (semanas sin señal) esperaba antes N/25 round-trips seguidos. 4 a la vez recorta
+// eso a una cuarta parte sin mandar todo de golpe (Supabase sigue viendo tráfico acotado).
+const CONCURRENCIA_LOTES = 4;
+
+/** Corre `tareas` (funciones sin argumentos que devuelven una promesa) con a lo más `limite` en vuelo. */
+async function conLimiteDeConcurrencia(tareas, limite) {
+    const enVuelo = new Set();
+    for (const tarea of tareas) {
+        const promesa = tarea().finally(() => enVuelo.delete(promesa));
+        enVuelo.add(promesa);
+        if (enVuelo.size >= limite) await Promise.race(enVuelo);
+    }
+    await Promise.all(enVuelo);
+}
+
 export async function sincronizarVisitas() {
     if (simulacionActiva()) return { enviadas: 0 };
 
@@ -119,8 +135,16 @@ export async function sincronizarVisitas() {
     let enviadas = 0;
     let primerError = null;
 
+    const lotes = [];
     for (let i = 0; i < pendientes.length; i += LOTE_VISITAS) {
-        const lote = pendientes.slice(i, i + LOTE_VISITAS);
+        lotes.push(pendientes.slice(i, i + LOTE_VISITAS));
+    }
+
+    // Cada tarea hace su único `await` (la RPC) y LUEGO lee-muta-persiste de un tirón, sin
+    // ningún otro `await` en medio — en JS eso corre atómico frente al resto de las tareas en
+    // vuelo, así que dos lotes concurrentes nunca se pisan el `leerVisitas()`/`persistirVisitas()`
+    // el uno al otro aunque compartan el mismo array en disco.
+    await conLimiteDeConcurrencia(lotes.map(lote => async () => {
         try {
             // `rpcEstricto`, no `rpc`: si Supabase no confirma, hay que ENTERARSE (dejar
             // `sincronizado = false` para reintentar), no seguir como si nada.
@@ -146,7 +170,7 @@ export async function sincronizarVisitas() {
             // (persistido arriba), y lo que falte se reintenta en el próximo ciclo igual que
             // antes de trocear esto.
         }
-    }
+    }), CONCURRENCIA_LOTES);
 
     // Se relanza al final, no por lote: los lotes que sí llegaron ya quedaron marcados en
     // disco antes de este `throw`, así que `sincronizarTodo` se entera del fallo (cuenta
@@ -205,6 +229,11 @@ export async function subirEvidencia(idActividad) {
     throw new Error(`No se pudo marcar la evidencia de ${idActividad}`);
 }
 
+// Apps Script es de un solo hilo y con cuota: mandar TODAS las evidencias pendientes a la vez
+// las haría esperar en fila igual, solo que con más conexiones abiertas. Unas pocas en
+// paralelo sí recortan la espera de quien tiene varias sin subir, sin saturar la cuota.
+const CONCURRENCIA_EVIDENCIAS = 3;
+
 /** Sube todas las evidencias que estén en 'local'. Devuelve cuántas subieron y cuántas fallaron. */
 export async function subirEvidenciasPendientes() {
     const locales = todasLasActividades()
@@ -213,7 +242,11 @@ export async function subirEvidenciasPendientes() {
     let subidas = 0;
     let fallidas = 0;
 
-    for (const { actividad } of locales) {
+    // Cada tarea hace su único tramo de `await`s propio (postear + borrarArchivo) sobre SU
+    // actividad; el único estado compartido (`visitas` en disco) se lee-muta-persiste de un
+    // tirón dentro de `subirEvidencia`, así que subir varias a la vez no se pisa entre sí —
+    // ver el comentario en `conLimiteDeConcurrencia`.
+    await conLimiteDeConcurrencia(locales.map(({ actividad }) => async () => {
         try {
             await subirEvidencia(actividad.id);
             subidas++;
@@ -221,7 +254,7 @@ export async function subirEvidenciasPendientes() {
             console.error(`Falló la evidencia ${actividad.id}:`, err);
             fallidas++;
         }
-    }
+    }), CONCURRENCIA_EVIDENCIAS);
 
     return { subidas, fallidas };
 }

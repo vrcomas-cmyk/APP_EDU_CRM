@@ -1129,11 +1129,11 @@ function guardarVisitas(visitas, identidad) {
 }
 
 /**
- * Export DIARIO, principal: Supabase es ahora el almacenamiento de las visitas, y Sheets es
- * una copia de reporte que se regenera desde `pdt_export_cola` (llenada por
- * `pdt_visitas_guardar_sesion` en cada guardado). Se llama sola por un trigger horario
- * (`instalarTriggerExport`, una vez al día); también es segura de correr a mano desde el
- * editor si alguien necesita la hoja al día antes de la corrida nocturna.
+ * Export principal: Supabase es el almacenamiento de las visitas, y Sheets es una copia de
+ * reporte que se regenera desde `pdt_export_cola` (llenada por `pdt_visitas_guardar_sesion`
+ * en cada guardado). Se llama sola cada 15 minutos (`instalarTriggerExport`) para que Sheets
+ * quede casi al día sin depender de una corrida nocturna; también es segura de correr a mano
+ * desde el editor si alguien necesita la hoja al día de inmediato.
  *
  * Tomar/confirmar en dos pasos (no "leer y borrar"): si esta función se cae a la mitad, lo no
  * confirmado vuelve a estar disponible a los 30 min (`pdt_export_tomar`) en vez de perderse.
@@ -1182,14 +1182,20 @@ function exportarASheets() {
 }
 
 /**
- * Corre UNA VEZ desde el editor para instalar el trigger diario. Borra cualquier trigger
- * previo de `exportarASheets` antes de crear el nuevo, para poder reejecutarla sin duplicar.
+ * Corre UNA VEZ desde el editor para instalar el trigger de exportación. Borra cualquier
+ * trigger previo de `exportarASheets` antes de crear el nuevo, para poder reejecutarla sin
+ * duplicar.
+ *
+ * Cada 15 minutos en vez de una vez al día: Sheets tarda como máximo ese margen en reflejar
+ * una visita nueva, en vez de hasta 24h. El drenado en dos pasos (`pdt_export_tomar`/
+ * `pdt_export_confirmar`, con reclamo que expira a los 30 min si la corrida se cae) sigue
+ * siendo lo que evita exportar dos veces aunque dos corridas se traslapen.
  */
 function instalarTriggerExport() {
     ScriptApp.getProjectTriggers().forEach(function (t) {
         if (t.getHandlerFunction() === 'exportarASheets') ScriptApp.deleteTrigger(t);
     });
-    ScriptApp.newTrigger('exportarASheets').timeBased().atHour(3).everyDays(1).create();
+    ScriptApp.newTrigger('exportarASheets').timeBased().everyMinutes(15).create();
 }
 
 /** Minutos entre check-in y check-out. null si falta cualquiera de los dos momentos. */
