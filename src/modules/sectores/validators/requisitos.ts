@@ -46,6 +46,20 @@ export function conservables(sectores: Sector[]): Sector[] {
     return sectores.filter(s => s.guardado || sectorCompleto(s));
 }
 
+/**
+ * Igual que `conservables`, pero acotado a los sectores agregados EN ESTA SESIÓN de la
+ * ventana (`idsAgregados`) — nunca a los que ya existían al abrirla.
+ *
+ * `conservables` barre TODO `visita.sectores`, así que si la visita nace con varios sectores
+ * precreados (por ejemplo al generarla desde una Estrategia con más de uno elegido) y el
+ * usuario completa solo el primero antes de cerrar, los demás —que nadie tocó todavía, no que
+ * se hayan agregado y abandonado aquí— se borraban igual. Abandonar UNO agregado ahora sigue
+ * podándose; los hermanos que ya venían de antes se quedan tal cual, completos o no.
+ */
+export function podarAgregadosIncompletos(sectores: Sector[], idsAgregados: Set<string>): Sector[] {
+    return sectores.filter(s => !idsAgregados.has(s.id) || s.guardado || sectorCompleto(s));
+}
+
 /** Los del catálogo que esta visita todavía no usa. */
 export function sectoresLibres(catalogo: string[], visita: Visita): string[] {
     const usados = new Set((visita.sectores || []).map(s => s.nombre));

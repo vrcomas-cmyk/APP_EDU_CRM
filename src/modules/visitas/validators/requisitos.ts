@@ -10,7 +10,7 @@
  */
 
 import type { Visita } from '@core/tipos';
-import { esVisitaCliente } from '@core/puente';
+import { esVisitaCliente, clientesEnMisZonas } from '@core/puente';
 
 export const CAMPOS_REQUERIDOS = [
     'Educador', 'Cliente', 'Hospital', 'Fecha', 'Hora de inicio', 'Hora de término',
@@ -38,7 +38,19 @@ export function faltaParaGuardar(visita: Visita): string[] {
     if (!lleno(visita.educador)) falta.push('Educador');
 
     if (cliente) {
-        if (!lleno(visita.cliente)) falta.push('Cliente');
+        if (!lleno(visita.cliente)) {
+            falta.push('Cliente');
+        } else if (!visita.es_prospecto) {
+            // Solo se puede guardar con un cliente del catálogo o marcado como prospecto — un
+            // texto escrito a medias que no coincide con ninguno no basta. Si el catálogo
+            // todavía no cargó (`length === 0`, típico sin conexión en el primer arranque) no
+            // se bloquea: no hay nada honesto contra qué comparar, y negar el guardado por una
+            // descarga pendiente sería peor que dejar pasar el dato tal cual se escribió.
+            const catalogo = clientesEnMisZonas();
+            if (catalogo.length > 0 && !catalogo.includes(visita.cliente!)) {
+                falta.push('Cliente (elige uno del catálogo o marca "Es un prospecto")');
+            }
+        }
         if (!lleno(visita.hospital)) falta.push('Hospital');
     } else {
         // Nada que visitar: lo que identifica el bloque es por qué existe, no a quién.

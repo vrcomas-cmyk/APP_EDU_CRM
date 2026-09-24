@@ -23,6 +23,7 @@ export interface PropsCombo {
     /** Total del catálogo, para poder decir "de cuántos" sin pintarlos. */
     total?: number;
     autoFocus?: boolean;
+    deshabilitado?: boolean;
 }
 
 /** Parte el texto en trozos marcando la coincidencia, para resaltarla sin usar innerHTML. */
@@ -42,7 +43,7 @@ function resaltar(texto: string, consulta: string) {
 
 export function Combo({
     etiqueta, valor, placeholder, opciones, onElegir, onEscribir,
-    ayuda, total, autoFocus
+    ayuda, total, autoFocus, deshabilitado
 }: PropsCombo) {
     const [abierto, setAbierto] = useState(false);
     const [activo, setActivo] = useState(-1);
@@ -105,10 +106,11 @@ export function Combo({
                     placeholder={placeholder}
                     autoComplete="off"
                     autoFocus={autoFocus}
+                    disabled={deshabilitado}
                     role="combobox"
                     aria-expanded={abierto}
                     aria-autocomplete="list"
-                    onFocus={() => setAbierto(true)}
+                    onFocus={() => { if (!deshabilitado) setAbierto(true); }}
                     onChange={(e) => {
                         setConsulta(e.target.value);
                         onEscribir(e.target.value);
