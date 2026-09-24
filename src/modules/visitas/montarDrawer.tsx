@@ -20,6 +20,7 @@ import { sesionActual, zonaDeCliente, ejecutivoDeZona, type Avisar } from '@core
 
 import { abrirSector } from '@modules/sectores/montarSector';
 import { abrirActividad } from '@modules/actividades/montarActividad';
+import { abrirSubirActividad } from '@modules/actividades/montarSubirActividad';
 
 let raiz: Root | null = null;
 let contenedor: HTMLDivElement | null = null;
@@ -144,6 +145,14 @@ function pintar(): void {
                         alToast: avisar,
                         alCambiar: () => { version++; alTerminar(); alCambiar(); pintar(); },
                         soloLectura
+                    });
+                }}
+                abrirVentanaSubirActividad={(alTerminar, anfitrion) => {
+                    destruirVentanaHija = abrirSubirActividad({
+                        host: (anfitrion ?? contenedor)!,
+                        visitaId: visitaAbierta!,
+                        alToast: avisar,
+                        alCambiar: () => { version++; alTerminar(); alCambiar(); pintar(); }
                     });
                 }}
             />

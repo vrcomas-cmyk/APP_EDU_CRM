@@ -54,13 +54,15 @@ export interface PropsDrawer {
         sectorId: string, actividadId: string | null, alTerminar: () => void,
         anfitrion: HTMLElement | null, soloLectura?: boolean
     ) => void;
+    /** Abre "Subir Actividad": una actividad, aplicada de una vez a varios sectores. */
+    abrirVentanaSubirActividad: (alTerminar: () => void, anfitrion: HTMLElement | null) => void;
     /** Abre otra visita en este mismo drawer (para duplicar). */
     abrirOtraVisita: (id: string) => void;
 }
 
 export function VisitaDrawer({
     visitaId, version = 0, avisar, alCambiar, onCerrar,
-    abrirVentanaSector, abrirVentanaActividad, abrirOtraVisita
+    abrirVentanaSector, abrirVentanaActividad, abrirVentanaSubirActividad, abrirOtraVisita
 }: PropsDrawer) {
     const { visita, editar, refrescar } = useVisita(visitaId, alCambiar);
 
@@ -260,6 +262,10 @@ export function VisitaDrawer({
         }, anfitrionVentanas.current);
     }
 
+    function abrirSubirActividad() {
+        abrirVentanaSubirActividad(() => { refrescar(); alCambiar(); }, anfitrionVentanas.current);
+    }
+
     /**
      * `confirm`/`prompt` nativos no aparecen en una PWA instalada (`display: standalone`):
      * devuelven `null` de inmediato y la cancelación quedaba imposible de completar. El motivo
@@ -396,6 +402,7 @@ export function VisitaDrawer({
                                             soloLectura={soloLectura}
                                             onAbrirSector={(id) => setSectorId(id)}
                                             onAgregarSector={() => abrirSector(null)}
+                                            onSubirActividad={abrirSubirActividad}
                                         />
                                     )}
 

@@ -330,7 +330,10 @@ const ENCABEZADOS_VISITAS = [
     // localStorage de UN dispositivo: al re-sincronizar en otro, `adoptarVisitasPropias`
     // reemplazaba la visita entera y lo borraba, y el segundo dispositivo creaba un evento
     // duplicado en vez de reconocer el que ya existía.
-    'calendar_event_id'
+    'calendar_event_id',
+    // true = el sector venía en el plan (agenda/Estrategia); false/vacío = se agregó sobre la
+    // marcha, incluido desde "Subir Actividad" como sector trabajado sin haber sido programado.
+    'sector_programado'
 ];
 
 const ENCABEZADOS_ACTIVIDADES = [
@@ -339,7 +342,10 @@ const ENCABEZADOS_ACTIVIDADES = [
     'evidencia_url', 'evidencia_estado', 'creada', 'actualizado',
     // El sello de guardado. La PWA solo manda actividades selladas, así que estas tres nunca
     // deberían llegar vacías; si alguna lo está, esa fila viene de datos migrados.
-    'guardada_momento', 'guardada_usuario', 'guardada_dispositivo'
+    'guardada_momento', 'guardada_usuario', 'guardada_dispositivo',
+    // Solo tipo "Seguimiento" (por defecto): igual que la evidencia, obligatorio pero puede
+    // llegar vacío al sellar y llenarse en un sync posterior.
+    'resultado_seguimiento'
 ];
 
 const ENCABEZADOS_MATERIALES_CAPTURA = [
@@ -1048,7 +1054,8 @@ function filasDeVisitas(visitas, identidad) {
                     visita.id_estrategia || '',
                     visita.tipo || 'cliente', visita.motivo || '',
                     visita.es_prospecto === true,
-                    visita.calendar_event_id || ''
+                    visita.calendar_event_id || '',
+                    sector.programado === true
                 ]
             });
 
@@ -1065,7 +1072,8 @@ function filasDeVisitas(visitas, identidad) {
                         contacto.nombre || '', contacto.cargo || '', contacto.servicio || '',
                         evidencia.url || '', evidencia.estado || '',
                         act.creada || '', ahora,
-                        sello.momento || '', sello.usuario || '', sello.dispositivo || ''
+                        sello.momento || '', sello.usuario || '', sello.dispositivo || '',
+                        act.resultado_seguimiento || ''
                     ]
                 });
 
@@ -1101,12 +1109,13 @@ function guardarVisitas(visitas, identidad) {
 
     var filas = filasDeVisitas(visitas, identidad);
 
-    // Estas columnas se preservan: la app suele mandarlas vacías (evidencia sube después,
-    // dirección se cachea aquí, y `calendar_event_id` lo puede conocer un dispositivo que no
-    // es el que manda este envío) y un re-sync sin esto borraría lo que ya está en la hoja.
+    // Estas columnas se preservan: la app suele mandarlas vacías (evidencia y resultado del
+    // seguimiento se completan después, dirección se cachea aquí, y `calendar_event_id` lo
+    // puede conocer un dispositivo que no es el que manda este envío) y un re-sync sin esto
+    // borraría lo que ya está en la hoja.
     upsert(hojaVisitas, ENCABEZADOS_VISITAS, filas.padres,
         ['checkin_direccion', 'checkout_direccion', 'calendar_event_id']);
-    upsert(hojaActividades, ENCABEZADOS_ACTIVIDADES, filas.hijas, ['evidencia_url', 'evidencia_estado']);
+    upsert(hojaActividades, ENCABEZADOS_ACTIVIDADES, filas.hijas, ['evidencia_url', 'evidencia_estado', 'resultado_seguimiento']);
     upsert(hojaMateriales, ENCABEZADOS_MATERIALES_CAPTURA, filas.materiales, []);
 
     // ESPEJO. Va DESPUÉS de escribir en Sheets y a propósito: Sheets es la fuente operativa
@@ -1129,11 +1138,11 @@ function guardarVisitas(visitas, identidad) {
 }
 
 /**
- * Export DIARIO, principal: Supabase es ahora el almacenamiento de las visitas, y Sheets es
- * una copia de reporte que se regenera desde `pdt_export_cola` (llenada por
- * `pdt_visitas_guardar_sesion` en cada guardado). Se llama sola por un trigger horario
- * (`instalarTriggerExport`, una vez al día); también es segura de correr a mano desde el
- * editor si alguien necesita la hoja al día antes de la corrida nocturna.
+ * Export principal: Supabase es el almacenamiento de las visitas, y Sheets es una copia de
+ * reporte que se regenera desde `pdt_export_cola` (llenada por `pdt_visitas_guardar_sesion`
+ * en cada guardado). Se llama sola cada 15 minutos (`instalarTriggerExport`) para que Sheets
+ * quede casi al día sin depender de una corrida nocturna; también es segura de correr a mano
+ * desde el editor si alguien necesita la hoja al día de inmediato.
  *
  * Tomar/confirmar en dos pasos (no "leer y borrar"): si esta función se cae a la mitad, lo no
  * confirmado vuelve a estar disponible a los 30 min (`pdt_export_tomar`) en vez de perderse.
@@ -1170,7 +1179,7 @@ function exportarASheets() {
 
         upsert(hojaVisitas, ENCABEZADOS_VISITAS, padres,
             ['checkin_direccion', 'checkout_direccion', 'calendar_event_id']);
-        upsert(hojaActividades, ENCABEZADOS_ACTIVIDADES, hijas, ['evidencia_url', 'evidencia_estado']);
+        upsert(hojaActividades, ENCABEZADOS_ACTIVIDADES, hijas, ['evidencia_url', 'evidencia_estado', 'resultado_seguimiento']);
         upsert(hojaMateriales, ENCABEZADOS_MATERIALES_CAPTURA, materiales, []);
 
         supabaseRPC('pdt_export_confirmar', { p_ids: filas.map(function (f) { return f.id_visita; }) });
@@ -1182,14 +1191,20 @@ function exportarASheets() {
 }
 
 /**
- * Corre UNA VEZ desde el editor para instalar el trigger diario. Borra cualquier trigger
- * previo de `exportarASheets` antes de crear el nuevo, para poder reejecutarla sin duplicar.
+ * Corre UNA VEZ desde el editor para instalar el trigger de exportación. Borra cualquier
+ * trigger previo de `exportarASheets` antes de crear el nuevo, para poder reejecutarla sin
+ * duplicar.
+ *
+ * Cada 15 minutos en vez de una vez al día: Sheets tarda como máximo ese margen en reflejar
+ * una visita nueva, en vez de hasta 24h. El drenado en dos pasos (`pdt_export_tomar`/
+ * `pdt_export_confirmar`, con reclamo que expira a los 30 min si la corrida se cae) sigue
+ * siendo lo que evita exportar dos veces aunque dos corridas se traslapen.
  */
 function instalarTriggerExport() {
     ScriptApp.getProjectTriggers().forEach(function (t) {
         if (t.getHandlerFunction() === 'exportarASheets') ScriptApp.deleteTrigger(t);
     });
-    ScriptApp.newTrigger('exportarASheets').timeBased().atHour(3).everyDays(1).create();
+    ScriptApp.newTrigger('exportarASheets').timeBased().everyMinutes(15).create();
 }
 
 /** Minutos entre check-in y check-out. null si falta cualquiera de los dos momentos. */

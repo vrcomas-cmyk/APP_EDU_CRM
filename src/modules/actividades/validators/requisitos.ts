@@ -36,6 +36,14 @@ export function valorDe(actividad: Actividad, campoId: string): string {
          */
         case 'evidencia':         return 'si';
 
+        /**
+         * Mismo trato que la evidencia: obligatorio para "Seguimiento", pero el resultado de
+         * un seguimiento muchas veces se sabe hasta después (una llamada pendiente, una
+         * respuesta que tarda), así que tampoco bloquea "Guardar actividad". Se completa desde
+         * la actividad ya sellada — ver `ActividadSellada.tsx`.
+         */
+        case 'resultado_seguimiento': return 'si';
+
         default:                  return '';
     }
 }
@@ -49,7 +57,8 @@ export const MENSAJES: Record<string, string> = {
     contacto_servicio: 'El servicio del contacto es obligatorio para este tipo.',
     fecha_documento:   'Este tipo de actividad exige la fecha del documento.',
     tipo_evidencia:    'Elige el tipo de evidencia.',
-    materiales:        'Este tipo de actividad exige al menos un material.'
+    materiales:        'Este tipo de actividad exige al menos un material.',
+    resultado_seguimiento: 'Este tipo de actividad exige el resultado del seguimiento.'
 };
 
 export interface Faltante {

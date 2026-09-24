@@ -16,11 +16,16 @@ interface PropsLista {
     visita: Visita;
     onAbrirSector: (sectorId: string) => void;
     onAgregarSector: () => void;
+    /** "Subir Actividad": llenar una actividad una vez y aplicarla a varios sectores. Solo
+     *  tiene sentido con la visita ya guardada — antes de eso los sectores ni existen aún. */
+    onSubirActividad?: () => void;
     /** Visita de otra persona: se ve, no se le agrega nada. Ver `puedeEditarVisita`. */
     soloLectura?: boolean;
 }
 
-export function ListaSectores({ visita, onAbrirSector, onAgregarSector, soloLectura }: PropsLista) {
+export function ListaSectores({
+    visita, onAbrirSector, onAgregarSector, onSubirActividad, soloLectura
+}: PropsLista) {
     const sectores = visita.sectores || [];
     const cancelada = estadoDe(visita) === ESTADOS.CANCELADA;
 
@@ -47,11 +52,21 @@ export function ListaSectores({ visita, onAbrirSector, onAgregarSector, soloLect
                 ))}
             </div>
 
-            {/* Un solo botón en vez de la pared de chips del catálogo: elegir vive en su ventana. */}
             {!cancelada && !soloLectura && (
-                <button type="button" className="btn-dashed" onClick={onAgregarSector}>
-                    + Agregar sector
-                </button>
+                <div className="sectores-acciones">
+                    {/* Un solo botón en vez de la pared de chips del catálogo: elegir vive en su ventana. */}
+                    <button type="button" className="btn-dashed" onClick={onAgregarSector}>
+                        + Agregar sector
+                    </button>
+
+                    {/* Trabajaste más de un sector con la misma actividad: llenarla una vez y
+                        aplicarla, en vez de repetir el formulario sector por sector. */}
+                    {onSubirActividad && (
+                        <button type="button" className="btn-dashed" onClick={onSubirActividad}>
+                            + Subir actividad
+                        </button>
+                    )}
+                </div>
             )}
         </div>
     );

@@ -47,7 +47,9 @@ export function nuevaVisita(
         nombre,
         objetivo: '',
         origen: [],
-        actividades: []
+        actividades: [],
+        // Estos vienen de la agenda o de una Estrategia, no se agregaron sobre la marcha.
+        programado: true
     }));
 
     return {

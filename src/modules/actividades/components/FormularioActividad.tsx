@@ -89,6 +89,27 @@ export function FormularioActividad({
                 etiqueta={etiqueta}
             />
 
+            {ver('resultado_seguimiento') && (
+                <Campo etiqueta={etiqueta('Resultado del seguimiento', 'resultado_seguimiento')} error={errores.resultado_seguimiento}>
+                    {editable('resultado_seguimiento') ? (
+                        <textarea
+                            className="inp" rows={3}
+                            placeholder="Qué resultó de este seguimiento…"
+                            value={actividad.resultado_seguimiento || ''}
+                            onChange={(e) => editar(a => { a.resultado_seguimiento = e.target.value; })}
+                        />
+                    ) : (
+                        <span className="dato-val">{actividad.resultado_seguimiento || '—'}</span>
+                    )}
+                </Campo>
+            )}
+
+            {/* Igual que la evidencia: si el resultado todavía no se sabe (una llamada
+                pendiente, una respuesta que tarda), no debería detener el guardado. */}
+            {config.resultado_seguimiento === MODOS.OBLIGATORIO && !actividad.resultado_seguimiento && (
+                <p className="ayuda">Si aún no lo sabes, puedes completarlo después de guardar.</p>
+            )}
+
             {ver('materiales') && (
                 <BloqueMateriales
                     actividad={actividad}

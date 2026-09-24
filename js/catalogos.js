@@ -57,7 +57,11 @@ export const CAMPOS_ACTIVIDAD = [
     { id: 'materiales',        etiqueta: 'Materiales',           defecto: MODOS.OCULTO },
     { id: 'evidencia',         etiqueta: 'Evidencia',            defecto: MODOS.OBLIGATORIO },
     { id: 'tipo_evidencia',    etiqueta: 'Tipo de evidencia',    defecto: MODOS.OCULTO },
-    { id: 'fecha_documento',   etiqueta: 'Fecha del documento',  defecto: MODOS.OCULTO }
+    { id: 'fecha_documento',   etiqueta: 'Fecha del documento',  defecto: MODOS.OCULTO },
+    // Oculto por defecto en general: solo tiene sentido para tipos de seguimiento. "Seguimiento"
+    // lo trae obligatorio abajo (TIPOS_POR_DEFECTO); otros tipos lo dejan oculto salvo que
+    // Administración lo active a mano para alguno.
+    { id: 'resultado_seguimiento', etiqueta: 'Resultado del seguimiento', defecto: MODOS.OCULTO }
 ];
 
 export const IDS_CAMPOS = CAMPOS_ACTIVIDAD.map(c => c.id);
@@ -73,7 +77,12 @@ export const TIPOS_POR_DEFECTO = [
     { nombre: 'Evaluación de producto',   evidencia: true,  materiales: true  },
     { nombre: 'Revisión de anaquel',      evidencia: false, materiales: false },
     { nombre: 'Atención a queja',         evidencia: true,  materiales: false },
-    { nombre: 'Seguimiento',              evidencia: false, materiales: false }
+    {
+        nombre: 'Seguimiento', evidencia: false, materiales: false,
+        // Igual que la evidencia: obligatorio, pero no bloquea "Guardar actividad" — se puede
+        // completar después (ver `valorDe` en actividades/validators/requisitos.ts).
+        campos: { resultado_seguimiento: MODOS.OBLIGATORIO }
+    }
 ];
 
 export const ORIGENES_POR_DEFECTO = ['BI', 'I&D', 'Gerencia de Marca', 'Ventas'];
