@@ -115,6 +115,9 @@ export interface Actividad {
     evidencia?: Evidencia;
     tipo_evidencia?: string;
     fecha_documento?: string;
+    /** Solo para tipo "Seguimiento": qué resultó. Obligatorio como la evidencia — no bloquea
+     *  el guardado, se puede completar después. Ver `valorDe` en validators/requisitos.ts. */
+    resultado_seguimiento?: string;
 }
 
 export interface Sector {
@@ -126,6 +129,9 @@ export interface Sector {
     /** Sin sello el sector sigue siendo editable: la visita aún es un borrador. */
     guardado?: Sello;
     actividades?: Actividad[];
+    /** true = venía en el plan (agenda/Estrategia); false/ausente = se agregó sobre la marcha
+     *  (a mano, o desde "Subir Actividad" como sector trabajado sin haber sido programado). */
+    programado?: boolean;
 }
 
 export interface Visita {

@@ -330,7 +330,10 @@ const ENCABEZADOS_VISITAS = [
     // localStorage de UN dispositivo: al re-sincronizar en otro, `adoptarVisitasPropias`
     // reemplazaba la visita entera y lo borraba, y el segundo dispositivo creaba un evento
     // duplicado en vez de reconocer el que ya existía.
-    'calendar_event_id'
+    'calendar_event_id',
+    // true = el sector venía en el plan (agenda/Estrategia); false/vacío = se agregó sobre la
+    // marcha, incluido desde "Subir Actividad" como sector trabajado sin haber sido programado.
+    'sector_programado'
 ];
 
 const ENCABEZADOS_ACTIVIDADES = [
@@ -339,7 +342,10 @@ const ENCABEZADOS_ACTIVIDADES = [
     'evidencia_url', 'evidencia_estado', 'creada', 'actualizado',
     // El sello de guardado. La PWA solo manda actividades selladas, así que estas tres nunca
     // deberían llegar vacías; si alguna lo está, esa fila viene de datos migrados.
-    'guardada_momento', 'guardada_usuario', 'guardada_dispositivo'
+    'guardada_momento', 'guardada_usuario', 'guardada_dispositivo',
+    // Solo tipo "Seguimiento" (por defecto): igual que la evidencia, obligatorio pero puede
+    // llegar vacío al sellar y llenarse en un sync posterior.
+    'resultado_seguimiento'
 ];
 
 const ENCABEZADOS_MATERIALES_CAPTURA = [
@@ -1048,7 +1054,8 @@ function filasDeVisitas(visitas, identidad) {
                     visita.id_estrategia || '',
                     visita.tipo || 'cliente', visita.motivo || '',
                     visita.es_prospecto === true,
-                    visita.calendar_event_id || ''
+                    visita.calendar_event_id || '',
+                    sector.programado === true
                 ]
             });
 
@@ -1065,7 +1072,8 @@ function filasDeVisitas(visitas, identidad) {
                         contacto.nombre || '', contacto.cargo || '', contacto.servicio || '',
                         evidencia.url || '', evidencia.estado || '',
                         act.creada || '', ahora,
-                        sello.momento || '', sello.usuario || '', sello.dispositivo || ''
+                        sello.momento || '', sello.usuario || '', sello.dispositivo || '',
+                        act.resultado_seguimiento || ''
                     ]
                 });
 
@@ -1101,12 +1109,13 @@ function guardarVisitas(visitas, identidad) {
 
     var filas = filasDeVisitas(visitas, identidad);
 
-    // Estas columnas se preservan: la app suele mandarlas vacías (evidencia sube después,
-    // dirección se cachea aquí, y `calendar_event_id` lo puede conocer un dispositivo que no
-    // es el que manda este envío) y un re-sync sin esto borraría lo que ya está en la hoja.
+    // Estas columnas se preservan: la app suele mandarlas vacías (evidencia y resultado del
+    // seguimiento se completan después, dirección se cachea aquí, y `calendar_event_id` lo
+    // puede conocer un dispositivo que no es el que manda este envío) y un re-sync sin esto
+    // borraría lo que ya está en la hoja.
     upsert(hojaVisitas, ENCABEZADOS_VISITAS, filas.padres,
         ['checkin_direccion', 'checkout_direccion', 'calendar_event_id']);
-    upsert(hojaActividades, ENCABEZADOS_ACTIVIDADES, filas.hijas, ['evidencia_url', 'evidencia_estado']);
+    upsert(hojaActividades, ENCABEZADOS_ACTIVIDADES, filas.hijas, ['evidencia_url', 'evidencia_estado', 'resultado_seguimiento']);
     upsert(hojaMateriales, ENCABEZADOS_MATERIALES_CAPTURA, filas.materiales, []);
 
     // ESPEJO. Va DESPUÉS de escribir en Sheets y a propósito: Sheets es la fuente operativa
@@ -1170,7 +1179,7 @@ function exportarASheets() {
 
         upsert(hojaVisitas, ENCABEZADOS_VISITAS, padres,
             ['checkin_direccion', 'checkout_direccion', 'calendar_event_id']);
-        upsert(hojaActividades, ENCABEZADOS_ACTIVIDADES, hijas, ['evidencia_url', 'evidencia_estado']);
+        upsert(hojaActividades, ENCABEZADOS_ACTIVIDADES, hijas, ['evidencia_url', 'evidencia_estado', 'resultado_seguimiento']);
         upsert(hojaMateriales, ENCABEZADOS_MATERIALES_CAPTURA, materiales, []);
 
         supabaseRPC('pdt_export_confirmar', { p_ids: filas.map(function (f) { return f.id_visita; }) });

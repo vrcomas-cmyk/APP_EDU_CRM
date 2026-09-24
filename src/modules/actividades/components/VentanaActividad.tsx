@@ -190,6 +190,10 @@ export function VentanaActividad({
                         construirEvidencia={() => construirEvidencia(actividad)}
                         construirComentarios={() => construirComentarios(actividad, visita)}
                         onCerrar={cerrar}
+                        onGuardarResultadoSeguimiento={soloLectura ? undefined : (texto) => {
+                            editar(a => { a.resultado_seguimiento = texto; });
+                            avisar('Resultado guardado.', { estado: 'completa' });
+                        }}
                     />
                 ) : (
                     <>

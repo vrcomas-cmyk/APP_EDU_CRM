@@ -33,6 +33,7 @@ function montar(visita: Visita, props: Partial<React.ComponentProps<typeof Visit
             onCerrar={props.onCerrar ?? nada}
             abrirVentanaSector={props.abrirVentanaSector ?? nada}
             abrirVentanaActividad={props.abrirVentanaActividad ?? nada}
+            abrirVentanaSubirActividad={props.abrirVentanaSubirActividad ?? nada}
             abrirOtraVisita={props.abrirOtraVisita ?? nada}
         />
     );

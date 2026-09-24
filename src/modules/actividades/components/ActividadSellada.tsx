@@ -10,6 +10,7 @@
  * respalda. Por eso sigue viva después del sello y puede cargarse días después.
  */
 
+import { useState } from 'react';
 import { campoVisible, fechaCorta } from '@core/puente';
 import { NodoVanilla } from '@shared/components/NodoVanilla';
 import { textoDelSello } from '../services/fabricas';
@@ -24,10 +25,14 @@ export interface PropsSellada {
     construirEvidencia: () => Node | null;
     construirComentarios: () => Node | null;
     onCerrar: () => void;
+    /** Solo si `resultado_seguimiento` sigue vacío: permite completarlo después de sellar,
+     *  la misma excepción que ya tiene la evidencia (ver el comentario del archivo). */
+    onGuardarResultadoSeguimiento?: (texto: string) => void;
 }
 
 export function ActividadSellada({
-    visita, sector, actividad, construirEvidencia, construirComentarios, onCerrar
+    visita, sector, actividad, construirEvidencia, construirComentarios, onCerrar,
+    onGuardarResultadoSeguimiento
 }: PropsSellada) {
     const contacto = actividad.contacto || {};
     const materiales = actividad.materiales || [];
@@ -71,6 +76,18 @@ export function ActividadSellada({
                 </Seccion>
             )}
 
+            {campoVisible(actividad.tipo, 'resultado_seguimiento') && (
+                <Seccion titulo="Resultado del seguimiento">
+                    {actividad.resultado_seguimiento ? (
+                        <p className="dato-val">{actividad.resultado_seguimiento}</p>
+                    ) : onGuardarResultadoSeguimiento ? (
+                        <ResultadoSeguimiento onGuardar={onGuardarResultadoSeguimiento} />
+                    ) : (
+                        <p className="dato-val">—</p>
+                    )}
+                </Seccion>
+            )}
+
             {campoVisible(actividad.tipo, 'evidencia') && (
                 <Seccion titulo="Evidencia">
                     {/* La miniatura y el control vienen del módulo de evidencias, todavía
@@ -91,6 +108,33 @@ export function ActividadSellada({
                 <span style={{ flex: 1 }} />
                 <button type="button" className="btn" onClick={onCerrar}>Listo</button>
             </div>
+        </div>
+    );
+}
+
+/**
+ * La única excepción además de la evidencia: un campo que se puede llenar sobre una actividad
+ * ya sellada. No reescribe lo que la actividad afirmó (tipo, contacto, materiales) — solo
+ * completa un dato que a propósito se dejó pendiente al guardar.
+ */
+function ResultadoSeguimiento({ onGuardar }: { onGuardar: (texto: string) => void }) {
+    const [texto, setTexto] = useState('');
+
+    return (
+        <div className="campo">
+            <textarea
+                className="inp" rows={3}
+                placeholder="Qué resultó de este seguimiento…"
+                value={texto}
+                onChange={(e) => setTexto(e.target.value)}
+            />
+            <button
+                type="button" className="btn-dashed"
+                disabled={!texto.trim()}
+                onClick={() => onGuardar(texto.trim())}
+            >
+                Guardar resultado
+            </button>
         </div>
     );
 }
