@@ -248,6 +248,17 @@ function cuerpoVisor(url, mime) {
         return marco;
     }
 
+    // Las evidencias que se capturaron antes de guardar el MIME llegan desde el espejo sin
+    // tipo. No por eso deben obligar a salir de la aplicación: una URL de Drive sí tiene un
+    // visor embebible que identifica el archivo por su cuenta (foto, PDF, etc.).
+    if (/^https:\/\/drive\.google\.com\/file\/d\//.test(String(url))) {
+        const marco = document.createElement('iframe');
+        marco.src = url;
+        marco.className = 'visor-pdf';
+        marco.title = 'Vista previa de la evidencia';
+        return marco;
+    }
+
     const p = document.createElement('p');
     p.className = 'ayuda';
     p.textContent = 'No hay vista previa para este tipo de archivo.';

@@ -499,6 +499,8 @@ export interface GerenteSector {
 
 /** Una fila granular del reporte: el cliente arma la tabla mensual y el ranking con esto. */
 export interface FilaReporteActividad {
+    id_visita: string;
+    id_actividad: string;
     /** A quién se le atribuye, según quién llevaba a `educador_correo` EN LA FECHA de esta
      *  fila — no el organigrama de hoy. `null` si nadie lo llevaba esa fecha (huérfano). */
     jefe_correo: string | null;
@@ -508,6 +510,17 @@ export interface FilaReporteActividad {
     tipo: string;
     sector: string;
     cliente: string;
+    hospital: string;
+    fecha: string;
+    hora_inicio: string;
+    hora_fin: string;
+    estado_visita: string;
+    area_visitada: string;
+    contacto_nombre: string;
+    contacto_cargo: string;
+    contacto_servicio: string;
+    evidencia_estado: string;
+    evidencia_url: string;
     /** 'YYYY-MM', para agrupar por mes en el cliente. */
     mes: string;
 }

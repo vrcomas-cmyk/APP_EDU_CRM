@@ -30,11 +30,12 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { leerReporteActividades } from '@core/puente';
+import { leerReporteActividades, puede } from '@core/puente';
 import type { FilaReporteActividad } from '@core/tipos';
 import type { Medida } from '../../dashboard/components/Medidas';
 import { Dona } from '@shared/components/Dona';
 import { BarraApilada, type FilaApilada } from '@shared/components/BarraApilada';
+import { descargarReporteExcel } from '../services/exportarExcel';
 
 const HOY = () => new Date().toISOString().slice(0, 10);
 const PRIMER_DIA_MES = () => {
@@ -130,6 +131,7 @@ export function ReporteActividades() {
     const activos = [filtro.sector, filtro.actividad, filtro.educador].filter(Boolean).length;
 
     const enEsta = pagina === 'evaluacion' ? filtradasEvaluacion : filtradas;
+    const puedeExportar = puede('visitas', 'exportar');
 
     return (
         <div className="vista vista-reporte-act">
@@ -181,6 +183,11 @@ export function ReporteActividades() {
                         <button type="button" className="btn-txt"
                                 onClick={() => setFiltro(f => ({ ...f, sector: '', actividad: '', educador: '' }))}>
                             Limpiar {activos} filtro{activos === 1 ? '' : 's'}
+                        </button>
+                    )}
+                    {puedeExportar && (
+                        <button type="button" className="btn" onClick={() => descargarReporteExcel(enEsta)}>
+                            Descargar Excel
                         </button>
                     )}
                 </div>
@@ -632,4 +639,3 @@ function TablaMensual({ filas }: { filas: FilaReporteActividad[] }) {
         </div>
     );
 }
-
