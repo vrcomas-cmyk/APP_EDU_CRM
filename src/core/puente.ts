@@ -41,6 +41,9 @@ export const tieneCheckIn = _estado.tieneCheckIn as (v: Visita) => boolean;
 export const tieneCheckOut = _estado.tieneCheckOut as (v: Visita) => boolean;
 export const estaGuardada = _estado.estaGuardada as (a: Actividad) => boolean;
 export const estadoSector = _estado.estadoSector as (v: Visita, s: Sector) => EstadoSector;
+/** Actividades que aplican a este sector — incluye las de "Subir Actividad" registradas en
+ *  otro sector pero marcadas también aquí (`Actividad.sectores_ids`). */
+export const actividadesDeSector = _estado.actividadesDeSector as (v: Visita, s: Sector) => Actividad[];
 export const etiquetaSector = _estado.etiquetaSector as (e: string) => string;
 export const esVisitaCliente = _estado.esVisitaCliente as (v: Visita) => boolean;
 export const etiquetaTipoVisita = _estado.etiquetaTipoVisita as (v: Visita) => string | null;
@@ -391,9 +394,11 @@ import * as _comentarios from '../../js/comentarios.js';
 export const comentariosDeVisita = _comentarios.comentariosDeVisita as (
     idVisita: string
 ) => Comentario[];
-/** Lo que ya se dijo antes de este hospital, de lo más reciente hacia atrás. */
+/** Lo que ya se dijo antes de este hospital DE ESTE CLIENTE, de lo más reciente hacia atrás.
+ *  El nombre del hospital no es único entre clientes — sin `cliente` mezclaría historiales de
+ *  entidades distintas que solo coinciden en el nombre. */
 export const historicoDeHospital = _comentarios.historicoDeHospital as (
-    hospital: string, opciones?: { excluirVisita?: string | null; limite?: number }
+    hospital: string, cliente: string, opciones?: { excluirVisita?: string | null; limite?: number }
 ) => Comentario[];
 
 import * as _hilo from '../../js/hilo.js';

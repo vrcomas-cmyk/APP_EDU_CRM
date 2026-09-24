@@ -14,8 +14,8 @@ import type { Visita } from '@core/tipos';
 
 export function HistoricoCliente({ visita }: { visita: Visita }) {
     const historico = useMemo(
-        () => historicoDeHospital(visita.hospital || '', { excluirVisita: visita.id }),
-        [visita.hospital, visita.id]
+        () => historicoDeHospital(visita.hospital || '', visita.cliente || '', { excluirVisita: visita.id }),
+        [visita.hospital, visita.cliente, visita.id]
     );
 
     if (!visita.hospital?.trim() || historico.length === 0) return null;

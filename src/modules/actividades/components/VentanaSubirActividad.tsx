@@ -2,11 +2,15 @@
  * "Subir Actividad": llenar la actividad UNA sola vez y aplicarla a varios sectores a la vez.
  *
  * Antes, capturar la misma actividad en 3 sectores trabajados exigía entrar a los 3 sectores y
- * repetir el formulario 3 veces. Aquí se llena una vez y se elige a cuáles sectores aplica —
- * los que ya estaban programados en la visita, y/o sectores que se trabajaron sin haber sido
- * programados (se agregan aquí mismo, buscándolos en el catálogo). Cada sector se queda con su
- * PROPIA copia (id propio): son actividades reales, una por sector trabajado, no una referencia
- * compartida — así se pueden corregir o revisar por separado después.
+ * repetir el formulario 3 veces — con evidencia por sector, aunque fuera la misma foto. Aquí se
+ * llena una vez y se elige a cuáles sectores aplica — los que ya estaban programados en la
+ * visita, y/o sectores que se trabajaron sin haber sido programados (se agregan aquí mismo,
+ * buscándolos en el catálogo).
+ *
+ * Es UN SOLO registro (una evidencia, un resultado), no una copia por sector: vive físicamente
+ * en un sector "ancla" y `Actividad.sectores_ids` lista TODOS los que cubre. Los demás sectores
+ * quedan en segundo plano — se ven en su lista de actividades (`actividadesDeSector`) y se
+ * pueden abrir desde cualquiera de ellos, pero es la misma actividad, no una repetida.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -115,39 +119,48 @@ export function VentanaSubirActividad({
         }
 
         const sello = selloDeActividad(sesionActual(), describirDispositivo());
-        const idsExistentes = new Set(seleccionados);
-        let sectoresTrabajados = 0;
+        const idsExistentes = [...seleccionados];
 
         const v2 = repo.actualizarVisita(visitaId, (v) => {
             v.sectores ||= [];
 
-            // Sectores YA en la visita: se les cuelga un clon de la actividad.
-            for (const s of v.sectores) {
-                if (!idsExistentes.has(s.id)) continue;
-                const clon: Actividad = { ...actividad, id: repo.nuevoId('a'), guardada: sello };
-                (s.actividades ||= []).push(clon);
-                sectoresTrabajados++;
-                emitirEventos(v, s, clon);
-            }
+            // Sectores NUEVOS (no programados) primero, para tener sus ids listos.
+            const idsNuevos = nuevosSectores.map(nombre => {
+                const id = repo.nuevoId('s');
+                v.sectores!.push({
+                    id, nombre, objetivo: '', origen: [], programado: false, actividades: []
+                });
+                return id;
+            });
 
-            // Sectores NUEVOS: se crean sin programar (se trabajaron sin haber sido
-            // planeados) y ya nacen con el clon de la actividad puesto.
-            for (const nombre of nuevosSectores) {
-                const clon: Actividad = { ...actividad, id: repo.nuevoId('a'), guardada: sello };
-                const nuevoSector: Sector = {
-                    id: repo.nuevoId('s'), nombre, objetivo: '', origen: [],
-                    programado: false, actividades: [clon]
-                };
-                v.sectores!.push(nuevoSector);
-                sectoresTrabajados++;
-                emitirEventos(v, nuevoSector, clon);
-            }
+            const todosLosIds = [...idsExistentes, ...idsNuevos];
+            // Ancla: el primer sector elegido (prioriza uno YA programado sobre uno agregado
+            // aquí). Es solo dónde vive físicamente el registro — `sectores_ids` dice a
+            // cuáles aplica de verdad, así que cuál sea la ancla no cambia nada para quien
+            // lo ve desde otro sector.
+            const idAncla = todosLosIds[0]!;
+            const sectorAncla = v.sectores!.find(s => s.id === idAncla);
+            if (!sectorAncla) return;
+
+            const actividadFinal: Actividad = {
+                ...actividad, id: repo.nuevoId('a'), guardada: sello,
+                // Solo se marca cuando cubre más de un sector: una de un solo sector se
+                // comporta exactamente como las de siempre, sin campo extra que explicar.
+                sectores_ids: todosLosIds.length > 1 ? todosLosIds : undefined
+            };
+            (sectorAncla.actividades ||= []).push(actividadFinal);
+
+            // Un solo evento, no uno por sector: es UN hecho que cubre varios sectores, igual
+            // que hay una sola evidencia — repetir el evento por cada uno inflaría la
+            // bitácora con "lo mismo" varias veces.
+            const nombres = todosLosIds.map(id => v.sectores!.find(s => s.id === id)?.nombre || '');
+            emitirEventos(v, nombres, actividadFinal);
         });
 
         if (!v2) { cerrar(); return; }
 
         avisar(
-            `Actividad registrada en ${sectoresTrabajados} sector${sectoresTrabajados === 1 ? '' : 'es'}.`,
+            `Actividad registrada en ${totalDestinos} sector${totalDestinos === 1 ? '' : 'es'}.`,
             { estado: 'completa' }
         );
         alCambiar();
@@ -211,9 +224,11 @@ export function VentanaSubirActividad({
     );
 }
 
-function emitirEventos(v: Visita, s: Sector, act: Actividad) {
+function emitirEventos(v: Visita, sectorNombres: string[], act: Actividad) {
+    const sectores = sectorNombres.filter(Boolean).join(', ');
+
     registrar(TIPOS_EVENTO.ACTIVIDAD ?? 'actividad', v, {
-        sector: s.nombre, id_actividad: act.id,
+        sector: sectores, id_actividad: act.id,
         tipo: act.tipo, area_visitada: act.area_visitada,
         materiales: (act.materiales || []).length
     });
@@ -228,7 +243,7 @@ function emitirEventos(v: Visita, s: Sector, act: Actividad) {
 
     for (const m of act.materiales || []) {
         registrar(TIPOS_EVENTO.MATERIAL ?? 'material', v, {
-            sector: s.nombre, id_actividad: act.id,
+            sector: sectores, id_actividad: act.id,
             material: m.material, cantidad: m.cantidad, unidad: m.unidad, origen: m.origen
         });
     }

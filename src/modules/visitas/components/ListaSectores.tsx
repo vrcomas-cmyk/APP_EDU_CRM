@@ -8,7 +8,8 @@
 
 import { useMemo } from 'react';
 import {
-    estadoSector, etiquetaSector, estaGuardada, requiereEvidencia, estadoDe, ESTADOS
+    estadoSector, etiquetaSector, estaGuardada, requiereEvidencia, actividadesDeSector,
+    estadoDe, ESTADOS
 } from '@core/puente';
 import type { Visita, Sector } from '@core/tipos';
 
@@ -86,8 +87,8 @@ export function ListaSectores({
  * escribiendo es deuda que nadie puede saldar, y una bandeja llena de cosas imposibles de
  * cerrar se deja de mirar. El borrador ya se señala aparte con su propia pastilla.
  */
-function resumenDe(sector: Sector) {
-    const actividades = sector.actividades || [];
+function resumenDe(visita: Visita, sector: Sector) {
+    const actividades = actividadesDeSector(visita, sector);
     let borradores = 0;
     let materiales = 0;
     let evidenciasPendientes = 0;
@@ -110,7 +111,7 @@ interface PropsTarjeta {
 
 function TarjetaSector({ visita, sector, onAbrir }: PropsTarjeta) {
     const estado = estadoSector(visita, sector);
-    const r = useMemo(() => resumenDe(sector), [sector]);
+    const r = useMemo(() => resumenDe(visita, sector), [visita, sector]);
 
     const procedencia = [
         (sector.origen || []).join(', '),

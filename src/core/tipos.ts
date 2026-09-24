@@ -118,6 +118,12 @@ export interface Actividad {
     /** Solo para tipo "Seguimiento": qué resultó. Obligatorio como la evidencia — no bloquea
      *  el guardado, se puede completar después. Ver `valorDe` en validators/requisitos.ts. */
     resultado_seguimiento?: string;
+    /** Solo si viene de "Subir Actividad" con más de un sector elegido: TODOS los sectores que
+     *  cubre (incluido el sector "ancla" donde vive físicamente esta actividad). Una actividad
+     *  normal (un sector) no trae esto — su único sector es el que la contiene. Con esto, una
+     *  sola evidencia/resultado sirve para varios sectores en vez de pedir una copia por cada
+     *  uno; los demás sectores quedan solo como referencia. Ver `actividadesDeSector`. */
+    sectores_ids?: string[];
 }
 
 export interface Sector {

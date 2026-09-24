@@ -345,7 +345,11 @@ const ENCABEZADOS_ACTIVIDADES = [
     'guardada_momento', 'guardada_usuario', 'guardada_dispositivo',
     // Solo tipo "Seguimiento" (por defecto): igual que la evidencia, obligatorio pero puede
     // llegar vacío al sellar y llenarse en un sync posterior.
-    'resultado_seguimiento'
+    'resultado_seguimiento',
+    // Solo cuando "Subir Actividad" la aplicó a más de un sector: TODOS los sectores que
+    // cubre (incluido el de la columna 'sector'), separados por coma — igual que 'origen'.
+    // Vacío = actividad normal de un solo sector, el de la columna 'sector' de siempre.
+    'sectores_multiples'
 ];
 
 const ENCABEZADOS_MATERIALES_CAPTURA = [
@@ -1064,6 +1068,14 @@ function filasDeVisitas(visitas, identidad) {
                 var evidencia = act.evidencia || {};
                 var sello = act.guardada || {};
 
+                // "Subir Actividad" con más de un sector: resuelve los ids a nombres —
+                // vacío para una actividad normal de un solo sector.
+                var sectoresMultiples = (act.sectores_ids || []).map(function (id) {
+                    var nombre = '';
+                    (visita.sectores || []).forEach(function (s) { if (s.id === id) nombre = s.nombre || ''; });
+                    return nombre;
+                }).filter(function (n) { return n; }).join(', ');
+
                 filasHija.push({
                     id: act.id,
                     valores: [
@@ -1073,7 +1085,8 @@ function filasDeVisitas(visitas, identidad) {
                         evidencia.url || '', evidencia.estado || '',
                         act.creada || '', ahora,
                         sello.momento || '', sello.usuario || '', sello.dispositivo || '',
-                        act.resultado_seguimiento || ''
+                        act.resultado_seguimiento || '',
+                        sectoresMultiples
                     ]
                 });
 
@@ -1115,7 +1128,7 @@ function guardarVisitas(visitas, identidad) {
     // borraría lo que ya está en la hoja.
     upsert(hojaVisitas, ENCABEZADOS_VISITAS, filas.padres,
         ['checkin_direccion', 'checkout_direccion', 'calendar_event_id']);
-    upsert(hojaActividades, ENCABEZADOS_ACTIVIDADES, filas.hijas, ['evidencia_url', 'evidencia_estado', 'resultado_seguimiento']);
+    upsert(hojaActividades, ENCABEZADOS_ACTIVIDADES, filas.hijas, ['evidencia_url', 'evidencia_estado', 'resultado_seguimiento', 'sectores_multiples']);
     upsert(hojaMateriales, ENCABEZADOS_MATERIALES_CAPTURA, filas.materiales, []);
 
     // ESPEJO. Va DESPUÉS de escribir en Sheets y a propósito: Sheets es la fuente operativa
@@ -1179,7 +1192,7 @@ function exportarASheets() {
 
         upsert(hojaVisitas, ENCABEZADOS_VISITAS, padres,
             ['checkin_direccion', 'checkout_direccion', 'calendar_event_id']);
-        upsert(hojaActividades, ENCABEZADOS_ACTIVIDADES, hijas, ['evidencia_url', 'evidencia_estado', 'resultado_seguimiento']);
+        upsert(hojaActividades, ENCABEZADOS_ACTIVIDADES, hijas, ['evidencia_url', 'evidencia_estado', 'resultado_seguimiento', 'sectores_multiples']);
         upsert(hojaMateriales, ENCABEZADOS_MATERIALES_CAPTURA, materiales, []);
 
         supabaseRPC('pdt_export_confirmar', { p_ids: filas.map(function (f) { return f.id_visita; }) });

@@ -174,12 +174,45 @@ export function deudaGlobal(visitas = leerVisitas()) {
 export const SECTOR = { PENDIENTE: 'pendiente', EN_PROCESO: 'en-proceso', FINALIZADO: 'finalizado' };
 
 /**
+ * Las actividades que aplican a ESTE sector: las que viven físicamente en él, más las que
+ * "Subir Actividad" registró en OTRO sector pero marcó como trabajadas también aquí
+ * (`actividad.sectores_ids` — ver `VentanaSubirActividad.tsx`). Una actividad así solo existe
+ * una vez en el árbol (vive en un único sector "ancla"); esto la hace visible desde cualquier
+ * sector que también cubra, sin duplicarla.
+ *
+ * Las propias del sector se toman DIRECTO de `sector.actividades`, no buscando a `sector` por
+ * id dentro de `visita.sectores`: eso mantiene la función correcta aunque el sector que llega
+ * todavía no esté indexado ahí (una visita en construcción, o una prueba que arma un sector
+ * suelto).
+ */
+export function actividadesDeSector(visita, sector) {
+    const vistas = new Set();
+    const resultado = [];
+
+    for (const a of sector.actividades || []) {
+        if (!vistas.has(a.id)) { vistas.add(a.id); resultado.push(a); }
+    }
+
+    for (const s of visita.sectores || []) {
+        if (s.id === sector.id) continue;
+        for (const a of s.actividades || []) {
+            if ((a.sectores_ids || []).includes(sector.id) && !vistas.has(a.id)) {
+                vistas.add(a.id);
+                resultado.push(a);
+            }
+        }
+    }
+
+    return resultado;
+}
+
+/**
  * Se deriva; no hay un botón de "terminar sector". Un sector se da por finalizado cuando la
  * visita se finalizó y él tiene actividades: pedir que además lo marquen a mano sería un
  * clic que no aporta nada y que se olvida.
  */
 export function estadoSector(visita, sector) {
-    const n = (sector.actividades || []).length;
+    const n = actividadesDeSector(visita, sector).length;
     if (n === 0) return SECTOR.PENDIENTE;
     return estadoDe(visita) === ESTADOS.FINALIZADA ? SECTOR.FINALIZADO : SECTOR.EN_PROCESO;
 }
