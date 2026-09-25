@@ -24,7 +24,7 @@ import type {
     IndicadoresEducador, Revision, ResultadoRevision, FlujoRevision, Perfil,
     PendienteRevision, Comentario, CampoConfigurable, Catalogo, BorradorCatalogo,
     ResultadoFlujo, RolAdmin, CapacidadAdmin, UsuarioAdmin, FlujoAdmin, Estrategia, CatalogoFicha,
-    GerenteSector, ReporteActividades, FiltroReporteActividades,
+    Pendiente, GerenteSector, ReporteActividades, FiltroReporteActividades,
     FilaHistoricoActividad, FilaHistoricoPlanTrabajo, TemaPersonalizado
 } from './tipos';
 
@@ -485,6 +485,17 @@ export const descargarEstrategiasEquipo = _sync.descargarEstrategiasEquipo as ()
 }>;
 /** Borra en el servidor (mejor esfuerzo — ver el comentario en `js/sync.js`). */
 export const eliminarEstrategiaRemota = _sync.eliminarEstrategiaRemota as (id: string) => Promise<unknown>;
+
+// ---------- pendientes ----------
+
+import { leerPendientes as _leerPendientes, upsertPendiente as _upsertPendiente } from '../../js/storage.js';
+export const leerPendientes = _leerPendientes as () => Pendiente[];
+export const upsertPendiente = _upsertPendiente as (p: Pendiente) => Pendiente;
+
+export const sincronizarPendientes = _sync.sincronizarPendientes as () => Promise<{ enviadas: number }>;
+export const descargarPendientesEquipo = _sync.descargarPendientesEquipo as () => Promise<{
+    pendientes: Pendiente[];
+}>;
 
 // ---------- Google Calendar (de ida y vuelta) ----------
 

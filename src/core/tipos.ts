@@ -254,6 +254,28 @@ export interface BorradorCatalogosEstrategia {
     etapas: CatalogoFicha[];
 }
 
+/**
+ * Lo que quedó por resolver de una visita. Se ofrece al hacer check-out y se sigue viendo
+ * después como su propia lista — sin dueño formal: cualquiera en el equipo puede marcarlo
+ * resuelto, no solo quien lo creó, por eso `resuelto_por`/`resuelto_correo` son campos propios
+ * y no se infieren de `creado_correo`.
+ */
+export interface Pendiente {
+    id: string;
+    id_visita?: string;
+    cliente?: string;
+    hospital?: string;
+    descripcion: string;
+    estado: 'abierto' | 'resuelto';
+    creado_por?: string;
+    creado_correo?: string;
+    creado_en?: string;             // ISO 8601
+    resuelto_en?: string;           // ISO 8601
+    resuelto_por?: string;
+    resuelto_correo?: string;
+    sincronizado?: boolean;
+}
+
 // ---------- personas y permisos ----------
 
 /** Un permiso es siempre `modulo.accion`. Nunca un rol: los roles cambian, los permisos no. */

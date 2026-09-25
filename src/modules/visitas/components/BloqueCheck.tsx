@@ -11,6 +11,7 @@ import {
     tieneCheckIn, tieneCheckOut, puedeIniciar, iniciarVisita, finalizarVisita,
     permanenciaTexto, duracionTexto, describirUbicacion, precisionDudosa,
     reactivarVisita, minutosDeRetraso, esVisitaCliente, consultarVisitas, visitaAbiertaDe,
+    upsertPendiente, sincronizarPendientes, nuevoId, sesionActual,
     type Resultado, type Avisar
 } from '@core/puente';
 import type { Visita, Marca } from '@core/tipos';
@@ -29,6 +30,9 @@ interface Props {
 
 export function BloqueCheck({ visita, avisar, alTerminar, soloLectura, abrirOtraVisita }: Props) {
     const [ocupado, setOcupado] = useState<string | null>(null);
+    // Se pregunta DESPUÉS de que el checkout ya quedó registrado, nunca antes: un pendiente sin
+    // resolver no debe poder bloquear ni retrasar el hecho físico de haber salido.
+    const [preguntarPendiente, setPreguntarPendiente] = useState(false);
 
     // Solo importa mientras no hay check-in todavía: una vez iniciada, esta visita YA ES la
     // abierta, no tiene sentido bloquearla contra sí misma.
@@ -43,7 +47,7 @@ export function BloqueCheck({ visita, avisar, alTerminar, soloLectura, abrirOtra
         }
     }, [visita]);
 
-    async function ejecutar(accion: (id: string) => Promise<Resultado>, textoOcupado: string) {
+    async function ejecutar(accion: (id: string) => Promise<Resultado>, textoOcupado: string, esCheckOut = false) {
         setOcupado(textoOcupado);
         const r = await accion(visita.id);
         setOcupado(null);
@@ -69,7 +73,18 @@ export function BloqueCheck({ visita, avisar, alTerminar, soloLectura, abrirOtra
                 { estado: 'completa' });
         }
 
+        // El checkout ya se registró — de aquí en más, preguntar por un pendiente es la única
+        // cosa que falta antes de cerrar. `alTerminar()` se llama al responder, no ahora.
+        if (esCheckOut) {
+            setPreguntarPendiente(true);
+            return;
+        }
+
         alTerminar();
+    }
+
+    if (preguntarPendiente) {
+        return <PromptPendiente visita={visita} avisar={avisar} onCerrar={() => { setPreguntarPendiente(false); alTerminar(); }} />;
     }
 
     if (!tieneCheckIn(visita)) {
@@ -146,7 +161,7 @@ export function BloqueCheck({ visita, avisar, alTerminar, soloLectura, abrirOtra
                         type="button"
                         className="btn btn-check"
                         disabled={ocupado !== null}
-                        onClick={() => ejecutar(finalizarVisita, 'Finalizando…')}
+                        onClick={() => ejecutar(finalizarVisita, 'Finalizando…', true)}
                     >
                         {ocupado ?? '■ Finalizar visita'}
                     </button>
@@ -190,6 +205,81 @@ function Puntualidad({ visita }: { visita: Visita }) {
     if (min <= 0) return <span className="pill st-completa">Puntual</span>;
 
     return <span className="pill st-sin-registrar">Impuntual · {min} min tarde</span>;
+}
+
+/**
+ * Se ofrece justo al cerrar la visita — es el momento en que lo que quedó suelto está más
+ * fresco, y no exige volver a abrir el registro después para acordarse de anotarlo. Un "No" no
+ * es un paso perdido: la mayoría de las visitas no dejan nada pendiente, y preguntar sin
+ * insistir es lo que hace que valga la pena seguir preguntando.
+ */
+function PromptPendiente({ visita, avisar, onCerrar }: { visita: Visita; avisar: Avisar; onCerrar: () => void }) {
+    const [escribiendo, setEscribiendo] = useState(false);
+    const [descripcion, setDescripcion] = useState('');
+
+    const guardar = () => {
+        const texto = descripcion.trim();
+        if (!texto) return;
+
+        const sesion = sesionActual();
+        upsertPendiente({
+            id: nuevoId('pend'),
+            id_visita: visita.id,
+            cliente: visita.cliente || undefined,
+            hospital: visita.hospital || undefined,
+            descripcion: texto,
+            estado: 'abierto',
+            creado_por: sesion?.nombre || '',
+            creado_correo: sesion?.correo || '',
+            creado_en: new Date().toISOString(),
+            sincronizado: false
+        });
+        avisar('Pendiente guardado.', { estado: 'programada' });
+        // Igual que Estrategias: la subida es en segundo plano, no hace esperar a quien ya
+        // terminó su visita y quiere seguir a la siguiente.
+        sincronizarPendientes().catch(() => {});
+        onCerrar();
+    };
+
+    if (!escribiendo) {
+        return (
+            <div className="check">
+                <p className="ayuda">¿Tienes algún pendiente de esta visita?</p>
+                <div className="admin-fila">
+                    <button type="button" className="btn-txt" onClick={onCerrar}>No</button>
+                    <button type="button" className="btn btn-check" onClick={() => setEscribiendo(true)}>
+                        Sí
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="check">
+            <label className="campo">
+                <span className="campo-lbl">¿Qué queda pendiente?</span>
+                <textarea
+                    className="inp notas-area"
+                    rows={3}
+                    autoFocus
+                    value={descripcion}
+                    onChange={(e) => setDescripcion(e.target.value)}
+                />
+            </label>
+            <div className="admin-fila">
+                <button type="button" className="btn-txt" onClick={onCerrar}>Cancelar</button>
+                <button
+                    type="button"
+                    className="btn btn-check"
+                    disabled={!descripcion.trim()}
+                    onClick={guardar}
+                >
+                    Guardar pendiente
+                </button>
+            </div>
+        </div>
+    );
 }
 
 /** Una visita cancelada no se borra: queda en el calendario como registro de que no ocurrió. */

@@ -55,6 +55,18 @@ const ICONOS: Record<ClaveIcono, { titulo: string; cuerpo: JSX.Element }> = {
             </>
         )
     },
+    // Pendientes: nota con un check — lo que queda anotado y por marcar, no el veredicto
+    // circular de Revisión ni el documento con barra de Actividades.
+    pendientes: {
+        titulo: 'Pendientes',
+        cuerpo: (
+            <>
+                <rect x="4" y="3" width="16" height="18" rx="2" />
+                <path d="M8 8h8M8 12h5" />
+                <path d="M8 16.5l1.8 1.8L13 15" />
+            </>
+        )
+    },
     // Indicadores: barras comparativas. Más cercano al lenguaje del Dashboard que un 📊.
     dashboard: {
         titulo: 'Indicadores',

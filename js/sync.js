@@ -11,7 +11,8 @@
 import {
     leerVisitas, guardarVisitas as persistirVisitas, guardarCatalogo,
     leerArchivo, borrarArchivo, todasLasActividades,
-    leerEstrategias, guardarEstrategias as persistirEstrategias, fusionarEstrategiasEquipo
+    leerEstrategias, guardarEstrategias as persistirEstrategias, fusionarEstrategiasEquipo,
+    leerPendientes, guardarPendientes as persistirPendientes, fusionarPendientesEquipo
 } from './storage.js';
 import { normalizarZona } from './catalogos.js';
 import { eventosPendientes, marcarSincronizados } from './eventos.js';
@@ -323,6 +324,53 @@ export async function eliminarEstrategiaRemota(id) {
         p_sesion_token: sesionActual()?.sesion_token || '',
         p_id: id
     });
+}
+
+// ---------- pendientes ----------
+//
+// A diferencia de Estrategias, un Pendiente SÍ tiene alcance por jerarquía —nace de una visita
+// de alguien en concreto—, así que la descarga trae "mi equipo", no el catálogo completo. Se
+// sube por lotes (crear y marcar resuelto/reabrir son la misma operación del lado del
+// servidor), lo que deja crear un pendiente en el checkout y resolverlo después sin depender de
+// la red en ninguno de los dos momentos.
+
+export async function sincronizarPendientes() {
+    const pendientes = leerPendientes().filter(p => !p.sincronizado);
+    if (pendientes.length === 0) return { enviadas: 0 };
+
+    const huellas = new Map(pendientes.map(p => [p.id, JSON.stringify(p)]));
+
+    await rpcEstricto('pdt_pendientes_guardar_sesion', {
+        p_sesion_token: sesionActual()?.sesion_token || '',
+        p_pendientes: pendientes
+    });
+
+    const lista = leerPendientes();
+    lista.forEach(p => {
+        if (huellas.has(p.id) && JSON.stringify(p) === huellas.get(p.id)) p.sincronizado = true;
+    });
+    persistirPendientes(lista);
+
+    return { enviadas: pendientes.length };
+}
+
+/**
+ * Trae los pendientes de mi equipo y los funde con los locales. Nunca lanza: es una lista de
+ * apoyo, no un bloqueo — si falla, se sigue trabajando con lo que ya había.
+ */
+export async function descargarPendientesEquipo() {
+    if (!navigator.onLine) return { pendientes: leerPendientes() };
+
+    try {
+        const remotos = await rpcEstricto('pdt_pendientes_equipo_sesion', {
+            p_sesion_token: sesionActual()?.sesion_token || ''
+        });
+        fusionarPendientesEquipo(Array.isArray(remotos) ? remotos : []);
+        return { pendientes: leerPendientes() };
+    } catch (err) {
+        console.error('No se pudieron leer los pendientes del equipo:', err);
+        return { pendientes: leerPendientes() };
+    }
 }
 
 // ---------- espejo de lectura ----------
@@ -703,6 +751,7 @@ export async function sincronizarTodo() {
     const comentarios = await etapa('comentarios', sincronizarComentarios, { enviados: 0 });
     const revisiones = await etapa('revisiones', sincronizarRevisiones, { enviadas: 0 });
     const estrategias = await etapa('estrategias', sincronizarEstrategias, { enviadas: 0 });
+    const pendientes = await etapa('pendientes', sincronizarPendientes, { enviadas: 0 });
 
     // `sincronizarCalendar` atrapa el error de CADA visita por separado —a propósito, para que
     // una sola falle sin frenar a las demás— así que nunca lanza y `etapa()` nunca la ve
@@ -714,7 +763,7 @@ export async function sincronizarTodo() {
         errores.calendar = `${calendar.fallidos} visita(s) no se pudieron reflejar en Google Calendar`;
     }
 
-    const resultado = { visitas, evidencias, calendar, eventos, comentarios, revisiones, estrategias };
+    const resultado = { visitas, evidencias, calendar, eventos, comentarios, revisiones, estrategias, pendientes };
     if (Object.keys(errores).length > 0) resultado.errores = errores;
     return resultado;
 }

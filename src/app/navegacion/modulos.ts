@@ -16,7 +16,7 @@
 import { puede, flujosDisponibles, conteoPendientes, hayRevisionesCargadas, tieneEquipo } from '@core/puente';
 
 export type ClaveModulo =
-    'calendario' | 'mi-dia' | 'estrategias' | 'dashboard' | 'revision'
+    'calendario' | 'mi-dia' | 'estrategias' | 'pendientes' | 'dashboard' | 'revision'
     | 'reporte-actividades' | 'historico' | 'supervision' | 'administracion';
 
 export interface Modulo {
@@ -61,6 +61,13 @@ export const MODULOS: Modulo[] = [
         corto: 'Estrategia',
         icono: 'estrategias',
         disponible: () => puede('estrategias', 'ver')
+    },
+    {
+        clave: 'pendientes',
+        nombre: 'Pendientes',
+        corto: 'Pendiente',
+        icono: 'pendientes',
+        disponible: () => puede('pendientes', 'ver')
     },
     {
         clave: 'dashboard',
