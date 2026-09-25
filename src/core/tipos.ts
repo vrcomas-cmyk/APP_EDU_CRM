@@ -199,11 +199,28 @@ export interface Visita {
  * último en guardar manda. Alimenta la planeación: al agendar un sector, esto dice qué se
  * pretende conseguir con ese cliente en ese grupo de artículo.
  */
+/**
+ * Un tránsito de etapa: NO se edita ni se borra, se agrega uno nuevo cuando la etapa cambia.
+ * No es lineal — puede ir de Negociación a Presentación y volver — así que esto no valida
+ * secuencia, solo registra quién y cuándo. La etapa VIGENTE de la estrategia es la más
+ * reciente de este arreglo (`etapas[etapas.length - 1]`, ya viene ordenado del servidor).
+ */
+export interface EtapaHistorial {
+    etapa: string;
+    momento: string;          // ISO 8601
+    actor_correo?: string;
+    actor_nombre?: string;
+    nota?: string;
+}
+
 export interface Estrategia {
     id: string;
     cliente: string;
     sector?: string;
     grupo_articulo?: string;
+    /** Recuperación / Conversión / Catalogación / Ventas / BI / Desviación / Incremento —
+     *  catálogo administrable, ver `tiposEstrategia()`. */
+    tipo_estrategia?: string;
     etapa?: string;
     proyecto?: string;
     /** Materiales/productos involucrados — varios, elegidos del catálogo del sector (ver
@@ -215,6 +232,26 @@ export interface Estrategia {
     actualizado_por?: string;
     actualizado_correo?: string;
     sincronizado?: boolean;
+    /** Línea de tiempo completa de etapas — la llena el servidor al leer, nunca se edita a
+     *  mano. Ver `EtapaHistorial`. */
+    etapas?: EtapaHistorial[];
+}
+
+/** Una fila de catálogo administrable con el patrón ficha+activo (Flujos, Roles, y ahora
+ *  Estrategia-tipos/Etapas): clave estable, nombre visible, activo/inactivo, orden de lista. */
+export interface CatalogoFicha {
+    clave: string;
+    nombre: string;
+    descripcion?: string;
+    activo: boolean;
+    orden: number;
+    /** Cuántas filas ya lo usan — decide si Administración deja borrarlo o solo desactivarlo. */
+    usos?: number;
+}
+
+export interface BorradorCatalogosEstrategia {
+    tipos: CatalogoFicha[];
+    etapas: CatalogoFicha[];
 }
 
 // ---------- personas y permisos ----------

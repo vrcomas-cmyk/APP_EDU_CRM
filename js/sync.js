@@ -264,28 +264,24 @@ export async function subirEvidenciasPendientes() {
 // Es una referencia COMPARTIDA por todo el equipo, no un registro personal: no se recorta por
 // alcance ni por dueño. Se sube lo que cambió localmente y se releen todas, para que lo que
 // otro educador o gerente acaba de escribir aparezca sin esperar a que alguien reagende algo.
-
-// `productos` vive como arreglo en la app (multi-selección de materiales), pero la hoja de
-// Estrategias tiene una sola celda de texto por fila — Apps Script no necesita saber que es
-// una lista, así que la conversión vive aquí, en el único lugar donde el dato cruza al POST.
-function productosATexto(productos) {
-    return Array.isArray(productos) ? productos.filter(Boolean).join('; ') : (productos || '');
-}
-function productosDesdeTexto(texto) {
-    return String(texto || '').split(';').map(s => s.trim()).filter(Boolean);
-}
+//
+// Vive en Supabase (`pdt_estrategias`/`pdt_estrategia_etapas`), llamado DIRECTO con la clave
+// anónima — mismo patrón que `sincronizarVisitas`: la identidad se resuelve dentro de Postgres
+// a partir del token de sesión, sin pasar por Apps Script. `productos` ya es un arreglo nativo
+// en Supabase (jsonb), a diferencia de la celda de texto que exigía la hoja de Sheets — no
+// hace falta convertir nada al cruzar.
 
 export async function sincronizarEstrategias() {
     const pendientes = leerEstrategias().filter(e => !e.sincronizado);
     if (pendientes.length === 0) return { enviadas: 0 };
 
-    // Misma huella que `sincronizarVisitas`: una edición que llega mientras el POST está en
+    // Misma huella que `sincronizarVisitas`: una edición que llega mientras la RPC está en
     // vuelo no debe quedar marcada como sincronizada solo por compartir id.
     const huellas = new Map(pendientes.map(e => [e.id, JSON.stringify(e)]));
 
-    await postear({
-        action: 'guardarEstrategias',
-        estrategias: pendientes.map(e => ({ ...e, productos: productosATexto(e.productos) }))
+    await rpcEstricto('pdt_estrategias_guardar_sesion', {
+        p_sesion_token: sesionActual()?.sesion_token || '',
+        p_estrategias: pendientes
     });
 
     const estrategias = leerEstrategias();
@@ -298,22 +294,35 @@ export async function sincronizarEstrategias() {
 }
 
 /**
- * Trae la lista completa del equipo y la funde con la local. Nunca lanza: es contexto de
- * planeación, no un bloqueo — si falla, se sigue trabajando con lo que ya había.
+ * Trae la lista completa del equipo (con su línea de tiempo de etapas) y la funde con la
+ * local. Nunca lanza: es contexto de planeación, no un bloqueo — si falla, se sigue trabajando
+ * con lo que ya había.
  */
 export async function descargarEstrategiasEquipo() {
     if (!navigator.onLine) return { estrategias: leerEstrategias() };
 
     try {
-        const r = await postear({ action: 'leerEstrategias' });
-        const remotas = (Array.isArray(r?.estrategias) ? r.estrategias : [])
-            .map(e => ({ ...e, productos: productosDesdeTexto(e.productos) }));
-        fusionarEstrategiasEquipo(remotas);
+        const remotas = await rpcEstricto('pdt_estrategias_leer_sesion', {
+            p_sesion_token: sesionActual()?.sesion_token || ''
+        });
+        fusionarEstrategiasEquipo(Array.isArray(remotas) ? remotas : []);
         return { estrategias: leerEstrategias() };
     } catch (err) {
         console.error('No se pudieron leer las estrategias del equipo:', err);
         return { estrategias: leerEstrategias() };
     }
+}
+
+/**
+ * Borra en el servidor. La app ya la quitó de `localStorage` (mejor esfuerzo, como el resto de
+ * la sincronización en segundo plano); si esto falla por falta de red, la fila reaparecerá en
+ * la próxima descarga del equipo — el usuario puede volver a intentar borrarla entonces.
+ */
+export async function eliminarEstrategiaRemota(id) {
+    return rpc('pdt_estrategia_eliminar', {
+        p_sesion_token: sesionActual()?.sesion_token || '',
+        p_id: id
+    });
 }
 
 // ---------- espejo de lectura ----------
@@ -445,6 +454,23 @@ export async function leerFlujos() {
  */
 export async function guardarFlujos(cambios) {
     return postear({ action: 'guardarFlujos', ...cambios });
+}
+
+// ---------- catálogos de Estrategia (tipos y etapas) ----------
+
+/** Ambos catálogos completos (activos e inactivos, con conteo de uso), para Administración. */
+export async function leerCatalogosEstrategiaAdmin() {
+    return postear({ action: 'leerCatalogosEstrategiaAdmin' });
+}
+
+/** Carga: { tipos: [...], eliminar: ["clave"] }. */
+export async function guardarEstrategiaTipos(cambios) {
+    return postear({ action: 'guardarEstrategiaTipos', ...cambios });
+}
+
+/** Carga: { etapas: [...], eliminar: ["clave"] }. */
+export async function guardarEtapas(cambios) {
+    return postear({ action: 'guardarEtapas', ...cambios });
 }
 
 // ---------- reporte de actividades ----------

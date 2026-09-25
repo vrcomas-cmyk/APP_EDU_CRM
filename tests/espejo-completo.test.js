@@ -58,6 +58,11 @@ const ESPEJOS = {
     guardarUsuarios: 'pdt_usuario_guardar',
     guardarFlujos: 'pdt_flujo_guardar',
 
+    // Igual que Roles/Flujos: los catálogos de Estrategia (Tipos y Etapas) tampoco viven en una
+    // hoja — son solo Postgres desde que se crearon, con borrado protegido por conteo de uso.
+    guardarEstrategiaTipos: 'pdt_estrategia_tipo_guardar',
+    guardarEtapas: 'pdt_etapa_guardar',
+
     // Igual que las tres de arriba: territorios (qué zona es de quién, y las coberturas
     // temporales) tampoco vive en una hoja — necesita fechas de vigencia y negarse a
     // asignaciones inválidas, que una celda de Sheets no puede sostener.
@@ -75,7 +80,8 @@ const ESPEJOS = {
 
 /** Las que escriben en Postgres SIN copia en la hoja: su fallo no se puede callar. */
 const SOLO_POSTGRES = [
-    'guardarRoles', 'guardarUsuarios', 'guardarFlujos', 'guardarTerritorios', 'guardarGerenteSector'
+    'guardarRoles', 'guardarUsuarios', 'guardarFlujos', 'guardarTerritorios', 'guardarGerenteSector',
+    'guardarEstrategiaTipos', 'guardarEtapas'
 ];
 
 /**

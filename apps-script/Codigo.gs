@@ -409,7 +409,12 @@ function doGet() {
             sectores_ocultos: leerSectoresOcultos(db),
             admins: leerAdmins(db),
             materiales: leerMateriales(db),
-            temas: leerTemas(db)
+            temas: leerTemas(db),
+            // Catálogos de Estrategia viven en Supabase (pdt_estrategia_tipos/pdt_etapas), no
+            // en esta hoja — se administran desde Administración, pero cualquiera necesita
+            // verlos para elegir "Estrategia"/"Etapa" al capturar. Solo los activos, en orden.
+            estrategia_tipos: leerCatalogoEstrategiaTipos(),
+            etapas_estrategia: leerCatalogoEtapas()
         });
     } catch (err) {
         return json({ status: 'error', message: String(err) });
@@ -425,6 +430,7 @@ var ACCIONES_CON_IDENTIDAD = ['guardarVisitas', 'subirEvidencia', 'guardarEvento
                               'leerRBAC', 'guardarRoles', 'guardarUsuarios',
                               'leerFlujos', 'guardarFlujos',
                               'guardarEstrategias', 'leerEstrategias',
+                              'leerCatalogosEstrategiaAdmin', 'guardarEstrategiaTipos', 'guardarEtapas',
                               'leerTerritorios', 'guardarTerritorios',
                               'leerReporteActividades', 'leerGerenteSector', 'guardarGerenteSector',
                               'leerHistoricoActividades', 'leerHistoricoPlanTrabajo',
@@ -493,6 +499,12 @@ function doPost(e) {
                 return json(guardarEstrategias(body.estrategias || [], identidad));
             case 'leerEstrategias':
                 return json(leerEstrategias());
+            case 'leerCatalogosEstrategiaAdmin':
+                return json(leerCatalogosEstrategiaAdmin(identidad));
+            case 'guardarEstrategiaTipos':
+                return json(guardarEstrategiaTipos(body, identidad));
+            case 'guardarEtapas':
+                return json(guardarEtapas(body, identidad));
             case 'leerTerritorios':
                 return json(leerTerritorios(identidad));
             case 'guardarTerritorios':
@@ -1536,6 +1548,96 @@ function leerEstrategias() {
         });
 
     return { status: 'ok', estrategias: estrategias };
+}
+
+// ---------- catálogos de Estrategia (viven en Supabase, no en Sheets) ----------
+
+/** Solo los tipos de estrategia ACTIVOS, en orden — para el selector de captura. */
+function leerCatalogoEstrategiaTipos() {
+    var r = supabaseRPC('pdt_estrategia_tipos_admin', {});
+    if (!r) return [];
+    return r.filter(function (t) { return t.activo; })
+            .sort(function (a, b) { return a.orden - b.orden; })
+            .map(function (t) { return { nombre: t.nombre, descripcion: t.descripcion || '' }; });
+}
+
+/** Solo las etapas ACTIVAS, en orden — para el selector de captura. */
+function leerCatalogoEtapas() {
+    var r = supabaseRPC('pdt_etapas_admin', {});
+    if (!r) return [];
+    return r.filter(function (t) { return t.activo; })
+            .sort(function (a, b) { return a.orden - b.orden; })
+            .map(function (t) { return t.nombre; });
+}
+
+/** Ambos catálogos completos (activos e inactivos, con conteo de uso) — para Administración. */
+function leerCatalogosEstrategiaAdmin(identidad) {
+    var db = SpreadsheetApp.openById(SHEET_DB_ID);
+    if (!esAdmin(db, identidad.correo)) {
+        return { status: 'error', message: 'Tu cuenta (' + identidad.correo + ') no tiene permisos de administrador.' };
+    }
+
+    var tipos = supabaseRPCEstricto('pdt_estrategia_tipos_admin', {});
+    if (!tipos.ok) return { status: 'error', message: tipos.error };
+
+    var etapas = supabaseRPCEstricto('pdt_etapas_admin', {});
+    if (!etapas.ok) return { status: 'error', message: etapas.error };
+
+    return { status: 'ok', tipos: tipos.datos || [], etapas: etapas.datos || [] };
+}
+
+/** Carga: { tipos: [{clave,nombre,descripcion,activo,orden}], eliminar: ["clave"] }. */
+function guardarEstrategiaTipos(body, identidad) {
+    var db = SpreadsheetApp.openById(SHEET_DB_ID);
+    if (!esAdmin(db, identidad.correo)) {
+        return { status: 'error', message: 'Tu cuenta (' + identidad.correo + ') no tiene permisos de administrador.' };
+    }
+
+    var guardados = [];
+    var borrados = [];
+
+    var tipos = body.tipos || [];
+    for (var i = 0; i < tipos.length; i++) {
+        var r = supabaseRPCEstricto('pdt_estrategia_tipo_guardar', { p_actor: identidad.correo, p_tipo: tipos[i] });
+        if (!r.ok) return { status: 'error', message: r.error, guardados: guardados, borrados: borrados };
+        guardados.push(tipos[i].clave);
+    }
+
+    var eliminar = body.eliminar || [];
+    for (var j = 0; j < eliminar.length; j++) {
+        var d = supabaseRPCEstricto('pdt_estrategia_tipo_eliminar', { p_actor: identidad.correo, p_clave: eliminar[j] });
+        if (!d.ok) return { status: 'error', message: d.error, guardados: guardados, borrados: borrados };
+        borrados.push(eliminar[j]);
+    }
+
+    return { status: 'ok', guardados: guardados, borrados: borrados };
+}
+
+/** Carga: { etapas: [{clave,nombre,descripcion,activo,orden}], eliminar: ["clave"] }. */
+function guardarEtapas(body, identidad) {
+    var db = SpreadsheetApp.openById(SHEET_DB_ID);
+    if (!esAdmin(db, identidad.correo)) {
+        return { status: 'error', message: 'Tu cuenta (' + identidad.correo + ') no tiene permisos de administrador.' };
+    }
+
+    var guardados = [];
+    var borrados = [];
+
+    var etapas = body.etapas || [];
+    for (var i = 0; i < etapas.length; i++) {
+        var r = supabaseRPCEstricto('pdt_etapa_guardar', { p_actor: identidad.correo, p_etapa: etapas[i] });
+        if (!r.ok) return { status: 'error', message: r.error, guardados: guardados, borrados: borrados };
+        guardados.push(etapas[i].clave);
+    }
+
+    var eliminar = body.eliminar || [];
+    for (var j = 0; j < eliminar.length; j++) {
+        var d = supabaseRPCEstricto('pdt_etapa_eliminar', { p_actor: identidad.correo, p_clave: eliminar[j] });
+        if (!d.ok) return { status: 'error', message: d.error, guardados: guardados, borrados: borrados };
+        borrados.push(eliminar[j]);
+    }
+
+    return { status: 'ok', guardados: guardados, borrados: borrados };
 }
 
 function guardarCatalogosAdmin(body, identidad) {
