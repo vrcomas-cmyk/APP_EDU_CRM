@@ -23,8 +23,8 @@ import type {
     Visita, Sector, Actividad, Marca, Sesion, SaludVisita, EstadoSector, ModoCampo,
     IndicadoresEducador, Revision, ResultadoRevision, FlujoRevision, Perfil,
     PendienteRevision, Comentario, CampoConfigurable, Catalogo, BorradorCatalogo,
-    ResultadoFlujo, RolAdmin, CapacidadAdmin, UsuarioAdmin, FlujoAdmin, Estrategia,
-    GerenteSector, ReporteActividades, FiltroReporteActividades,
+    ResultadoFlujo, RolAdmin, CapacidadAdmin, UsuarioAdmin, FlujoAdmin, Estrategia, CatalogoFicha,
+    Pendiente, GerenteSector, ReporteActividades, FiltroReporteActividades,
     FilaHistoricoActividad, FilaHistoricoPlanTrabajo, TemaPersonalizado
 } from './tipos';
 
@@ -77,7 +77,12 @@ export const temas = _catalogos.temas as () => TemaPersonalizado[];
 export const gruposArticulo = _catalogos.gruposArticulo as () => string[];
 /** Grupos de artículo que de verdad se trabajan en ESE sector. Sin sector, el catálogo completo. */
 export const gruposDeSector = _catalogos.gruposDeSector as (sector?: string) => string[];
-export const ETAPAS_ESTRATEGIA = _catalogos.ETAPAS_ESTRATEGIA as string[];
+/** Nombres de los tipos de estrategia activos (Recuperación, Conversión, …) — administrable. */
+export const tiposEstrategia = _catalogos.tiposEstrategia as () => string[];
+/** La ayuda ("qué significa") de un tipo de estrategia, para mostrarla junto al select. */
+export const descripcionTipoEstrategia = _catalogos.descripcionTipoEstrategia as (nombre: string) => string;
+/** Nombres de las etapas activas (Presentación, Capacitación, …) — administrable. */
+export const etapasEstrategia = _catalogos.etapasEstrategia as () => string[];
 
 /** Una fila del catálogo de materiales — no confundir con `Material` (el que ya se eligió y
  *  quedó en una actividad, con cantidad/unidad/origen). Este es solo lo que hay para elegir. */
@@ -160,6 +165,23 @@ export const guardarFlujosAdmin = _sync.guardarFlujos as (cambios: {
         ambito: 'visita' | 'actividad'; permiso: string; activo: boolean; orden: number;
         resultados: ResultadoFlujo[] | null;
     }>;
+    eliminar: string[];
+}) => Promise<unknown>;
+
+/** Ambos catálogos de Estrategia completos (activos e inactivos, con conteo de uso). */
+export const leerCatalogosEstrategiaAdmin = _sync.leerCatalogosEstrategiaAdmin as () => Promise<{
+    tipos: CatalogoFicha[]; etapas: CatalogoFicha[];
+}>;
+
+/** Guarda tipos de estrategia y borra los que se pidieron borrar. */
+export const guardarEstrategiaTiposAdmin = _sync.guardarEstrategiaTipos as (cambios: {
+    tipos: Array<{ clave: string; nombre: string; descripcion: string | null; activo: boolean; orden: number }>;
+    eliminar: string[];
+}) => Promise<unknown>;
+
+/** Guarda etapas y borra las que se pidieron borrar. */
+export const guardarEtapasAdmin = _sync.guardarEtapas as (cambios: {
+    etapas: Array<{ clave: string; nombre: string; descripcion: string | null; activo: boolean; orden: number }>;
     eliminar: string[];
 }) => Promise<unknown>;
 
@@ -460,6 +482,19 @@ export const nuevoId = _nuevoId as (prefijo: string) => string;
 export const sincronizarEstrategias = _sync.sincronizarEstrategias as () => Promise<{ enviadas: number }>;
 export const descargarEstrategiasEquipo = _sync.descargarEstrategiasEquipo as () => Promise<{
     estrategias: Estrategia[];
+}>;
+/** Borra en el servidor (mejor esfuerzo — ver el comentario en `js/sync.js`). */
+export const eliminarEstrategiaRemota = _sync.eliminarEstrategiaRemota as (id: string) => Promise<unknown>;
+
+// ---------- pendientes ----------
+
+import { leerPendientes as _leerPendientes, upsertPendiente as _upsertPendiente } from '../../js/storage.js';
+export const leerPendientes = _leerPendientes as () => Pendiente[];
+export const upsertPendiente = _upsertPendiente as (p: Pendiente) => Pendiente;
+
+export const sincronizarPendientes = _sync.sincronizarPendientes as () => Promise<{ enviadas: number }>;
+export const descargarPendientesEquipo = _sync.descargarPendientesEquipo as () => Promise<{
+    pendientes: Pendiente[];
 }>;
 
 // ---------- Google Calendar (de ida y vuelta) ----------

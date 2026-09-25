@@ -16,6 +16,7 @@ import { resolverModulo, type ClaveModulo } from './navegacion/modulos';
 import { Calendario, type ControlesExternos, type MandosNavegacion } from '@modules/agenda/components/Calendario';
 import { Dashboard } from '@modules/dashboard/components/Dashboard';
 import { Estrategias } from '@modules/estrategias/components/Estrategias';
+import { Pendientes } from '@modules/pendientes/components/Pendientes';
 import { MiDia } from '@modules/midia/components/MiDia';
 import { Revision } from '@modules/revision/components/Revision';
 import { Administracion } from '@modules/administracion/components/Administracion';
@@ -109,6 +110,8 @@ function Shell() {
                 )}
 
                 {activo === 'estrategias' && <Estrategias avisar={opciones.onToast} />}
+
+                {activo === 'pendientes' && <Pendientes avisar={opciones.onToast} />}
 
                 {activo === 'dashboard' && <Dashboard />}
 

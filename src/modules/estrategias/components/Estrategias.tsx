@@ -8,24 +8,33 @@
  * por eso vive como su propio módulo y no dentro de una visita en particular.
  *
  * Sin sello, sin "guardar visita" de por medio: se edita en el sitio, como un catálogo vivo.
+ *
+ * ── Consolidado por cliente ───────────────────────────────────────────────────────────
+ *
+ * Antes esto era una tabla plana, una fila por Cliente×Sector×Grupo — con varios sectores
+ * activos a la vez, encontrar "qué le falta a este cliente" exigía leer toda la tabla. Ahora
+ * se agrupa: un cliente por ficha, sus sectores dentro, y el detalle (grupo, etapa, proyecto)
+ * al abrir cada fila — la fila sigue siendo la misma unidad de dato de siempre, solo cambia
+ * cómo se navega hasta ella.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-    leerEstrategias, upsertEstrategia, eliminarEstrategia, nuevoId,
+    leerEstrategias, upsertEstrategia, eliminarEstrategia, eliminarEstrategiaRemota, nuevoId,
     descargarEstrategiasEquipo, sincronizarEstrategias, clientesEnMisZonas,
-    sectores, gruposDeSector, buscarMateriales, ETAPAS_ESTRATEGIA, sesionActual,
-    consultarVisitas, type Avisar
+    sectores, gruposDeSector, buscarMateriales, tiposEstrategia, descripcionTipoEstrategia,
+    etapasEstrategia, sesionActual, consultarVisitas, type Avisar
 } from '@core/puente';
 import { Combo, filtrar } from '@shared/components/Combo';
 import { abrirNuevaVisita } from '@modules/visitas/montarDrawer';
-import type { Estrategia } from '@core/tipos';
+import type { Estrategia, EtapaHistorial } from '@core/tipos';
 
 export function Estrategias({ avisar }: { avisar?: Avisar }) {
     const [version, setVersion] = useState(0);
     const [cargando, setCargando] = useState(true);
     const [editando, setEditando] = useState<Estrategia | 'nueva' | null>(null);
     const [generando, setGenerando] = useState<string | null>(null); // cliente elegido
+    const [abiertos, setAbiertos] = useState<Set<string>>(new Set()); // clientes expandidos
 
     const [fCliente, setFCliente] = useState('');
     const [fSector, setFSector] = useState('');
@@ -63,6 +72,8 @@ export function Estrategias({ avisar }: { avisar?: Avisar }) {
         eliminarEstrategia(id);
         refrescar();
         avisar?.('Estrategia eliminada.', { estado: 'programada' });
+        // Igual que guardar: el borrado local es inmediato, el servidor se entera después.
+        eliminarEstrategiaRemota(id).catch(() => {});
     }, [refrescar, avisar]);
 
     const filtradas = useMemo(() => estrategias.filter(e =>
@@ -70,6 +81,26 @@ export function Estrategias({ avisar }: { avisar?: Avisar }) {
         (!fSector || e.sector === fSector) &&
         (!fGrupo || e.grupo_articulo === fGrupo)
     ).sort((a, b) => (b.actualizado || '').localeCompare(a.actualizado || '')), [estrategias, fCliente, fSector, fGrupo]);
+
+    /**
+     * Consolidado por cliente: un grupo por cliente (orden por más reciente), y dentro un
+     * subgrupo por sector — es la jerarquía que se pidió: "ver qué sectores tienen alguna
+     * estrategia, y al abrir el sector el detalle".
+     */
+    const porCliente = useMemo(() => {
+        const mapa = new Map<string, { cliente: string; filas: Estrategia[]; ultima: string }>();
+        for (const e of filtradas) {
+            const clave = e.cliente.toLowerCase();
+            const previo = mapa.get(clave);
+            if (previo) {
+                previo.filas.push(e);
+                if ((e.actualizado || '') > previo.ultima) previo.ultima = e.actualizado || '';
+            } else {
+                mapa.set(clave, { cliente: e.cliente, filas: [e], ultima: e.actualizado || '' });
+            }
+        }
+        return [...mapa.values()].sort((a, b) => b.ultima.localeCompare(a.ultima));
+    }, [filtradas]);
 
     /**
      * Cuántas visitas ya se generaron para cada estrategia, y la más reciente — el avance real
@@ -106,6 +137,12 @@ export function Estrategias({ avisar }: { avisar?: Avisar }) {
         (q: string) => filtrar(catalogoClientes, q), [catalogoClientes]
     );
 
+    const alternarCliente = (clave: string) => setAbiertos(prev => {
+        const copia = new Set(prev);
+        if (copia.has(clave)) copia.delete(clave); else copia.add(clave);
+        return copia;
+    });
+
     return (
         <div className="vista vista-estrategias">
             <header className="vista-head">
@@ -140,6 +177,7 @@ export function Estrategias({ avisar }: { avisar?: Avisar }) {
 
                 <div className="filtros-pie">
                     <span className="sector-cuenta">
+                        {porCliente.length} cliente{porCliente.length === 1 ? '' : 's'} ·{' '}
                         {filtradas.length} estrategia{filtradas.length === 1 ? '' : 's'}
                     </span>
                     <span style={{ flex: 1 }} />
@@ -151,55 +189,24 @@ export function Estrategias({ avisar }: { avisar?: Avisar }) {
 
             {cargando && estrategias.length === 0 ? (
                 <p className="ayuda">Cargando…</p>
-            ) : filtradas.length === 0 ? (
+            ) : porCliente.length === 0 ? (
                 <div className="vacio-grande">
                     <p className="vacio-titulo">Nada que mostrar todavía</p>
                     <p className="ayuda">Agrega la primera estrategia para este cliente y sector.</p>
                 </div>
             ) : (
-                <div className="tabla-scroll">
-                    <table className="tabla">
-                        <thead>
-                            <tr>
-                                <th>Cliente</th>
-                                <th>Sector</th>
-                                <th>Grupo de artículo</th>
-                                <th>Etapa</th>
-                                <th>Proyecto / objetivo</th>
-                                <th>Visitas</th>
-                                <th>Actualizó</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filtradas.map(e => {
-                                const avance = avancePorEstrategia.get(e.id);
-                                return (
-                                    <tr key={e.id} className="fila-clicable" onClick={() => setGenerando(e.cliente)}>
-                                        <td>{e.cliente}</td>
-                                        <td>{e.sector || '—'}</td>
-                                        <td>{e.grupo_articulo || '—'}</td>
-                                        <td>{e.etapa ? <span className="pill neutro">{e.etapa}</span> : '—'}</td>
-                                        <td className="col-proyecto">{e.proyecto || '—'}</td>
-                                        <td className="mono">
-                                            {avance
-                                                ? `${avance.visitas} · última ${avance.ultima}`
-                                                : 'Ninguna aún'}
-                                        </td>
-                                        <td className="mono" title={e.actualizado_correo}>{e.actualizado_por || '—'}</td>
-                                        <td>
-                                            <button
-                                                type="button" className="btn-txt"
-                                                onClick={(ev) => { ev.stopPropagation(); setEditando(e); }}
-                                            >
-                                                Editar
-                                            </button>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
+                <div className="lista-clientes">
+                    {porCliente.map(grupo => (
+                        <FichaCliente
+                            key={grupo.cliente}
+                            grupo={grupo}
+                            abierto={abiertos.has(grupo.cliente.toLowerCase())}
+                            onAlternar={() => alternarCliente(grupo.cliente.toLowerCase())}
+                            avancePorEstrategia={avancePorEstrategia}
+                            onAbrirFila={(e) => setEditando(e)}
+                            onGenerarVisita={() => setGenerando(grupo.cliente)}
+                        />
+                    ))}
                 </div>
             )}
 
@@ -226,6 +233,107 @@ export function Estrategias({ avisar }: { avisar?: Avisar }) {
     );
 }
 
+/** La ficha de un cliente: resumen plegado, sectores agrupados al abrir. */
+function FichaCliente({ grupo, abierto, onAlternar, avancePorEstrategia, onAbrirFila, onGenerarVisita }: {
+    grupo: { cliente: string; filas: Estrategia[]; ultima: string };
+    abierto: boolean;
+    onAlternar: () => void;
+    avancePorEstrategia: Map<string, { visitas: number; ultima: string }>;
+    onAbrirFila: (e: Estrategia) => void;
+    onGenerarVisita: () => void;
+}) {
+    const sectoresDelCliente = useMemo(() => {
+        const mapa = new Map<string, Estrategia[]>();
+        for (const e of grupo.filas) {
+            const clave = e.sector || 'Sin sector';
+            mapa.set(clave, [...(mapa.get(clave) || []), e]);
+        }
+        return [...mapa.entries()];
+    }, [grupo.filas]);
+
+    const etapasPresentes = useMemo(
+        () => [...new Set(grupo.filas.map(e => e.etapa).filter((e): e is string => !!e))],
+        [grupo.filas]
+    );
+
+    return (
+        <details className="ficha-cliente" open={abierto} onToggle={(ev) => {
+            // `<details>` ya trae su propio abrir/cerrar nativo; se sincroniza con el estado
+            // de fuera solo para poder recordarlo entre renders (la lista se reordena con
+            // cada búsqueda, y `<details>` perdería el "abierto" si se remonta).
+            if (ev.currentTarget.open !== abierto) onAlternar();
+        }}>
+            <summary className="ficha-cliente-resumen">
+                <span className="ficha-cliente-nombre">{grupo.cliente}</span>
+                <span className="sector-cuenta">
+                    {sectoresDelCliente.length} sector{sectoresDelCliente.length === 1 ? '' : 'es'} ·{' '}
+                    {grupo.filas.length} estrategia{grupo.filas.length === 1 ? '' : 's'}
+                </span>
+                {etapasPresentes.length > 0 && (
+                    <span className="chips-etapas">
+                        {etapasPresentes.map(et => <span className="pill neutro" key={et}>{et}</span>)}
+                    </span>
+                )}
+                <span style={{ flex: 1 }} />
+                <button
+                    type="button" className="btn-txt"
+                    onClick={(ev) => { ev.preventDefault(); ev.stopPropagation(); onGenerarVisita(); }}
+                >
+                    Generar visita
+                </button>
+            </summary>
+
+            <div className="ficha-cliente-cuerpo">
+                {sectoresDelCliente.map(([sector, filas]) => (
+                    <div className="ficha-sector" key={sector}>
+                        <span className="campo-lbl">{sector} · {filas.length}</span>
+                        <div className="tabla-scroll">
+                            <table className="tabla">
+                                <thead>
+                                    <tr>
+                                        <th>Grupo de artículo</th>
+                                        <th>Estrategia</th>
+                                        <th>Etapa</th>
+                                        <th>Proyecto / objetivo</th>
+                                        <th>Visitas</th>
+                                        <th>Actualizó</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filas.map(e => {
+                                        const avance = avancePorEstrategia.get(e.id);
+                                        return (
+                                            <tr key={e.id} className="fila-clicable" onClick={() => onAbrirFila(e)}>
+                                                <td>{e.grupo_articulo || '—'}</td>
+                                                <td>{e.tipo_estrategia || '—'}</td>
+                                                <td>{e.etapa ? <span className="pill neutro">{e.etapa}</span> : '—'}</td>
+                                                <td className="col-proyecto">{e.proyecto || '—'}</td>
+                                                <td className="mono">
+                                                    {avance ? `${avance.visitas} · última ${avance.ultima}` : 'Ninguna aún'}
+                                                </td>
+                                                <td className="mono" title={e.actualizado_correo}>{e.actualizado_por || '—'}</td>
+                                                <td>
+                                                    <button
+                                                        type="button" className="btn-txt"
+                                                        onClick={(ev) => { ev.stopPropagation(); onAbrirFila(e); }}
+                                                    >
+                                                        Editar
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </details>
+    );
+}
+
 /**
  * Un cliente puede tener varias Estrategias activas (una por sector). Al generar la visita se
  * muestran TODAS juntas, separadas, para ver en qué momento va cada una antes de decidir cuáles
@@ -243,7 +351,7 @@ function GenerarVisita({ cliente, estrategias, onCerrar, onGenerada }: {
         [estrategias]
     );
     const [elegidas, setElegidas] = useState<Set<string>>(
-        () => new Set(ordenadas.filter(e => e.etapa !== 'Consolidado').map(e => e.id))
+        () => new Set(ordenadas.filter(e => e.etapa !== 'Finalizado').map(e => e.id))
     );
 
     const alternar = (id: string) => setElegidas(prev => {
@@ -328,12 +436,19 @@ function FormularioEstrategia({ estrategia, sectores, clientes, onGuardar, onEli
     const [cliente, setCliente] = useState(estrategia?.cliente || '');
     const [sector, setSector] = useState(estrategia?.sector || '');
     const [grupo, setGrupo] = useState(estrategia?.grupo_articulo || '');
+    const [tipoEstrategia, setTipoEstrategia] = useState(estrategia?.tipo_estrategia || '');
     const [etapa, setEtapa] = useState(estrategia?.etapa || '');
     const [proyecto, setProyecto] = useState(estrategia?.proyecto || '');
     const [productos, setProductos] = useState<string[]>(estrategia?.productos || []);
     const [observaciones, setObservaciones] = useState(estrategia?.observaciones || '');
 
     const opcionesCliente = useCallback((q: string) => filtrar(clientes, q), [clientes]);
+    const catalogoTipos = useMemo(() => tiposEstrategia(), []);
+    const catalogoEtapas = useMemo(() => etapasEstrategia(), []);
+    const ayudaTipo = useMemo(
+        () => (tipoEstrategia ? descripcionTipoEstrategia(tipoEstrategia) : ''),
+        [tipoEstrategia]
+    );
 
     // Grupos que de verdad se trabajan en ESTE sector — se recalcula al cambiar el sector del
     // formulario, no el del filtro de fuera (son estados independientes).
@@ -392,12 +507,23 @@ function FormularioEstrategia({ estrategia, sectores, clientes, onGuardar, onEli
                     </div>
 
                     <label className="campo">
+                        <span className="campo-lbl">Estrategia</span>
+                        <select className="inp" value={tipoEstrategia} onChange={(e) => setTipoEstrategia(e.target.value)}>
+                            <option value="">Sin definir</option>
+                            {catalogoTipos.map(o => <option key={o} value={o}>{o}</option>)}
+                        </select>
+                        {ayudaTipo && <p className="ayuda">{ayudaTipo}</p>}
+                    </label>
+
+                    <label className="campo">
                         <span className="campo-lbl">Etapa</span>
                         <select className="inp" value={etapa} onChange={(e) => setEtapa(e.target.value)}>
                             <option value="">Sin definir</option>
-                            {ETAPAS_ESTRATEGIA.map(o => <option key={o} value={o}>{o}</option>)}
+                            {catalogoEtapas.map(o => <option key={o} value={o}>{o}</option>)}
                         </select>
                     </label>
+
+                    {estrategia && <LineaTiempoEtapas etapas={estrategia.etapas} />}
 
                     <label className="campo">
                         <span className="campo-lbl">Proyecto / objetivo</span>
@@ -457,6 +583,7 @@ function FormularioEstrategia({ estrategia, sectores, clientes, onGuardar, onEli
                                 cliente: cliente.trim(),
                                 sector: sector || undefined,
                                 grupo_articulo: grupo || undefined,
+                                tipo_estrategia: tipoEstrategia || undefined,
                                 etapa: etapa || undefined,
                                 proyecto: proyecto.trim() || undefined,
                                 productos: productos.length > 0 ? productos : undefined,
@@ -470,4 +597,40 @@ function FormularioEstrategia({ estrategia, sectores, clientes, onGuardar, onEli
             </div>
         </div>
     );
+}
+
+/**
+ * Cómo se fue dando el avance: no es lineal (puede ir de Negociación a Presentación y
+ * volver), así que esto solo muestra el ORDEN real en que pasó, sin asumir una secuencia
+ * "correcta". Del más viejo al más nuevo, como cualquier bitácora.
+ */
+function LineaTiempoEtapas({ etapas }: { etapas?: EtapaHistorial[] }) {
+    if (!etapas || etapas.length === 0) return null;
+
+    return (
+        <div className="campo">
+            <span className="campo-lbl">Cómo se fue dando</span>
+            <div className="linea-tiempo">
+                {etapas.map((h, i) => (
+                    <div className="linea-tiempo-item" key={`${h.etapa}-${h.momento}-${i}`}>
+                        <span className="linea-tiempo-punto" />
+                        <div className="linea-tiempo-txt">
+                            <span className="pill neutro">{h.etapa}</span>
+                            <span className="ayuda mono">
+                                {fechaHoraCorta(h.momento)}
+                                {h.actor_nombre ? ` · ${h.actor_nombre}` : ''}
+                            </span>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+function fechaHoraCorta(iso?: string): string {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '—';
+    return d.toLocaleString('es-MX', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }

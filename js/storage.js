@@ -15,6 +15,7 @@ const CLAVE_BACKUP = clave('visitas_backup_v1');
 const CLAVE_VERSION_MODELO = clave('modelo_version');
 const VERSION_MODELO = 6;
 const CLAVE_ESTRATEGIAS = clave('pdt_estrategias');
+const CLAVE_PENDIENTES = clave('pdt_pendientes');
 
 /**
  * Modelo v6.
@@ -282,6 +283,51 @@ export function fusionarEstrategiasEquipo(remotas) {
         .map(r => ({ ...r, sincronizado: true }));
 
     guardarEstrategias([...delServidor, ...pendientes]);
+}
+
+// ---------- pendientes ----------
+//
+// Lo que quedó por resolver de una visita: se ofrece al hacer check-out y se sigue viendo
+// después como su propia lista. Mismo patrón que Estrategias —sin dueño único formal, cualquiera
+// en el equipo puede marcarlo resuelto—, así que se sincroniza igual: por lotes, con lo local
+// sin subir (`sincronizado === false`) protegido de que el servidor lo pise.
+
+export function leerPendientes() {
+    try {
+        const crudo = localStorage.getItem(CLAVE_PENDIENTES);
+        return crudo ? JSON.parse(crudo) : [];
+    } catch (err) {
+        console.error('No se pudieron leer los pendientes:', err);
+        return [];
+    }
+}
+
+export function guardarPendientes(pendientes) {
+    guardarConCuotaSegura(CLAVE_PENDIENTES, JSON.stringify(pendientes));
+}
+
+export function upsertPendiente(pendiente) {
+    const lista = leerPendientes();
+    const i = lista.findIndex(p => p.id === pendiente.id);
+    if (i === -1) lista.push(pendiente); else lista[i] = pendiente;
+    guardarPendientes(lista);
+    return pendiente;
+}
+
+/**
+ * Mezcla lo que trajo el servidor con lo que hay en el teléfono. El servidor manda, salvo lo
+ * que este mismo dispositivo editó (creó, o marcó resuelto/reabrió) y todavía no ha subido.
+ */
+export function fusionarPendientesEquipo(remotos) {
+    const locales = leerPendientes();
+    const sinSubir = locales.filter(p => p.sincronizado === false);
+    const idsSinSubir = new Set(sinSubir.map(p => p.id));
+
+    const delServidor = remotos
+        .filter(r => !idsSinSubir.has(r.id))
+        .map(r => ({ ...r, sincronizado: true }));
+
+    guardarPendientes([...delServidor, ...sinSubir]);
 }
 
 // ---------- catálogo ----------

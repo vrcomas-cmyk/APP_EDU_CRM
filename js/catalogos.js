@@ -378,4 +378,37 @@ export function gruposDeSector(sector) {
     return grupos.length > 0 ? grupos.sort((a, b) => a.localeCompare(b, 'es')) : gruposArticulo();
 }
 
-export const ETAPAS_ESTRATEGIA = ['Prospección', 'En desarrollo', 'Consolidado', 'En riesgo'];
+// ---------- catálogos de Estrategia ----------
+//
+// Viven en Supabase (pdt_estrategia_tipos/pdt_etapas), administrables desde Administración —
+// no en esta hoja. `doGet()` en Apps Script los agrega al mismo paquete de catálogos que ya se
+// descarga para clientes/materiales/etc., así que se leen del mismo `leerCatalogo()` de
+// siempre. Estos valores por defecto solo importan antes de la primera descarga.
+
+export const TIPOS_ESTRATEGIA_POR_DEFECTO = [
+    'Recuperación', 'Conversión', 'Catalogación', 'Ventas', 'BI', 'Desviación', 'Incremento'
+];
+
+export const ETAPAS_POR_DEFECTO = [
+    'Presentación', 'Capacitación', 'Evaluación', 'Solicitud Muestra', 'Equipamiento',
+    'Aceptado', 'Negociación', 'Cotización', 'Pedido', 'Venta', 'Rechazado', 'Descartado',
+    'Finalizado'
+];
+
+/** Solo los nombres, para el `<select>` de "Estrategia" al capturar. */
+export function tiposEstrategia() {
+    const v = leerCatalogo()?.estrategia_tipos;
+    if (Array.isArray(v) && v.length) return v.map(t => t.nombre);
+    return TIPOS_ESTRATEGIA_POR_DEFECTO;
+}
+
+/** La ayuda de cada tipo (el "qué significa"), para mostrarla junto al select. */
+export function descripcionTipoEstrategia(nombre) {
+    const v = leerCatalogo()?.estrategia_tipos;
+    const fila = Array.isArray(v) ? v.find(t => t.nombre === nombre) : null;
+    return fila?.descripcion || '';
+}
+
+export function etapasEstrategia() {
+    return delCatalogo('etapas_estrategia', ETAPAS_POR_DEFECTO);
+}

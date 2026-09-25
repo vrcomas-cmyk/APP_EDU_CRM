@@ -15,6 +15,7 @@ import { useAdmin } from '../hooks/useAdmin';
 import { useRBAC } from '../hooks/useRBAC';
 import { useFlujos } from '../hooks/useFlujos';
 import { useTerritorios } from '../hooks/useTerritorios';
+import { useCatalogosEstrategia } from '../hooks/useCatalogosEstrategia';
 import { PanelTipos } from './PanelTipos';
 import { PanelSectores } from './PanelSectores';
 import { PanelListas } from './PanelListas';
@@ -23,6 +24,7 @@ import { GestionAccesos } from './GestionAccesos';
 import { PanelFlujos } from './PanelFlujos';
 import { PanelTerritorios } from './PanelTerritorios';
 import { PanelTemas } from './PanelTemas';
+import { PanelCatalogoFicha } from './PanelCatalogoFicha';
 
 const PESTANAS = [
     { id: 'tipos', etiqueta: 'Tipos y campos' },
@@ -44,10 +46,18 @@ const AREAS = [
     { id: 'catalogos', etiqueta: 'Catálogos' },
     { id: 'accesos', etiqueta: 'Accesos' },
     { id: 'flujos', etiqueta: 'Flujos' },
+    { id: 'estrategia_admin', etiqueta: 'Estrategias' },
     { id: 'territorios', etiqueta: 'Territorios' }
 ] as const;
 
 type Area = (typeof AREAS)[number]['id'];
+
+const PESTANAS_ESTRATEGIA = [
+    { id: 'tipos', etiqueta: 'Tipos de estrategia' },
+    { id: 'etapas', etiqueta: 'Etapas' }
+] as const;
+
+type PestanaEstrategia = (typeof PESTANAS_ESTRATEGIA)[number]['id'];
 
 interface Props {
     avisar?: Avisar;
@@ -65,6 +75,8 @@ export function Administracion({ avisar, confirmar, onGuardado }: Props) {
 
     const [area, setArea] = useState<Area>(() => areasDisponibles[0]?.id ?? 'catalogos');
     const [pestana, setPestana] = useState<Pestana>('tipos');
+    const [pestanaEstrategia, setPestanaEstrategia] = useState<PestanaEstrategia>('tipos');
+    const [abiertoEstrategia, setAbiertoEstrategia] = useState<string | null>(null);
     const preguntar = confirmar ?? ((m: string) => window.confirm(m));
 
     const catalogos = useAdmin({ avisar, confirmar: preguntar, onGuardado });
@@ -74,17 +86,20 @@ export function Administracion({ avisar, confirmar, onGuardado }: Props) {
     // selector de responsable de zona, y es la misma que ya trae Accesos.
     const rbac = useRBAC({ activo: area === 'accesos' || area === 'territorios', avisar, confirmar: preguntar, onGuardado });
     const flujos = useFlujos({ activo: area === 'flujos', avisar, confirmar: preguntar, onGuardado });
+    const catalogosEstrategia = useCatalogosEstrategia({ activo: area === 'estrategia_admin', avisar, confirmar: preguntar, onGuardado });
     const territorios = useTerritorios({ activo: area === 'territorios', avisar, confirmar: preguntar, onGuardado });
 
     const activo = area === 'catalogos' ? catalogos
         : area === 'accesos' ? rbac
         : area === 'flujos' ? flujos
+        : area === 'estrategia_admin' ? catalogosEstrategia
         : territorios;
 
     const descripciones: Record<Area, string> = {
         catalogos: 'Catálogos compartidos por todos los educadores.',
         accesos: 'Quién puede hacer qué, y quién ve a quién.',
         flujos: 'Qué se revisa en cada flujo, y con qué veredictos.',
+        estrategia_admin: 'Las opciones de "Estrategia" y "Etapa" que se ofrecen al planear.',
         territorios: 'Qué zona es de qué educador, y quién más la cubre mientras tanto.'
     };
 
@@ -160,6 +175,59 @@ export function Administracion({ avisar, confirmar, onGuardado }: Props) {
                         <PanelFlujos borrador={flujos.borrador} cambiar={flujos.cambiar} confirmar={preguntar} />
                     )}
                 </div>
+            )}
+
+            {area === 'estrategia_admin' && (
+                <>
+                    <div className="seg admin-tabs" role="group" aria-label="Secciones">
+                        {PESTANAS_ESTRATEGIA.map(p => (
+                            <button
+                                key={p.id}
+                                type="button"
+                                aria-pressed={p.id === pestanaEstrategia}
+                                onClick={() => { setPestanaEstrategia(p.id); setAbiertoEstrategia(null); }}
+                            >
+                                {p.etiqueta}
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className="panel-body">
+                        {catalogosEstrategia.cargando && catalogosEstrategia.borrador.tipos.length === 0
+                            && catalogosEstrategia.borrador.etapas.length === 0 ? (
+                            <p className="ayuda">Cargando catálogos de Estrategia…</p>
+                        ) : catalogosEstrategia.error && catalogosEstrategia.borrador.tipos.length === 0 ? (
+                            <div className="campo es-error">
+                                <p className="ayuda">No se pudo cargar: {catalogosEstrategia.error}</p>
+                                <button type="button" className="btn-txt" onClick={() => { void catalogosEstrategia.recargar(); }}>
+                                    Reintentar
+                                </button>
+                            </div>
+                        ) : pestanaEstrategia === 'tipos' ? (
+                            <PanelCatalogoFicha
+                                titulo="Tipos de estrategia"
+                                ayuda="Qué tipo de plan es (Recuperación, Conversión, Ventas…), con su descripción como ayuda al capturar."
+                                etiquetaFila="tipo de estrategia"
+                                fichas={catalogosEstrategia.borrador.tipos}
+                                abierta={abiertoEstrategia}
+                                onAbrir={setAbiertoEstrategia}
+                                onCambiar={(fn) => catalogosEstrategia.cambiar(b => ({ ...b, tipos: fn(b.tipos) }))}
+                                confirmar={preguntar}
+                            />
+                        ) : (
+                            <PanelCatalogoFicha
+                                titulo="Etapas"
+                                ayuda="Por dónde puede pasar una estrategia. No es lineal: cada tránsito queda en su línea de tiempo, sin exigir un orden fijo."
+                                etiquetaFila="etapa"
+                                fichas={catalogosEstrategia.borrador.etapas}
+                                abierta={abiertoEstrategia}
+                                onAbrir={setAbiertoEstrategia}
+                                onCambiar={(fn) => catalogosEstrategia.cambiar(b => ({ ...b, etapas: fn(b.etapas) }))}
+                                confirmar={preguntar}
+                            />
+                        )}
+                    </div>
+                </>
             )}
 
             {area === 'territorios' && (
