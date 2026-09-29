@@ -14,7 +14,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    saludDe, detalleEstado, estadoDe, ESTADOS, duracionTexto, etiquetaDiaLarga,
+    saludDe, detalleEstado, estadoDe, ESTADOS, duracionTexto, fechaCorta,
     sesionActual, registrar, TIPOS_EVENTO, cancelarVisita, reactivarVisita,
     hiloComentarios, AMBITOS, esVisitaCliente, etiquetaVisita, type Avisar
 } from '@core/puente';
@@ -542,12 +542,12 @@ function CabeceraVisita({ visita, onCerrar }: { visita: Visita; onCerrar: () => 
                 <h3>{visita.borrador ? 'Nueva visita' : (visita.hospital || etiquetaVisita(visita) || 'Visita')}</h3>
 
                 {visita.borrador ? (
-                    <span className="eyebrow">{etiquetaDiaLarga(visita.dia)}</span>
+                    <span className="eyebrow">{fechaCorta(visita.dia)}</span>
                 ) : (
                     <>
                         <p className="drawer-sub">{etiquetaVisita(visita)}</p>
                         <p className="drawer-cuando mono">
-                            {etiquetaDiaLarga(visita.dia)} · {visita.hora_inicio}–{visita.hora_fin} · {duracionTexto(visita)}
+                            {fechaCorta(visita.dia)} · {visita.hora_inicio}–{visita.hora_fin} · {duracionTexto(visita)}
                         </p>
                         <span className={`pill st-${saludDe(visita)}`}>{detalleEstado(visita)}</span>
                     </>

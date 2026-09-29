@@ -9,7 +9,7 @@
 import { useCallback, useMemo, useRef } from 'react';
 import { Combo, filtrar } from '@shared/components/Combo';
 import {
-    etiquetaDiaLarga, fechaCorta, esVisitaCliente,
+    fechaCorta, esVisitaCliente,
     etiquetaVisita, zonaDeCliente, ejecutivoDeZona, clientesEnMisZonas, leerEstrategias,
     type Avisar
 } from '@core/puente';
@@ -380,7 +380,7 @@ export function PanelInformacion({ visita, editar }: { visita: Visita; editar?: 
                 ? 'No aplica — prospecto, sin catálogo'
                 : `${visita.zona || '—'} · ${visita.ejecutivo || '—'}`],
             ['Hospital', visita.hospital || '—'],
-            ['Fecha', etiquetaDiaLarga(visita.dia)],
+            ['Fecha', fechaCorta(visita.dia)],
             ['Horario', `${visita.hora_inicio}–${visita.hora_fin}`],
             ['Sectores', String((visita.sectores || []).length)]
         ]
@@ -388,7 +388,7 @@ export function PanelInformacion({ visita, editar }: { visita: Visita; editar?: 
             ['Educador', visita.educador || '—'],
             ['Tipo', visita.tipo === 'evento' ? 'Evento' : 'Administrativo'],
             ['Motivo', visita.motivo || '—'],
-            ['Fecha', etiquetaDiaLarga(visita.dia)],
+            ['Fecha', fechaCorta(visita.dia)],
             ['Horario', `${visita.hora_inicio}–${visita.hora_fin}`]
         ];
 
