@@ -1182,7 +1182,7 @@ function guardarVisitas(visitas, identidad) {
 /**
  * Export principal: Supabase es el almacenamiento de las visitas, y Sheets es una copia de
  * reporte que se regenera desde `pdt_export_cola` (llenada por `pdt_visitas_guardar_sesion`
- * en cada guardado). Se llama sola cada 15 minutos (`instalarTriggerExport`) para que Sheets
+ * en cada guardado). Se llama sola cada minuto (`instalarTriggerExport`) para que Sheets
  * quede casi al día sin depender de una corrida nocturna; también es segura de correr a mano
  * desde el editor si alguien necesita la hoja al día de inmediato.
  *
@@ -1194,19 +1194,45 @@ function exportarASheets() {
     // subirEvidencia…) agregan filas a la misma hoja con `getLastRow()+1` y se pisan.
     var lock = LockService.getScriptLock();
     if (!lock.tryLock(60000)) { Logger.log('exportarASheets: otra corrida tiene el candado.'); return 0; }
+    // Cada etapa por separado: si una falla (una hoja con otras columnas, un límite de Sheets…)
+    // la otra sigue, y el error queda ANOTADO en la pestaña "Export_Log" en vez de perderse en
+    // los registros del script — donde nadie lo ve.
+    var total = 0;
     try {
-        var total = exportarVisitasASheets();
-        exportarEntidadesASheets();
-        return total;
+        total = exportarVisitasASheets();
+        if (total) registrarExport('visitas', total, '');
+    } catch (err) {
+        registrarExport('visitas', 0, String(err && err.message || err));
+        Logger.log('exportarVisitasASheets falló: %s', err);
+    }
+    try {
+        var n = exportarEntidadesASheets();
+        if (n) registrarExport('entidades', n, '');
+    } catch (err) {
+        registrarExport('entidades', 0, String(err && err.message || err));
+        Logger.log('exportarEntidadesASheets falló: %s', err);
     } finally {
         lock.releaseLock();
+    }
+    return total;
+}
+
+/** Una línea por corrida que hizo algo o falló, en la pestaña "Export_Log" (últimas ~500). */
+function registrarExport(etapa, registros, error) {
+    try {
+        var hoja = obtenerHoja('Export_Log', ['momento', 'etapa', 'registros', 'error']);
+        hoja.appendRow([new Date(), etapa, registros, error]);
+        var filas = hoja.getLastRow();
+        if (filas > 600) hoja.deleteRows(2, filas - 500);
+    } catch (err) {
+        Logger.log('No se pudo escribir Export_Log: %s', err);
     }
 }
 
 function exportarVisitasASheets() {
-    var hojaVisitas = obtenerHoja(HOJA_VISITAS, ENCABEZADOS_VISITAS);
-    var hojaActividades = obtenerHoja(HOJA_ACTIVIDADES, ENCABEZADOS_ACTIVIDADES);
-    var hojaMateriales = obtenerHoja(HOJA_MATERIALES_CAPTURA, ENCABEZADOS_MATERIALES_CAPTURA);
+    // Las hojas se abren SOLO cuando hay algo que escribir: con la cola vacía —lo normal— una
+    // corrida cuesta una llamada a Supabase, no abrir tres pestañas.
+    var hojaVisitas = null, hojaActividades = null, hojaMateriales = null;
 
     var limiteMs = new Date().getTime() + 5 * 60 * 1000; // deja margen antes del límite de 6 min
     var totalExportadas = 0;
@@ -1214,6 +1240,12 @@ function exportarVisitasASheets() {
     while (new Date().getTime() < limiteMs) {
         var filas = supabaseRPC('pdt_export_tomar', { p_limite: 200 });
         if (!filas || filas.length === 0) break;
+
+        if (!hojaVisitas) {
+            hojaVisitas = obtenerHoja(HOJA_VISITAS, ENCABEZADOS_VISITAS);
+            hojaActividades = obtenerHoja(HOJA_ACTIVIDADES, ENCABEZADOS_ACTIVIDADES);
+            hojaMateriales = obtenerHoja(HOJA_MATERIALES_CAPTURA, ENCABEZADOS_MATERIALES_CAPTURA);
+        }
 
         var visitas = filas.map(function (fila) { return fila.payload; });
         var identidadPorVisita = {};
@@ -1242,7 +1274,7 @@ function exportarVisitasASheets() {
         totalExportadas += filas.length;
     }
 
-    Logger.log('exportarASheets: %s visita(s) exportada(s).', totalExportadas);
+    if (totalExportadas) Logger.log('exportarASheets: %s visita(s) exportada(s).', totalExportadas);
     return totalExportadas;
 }
 
@@ -1308,7 +1340,7 @@ function exportarEntidadesASheets() {
         if (confirmar.length === 0) break;
     }
 
-    Logger.log('exportarEntidadesASheets: %s registro(s).', total);
+    if (total) Logger.log('exportarEntidadesASheets: %s registro(s).', total);
     return total;
 }
 
@@ -1429,7 +1461,9 @@ function instalarTriggerExport() {
     ScriptApp.getProjectTriggers().forEach(function (t) {
         if (t.getHandlerFunction() === 'exportarASheets') ScriptApp.deleteTrigger(t);
     });
-    ScriptApp.newTrigger('exportarASheets').timeBased().everyMinutes(15).create();
+    // Cada minuto: con la cola vacía una corrida es una sola llamada a Supabase, y lo que se
+    // captura en la app aparece en Sheets en ~1 min en vez de hasta 15.
+    ScriptApp.newTrigger('exportarASheets').timeBased().everyMinutes(1).create();
 }
 
 /** Minutos entre check-in y check-out. null si falta cualquiera de los dos momentos. */

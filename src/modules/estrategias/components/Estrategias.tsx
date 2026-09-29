@@ -417,12 +417,14 @@ function GenerarVisita({ cliente, estrategias, onCerrar, onGenerada }: {
                         <button
                             type="button" className="btn btn-principal" disabled={!listo}
                             onClick={() => {
-                                abrirNuevaVisita({
+                                // Solo se anuncia "Visita generada" si el drawer de verdad abrió: antes
+                                // el aviso salía aunque no hubiera nada que mostrar.
+                                const abierta = abrirNuevaVisita({
                                     cliente,
                                     ids_estrategias: seleccionadas.map(e => e.id),
                                     sectorNombres: sectores
                                 });
-                                onGenerada();
+                                if (abierta) onGenerada(); else onCerrar();
                             }}
                         >
                             Generar visita

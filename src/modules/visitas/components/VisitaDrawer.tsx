@@ -292,7 +292,22 @@ export function VisitaDrawer({
         abrirOtraVisita(copia.id);
     }
 
-    if (!visita) return null;
+    // Nunca en blanco: si la visita ya no está en el almacén (se borró en otra pestaña, o no se
+    // pudo guardar) el drawer lo dice y deja cerrar, en vez de no pintar nada.
+    if (!visita) {
+        return (
+            <div className="drawer-raiz">
+                <div className="scrim" onClick={onCerrar} />
+                <aside className="drawer" role="dialog" aria-modal="true" aria-label="Visita">
+                    <div className="drawer-body">
+                        <p className="vacio-titulo">No se encontró la visita</p>
+                        <p className="ayuda">Pudo haberse eliminado desde otra pestaña o no haberse guardado.</p>
+                        <button type="button" className="btn" onClick={onCerrar}>Cerrar</button>
+                    </div>
+                </aside>
+            </div>
+        );
+    }
 
     const sector = sectorId ? (visita.sectores || []).find(s => s.id === sectorId) ?? null : null;
     const cancelada = estadoDe(visita) === ESTADOS.CANCELADA;

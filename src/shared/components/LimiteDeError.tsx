@@ -15,6 +15,8 @@ interface Props {
     donde?: string;
     /** Si se da, el aviso ofrece cerrar (p. ej. el drawer). */
     onCerrar?: () => void;
+    /** "capa": el aviso se pinta como una hoja lateral visible (drawer/modal), no en el flujo. */
+    variante?: 'vista' | 'capa';
 }
 
 interface Estado { error: Error | null; }
@@ -39,10 +41,11 @@ export class LimiteDeError extends Component<Props, Estado> {
     override render(): ReactNode {
         if (!this.state.error) return this.props.children;
 
-        return (
+        const contenido = (
             <div className="vista" role="alert">
                 <p className="vacio-titulo">No se pudo mostrar {this.props.donde ?? 'esta pantalla'}</p>
                 <p className="ayuda">Ocurrió un error inesperado. Tus datos no se perdieron.</p>
+                <p className="ayuda mono">{this.state.error.message}</p>
                 <div>
                     <button type="button" className="btn" onClick={() => this.setState({ error: null })}>
                         Reintentar
@@ -53,6 +56,19 @@ export class LimiteDeError extends Component<Props, Estado> {
                         </button>
                     )}
                 </div>
+            </div>
+        );
+
+        if (this.props.variante !== 'capa') return contenido;
+
+        // Como capa: sobre todo lo demás y con su velo, para que un fallo del drawer se VEA. Suelto
+        // en el flujo caía al final de la página, fuera de pantalla, y parecía que "no abrió nada".
+        return (
+            <div className="drawer-raiz">
+                <div className="scrim" onClick={this.props.onCerrar} />
+                <aside className="drawer" role="dialog" aria-modal="true" aria-label="Error">
+                    <div className="drawer-body">{contenido}</div>
+                </aside>
             </div>
         );
     }
