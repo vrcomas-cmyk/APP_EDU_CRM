@@ -403,9 +403,25 @@ function idDeDrive(url) {
  * original —que se conserva tal cual para "Abrir aparte", donde si tiene que verse la
  * página real de Drive con su propio visor y botón de descarga—.
  */
+const MIME_POR_EXTENSION = {
+    jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif',
+    heic: 'image/heic', pdf: 'application/pdf', mp4: 'video/mp4', mov: 'video/quicktime'
+};
+
+/** El espejo no siempre trae el MIME: se deduce de la extensión del nombre. */
+function mimePorNombre(nombre) {
+    const m = String(nombre || '').toLowerCase().match(/.([a-z0-9]{1,5})$/);
+    return (m && MIME_POR_EXTENSION[m[1]]) || '';
+}
+
 export function urlEvidencia(actividad) {
     const ev = actividad?.evidencia;
     if (!ev) return null;
+    // Subida a Supabase Storage (`storage:<ruta>`): no hay una URL permanente, se pide una
+    // firmada al abrirla. La resuelve `vistaprevia.js`.
+    if (ev.estado === 'subida' && String(ev.url || '').startsWith('storage:')) {
+        return { tipo: 'storage', id: actividad.id, mime: ev.mime || mimePorNombre(ev.nombre) };
+    }
     if (ev.estado === 'subida' && ev.url) {
         const id = idDeDrive(ev.url);
         return {

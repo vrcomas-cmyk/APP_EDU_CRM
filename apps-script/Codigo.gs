@@ -1102,7 +1102,11 @@ function filasDeVisitas(visitas, identidad) {
                         act.id, idPadre, visita.id, sector.nombre || '',
                         act.tipo || '', act.area_visitada || '',
                         contacto.nombre || '', contacto.cargo || '', contacto.servicio || '',
-                        evidencia.url || '', evidencia.estado || '',
+                        // `storage:<ruta>` marca un archivo en Supabase Storage: no es un enlace y
+                        // no debe pisar la URL de Drive que pone `copiarEvidenciaADrive` (vacío =
+                        // se preserva lo que ya hay en la celda).
+                        (String(evidencia.url || '').indexOf('storage:') === 0 ? '' : (evidencia.url || '')),
+                        evidencia.estado || '',
                         act.creada || '', ahora,
                         sello.momento || '', sello.usuario || '', sello.dispositivo || '',
                         act.resultado_seguimiento || '',
@@ -1260,9 +1264,20 @@ function exportarEntidadesASheets() {
         if (!lote || lote.length === 0) break;
 
         var porEntidad = {};
+        var confirmar = [];
         lote.forEach(function (item) {
+            if (item.entidad === 'evidencias') {
+                // Solo se confirma lo que de verdad quedó copiado: si la actividad aún no llega a
+                // Sheets o Drive falla, se reintenta cuando el reclamo expire (30 min).
+                var copiada = false;
+                try { copiada = copiarEvidenciaADrive(item); }
+                catch (err) { Logger.log('copiarEvidenciaADrive %s falló: %s', item.id, err); }
+                if (copiada) confirmar.push({ entidad: item.entidad, id: item.id });
+                return;
+            }
             if (!destinos[item.entidad]) return;
             (porEntidad[item.entidad] = porEntidad[item.entidad] || []).push(item);
+            confirmar.push({ entidad: item.entidad, id: item.id });
         });
 
         Object.keys(porEntidad).forEach(function (entidad) {
@@ -1280,14 +1295,77 @@ function exportarEntidadesASheets() {
             upsert(hoja, d.encabezados, filas, []);
         });
 
-        supabaseRPC('pdt_export_entidades_confirmar', {
-            p_claves: lote.map(function (i) { return { entidad: i.entidad, id: i.id }; })
-        });
-        total += lote.length;
+        if (confirmar.length) supabaseRPC('pdt_export_entidades_confirmar', { p_claves: confirmar });
+        total += confirmar.length;
+        // Si nada del lote se pudo confirmar, seguir pidiendo devolvería lo siguiente pero
+        // dejaría este atorado hasta el próximo reclamo: mejor cortar y dejar que el trigger de
+        // 15 min reintente.
+        if (confirmar.length === 0) break;
     }
 
     Logger.log('exportarEntidadesASheets: %s registro(s).', total);
     return total;
+}
+
+/**
+ * Respaldo en Drive de una evidencia subida a Supabase Storage. Devuelve true si ya no hay nada
+ * pendiente (copiada, ya estaba copiada o el registro se borró) y false si hay que reintentar.
+ *
+ * El nombre del archivo es el id de la actividad + su extensión: si ya existe uno con ese
+ * nombre (la evidencia se volvió a subir) se manda a la papelera y se crea el nuevo, así nunca
+ * quedan duplicados.
+ */
+function copiarEvidenciaADrive(item) {
+    var r = item.fila;
+    if (!r) return true;
+    if (r.drive_url) return true;
+
+    var clave = claveServicioSupabase();
+    if (!clave) return false;
+    var cab = { apikey: clave, Authorization: 'Bearer ' + clave };
+
+    // La actividad tiene que estar ya en la hoja: ahí se escribe el enlace. Las visitas se
+    // exportan antes que las entidades, así que casi siempre está.
+    var hoja = obtenerHoja(HOJA_ACTIVIDADES, ENCABEZADOS_ACTIVIDADES);
+    var fila = filaPorId(hoja, r.id);
+    if (!fila) return false;
+
+    // Cliente, para la subcarpeta: actividad → visita.
+    var cliente = '';
+    var act = UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/pdt_actividades?id=eq.' + encodeURIComponent(r.id) + '&select=id_visita',
+        { headers: cab, muteHttpExceptions: true });
+    var actJson = JSON.parse(act.getContentText() || '[]');
+    if (actJson.length) {
+        var vis = UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/pdt_visitas?id=eq.' + encodeURIComponent(actJson[0].id_visita) + '&select=cliente',
+            { headers: cab, muteHttpExceptions: true });
+        var visJson = JSON.parse(vis.getContentText() || '[]');
+        if (visJson.length) cliente = visJson[0].cliente || '';
+    }
+
+    var descarga = UrlFetchApp.fetch(
+        SUPABASE_URL + '/storage/v1/object/evidencias/' + r.ruta.split('/').map(encodeURIComponent).join('/'),
+        { headers: cab, muteHttpExceptions: true });
+    if (descarga.getResponseCode() !== 200) return false;
+
+    var m = String(r.ruta).match(/.[A-Za-z0-9]{1,5}$/);
+    var nombre = r.id + (m ? m[0] : '');
+    var blob = descarga.getBlob().setName(nombre);
+
+    var carpeta = carpetaDeCliente(cliente);
+    var previos = carpeta.getFilesByName(nombre);
+    while (previos.hasNext()) previos.next().setTrashed(true);
+
+    var archivo = carpeta.createFile(blob);
+    try {
+        archivo.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    } catch (err) {
+        console.warn('No se pudo abrir el enlace público, queda restringido al dominio: ' + err);
+    }
+
+    var url = archivo.getUrl();
+    hoja.getRange(fila, ENCABEZADOS_ACTIVIDADES.indexOf('evidencia_url') + 1).setValue(url);
+    supabaseRPC('pdt_evidencia_drive_url', { p_id: r.id, p_url: url });
+    return true;
 }
 
 function filaEstrategia(r) {

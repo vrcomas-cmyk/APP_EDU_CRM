@@ -359,7 +359,7 @@ export const top = _datos.top as (mapa: Record<string, number>, n?: number) => A
 /** Dónde vive el archivo de una evidencia, o `null` si no hay nada que mostrar todavía. */
 export const urlEvidencia = _datos.urlEvidencia as (
     actividad: Actividad
-) => { tipo: 'remota' | 'local'; url?: string; id?: string; mime: string } | null;
+) => { tipo: 'remota' | 'local' | 'storage'; url?: string; id?: string; mime: string } | null;
 
 export const etiquetaEstado = _estado.etiquetaEstado as (e: string) => string;
 export const ESTADOS_VISITA = _estado.ESTADOS as Record<string, string>;

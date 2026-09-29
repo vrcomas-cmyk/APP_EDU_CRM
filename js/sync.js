@@ -24,6 +24,7 @@ import {
 } from './revisiones.js';
 import { postear, leerCatalogos } from '../src/services/google/appsScript';
 import { rpc, rpcEstricto } from '../src/services/supabase/rpc';
+import { subirEvidenciaAStorage } from '../src/services/supabase/evidencias';
 import {
     tieneAccesoCalendar, intentarReconexionCalendar, sincronizarEventoVisita, borrarEventoVisita
 } from './googleCalendar.js';
@@ -183,16 +184,13 @@ export async function sincronizarVisitas() {
 
 // ---------- evidencias ----------
 
-function blobABase64(blob) {
-    return new Promise((resolve, reject) => {
-        const lector = new FileReader();
-        lector.onload = () => resolve(String(lector.result).split(',')[1]);
-        lector.onerror = () => reject(lector.error);
-        lector.readAsDataURL(blob);
-    });
-}
-
-/** Sube el archivo local de una actividad y guarda la URL que devuelve Drive. */
+/**
+ * Sube el archivo local de una actividad a Supabase Storage (binario directo, URL firmada) y lo
+ * registra. Drive es solo la copia de respaldo: Apps Script la hace desde la cola de export.
+ *
+ * La ruta es fija por actividad, así que un reintento tras un corte SOBRESCRIBE el mismo objeto
+ * — antes, cortar la subida a Apps Script y reintentar dejaba archivos duplicados en Drive.
+ */
 export async function subirEvidencia(idActividad) {
     const blob = await leerArchivo(idActividad);
     if (!blob) throw new Error(`Sin archivo local para la actividad ${idActividad}`);
@@ -200,16 +198,20 @@ export async function subirEvidencia(idActividad) {
     const entrada = todasLasActividades().find(x => x.actividad.id === idActividad);
     if (!entrada) throw new Error(`Actividad ${idActividad} no encontrada`);
 
-    const resultado = await postear({
-        action: 'subirEvidencia',
-        id_actividad: idActividad,
-        // El script archiva por cliente y no puede deducirlo: la fila de la actividad
-        // puede no existir todavía si la evidencia se sube antes de sincronizar la visita.
-        cliente: entrada.visita.cliente || '',
-        nombre: entrada.actividad.evidencia?.nombre || `${idActividad}`,
-        mimeType: blob.type || 'application/octet-stream',
-        datos: await blobABase64(blob)
+    const token = sesionActual()?.sesion_token || '';
+    const nombre = entrada.actividad.evidencia?.nombre || `${idActividad}`;
+
+    const { ruta } = await subirEvidenciaAStorage(token, idActividad, nombre, blob);
+    await rpcEstricto('pdt_evidencia_registrar_sesion', {
+        p_sesion_token: token,
+        p_id_actividad: idActividad,
+        p_ruta: ruta,
+        p_nombre: nombre,
+        p_tipo: blob.type || 'application/octet-stream',
+        p_tamano: blob.size
     });
+    // `storage:` marca que el archivo vive en Supabase Storage, no en Drive (ver `urlEvidencia`).
+    const resultado = { url: `storage:${ruta}` };
 
     const visitas = leerVisitas();
     for (const visita of visitas) {
@@ -218,8 +220,7 @@ export async function subirEvidencia(idActividad) {
             if (!act) continue;
 
             act.evidencia = { ...act.evidencia, estado: 'subida', url: resultado.url };
-            // Se reenvía la visita para que la URL quede también en la fila hija por si
-            // el script no la encontró (actividad aún no sincronizada al subir el archivo).
+            // Se reenvía la visita para que la marca quede también en la fila de la actividad.
             visita.sincronizado = false;
             persistirVisitas(visitas);
             await borrarArchivo(idActividad);
@@ -230,13 +231,15 @@ export async function subirEvidencia(idActividad) {
     throw new Error(`No se pudo marcar la evidencia de ${idActividad}`);
 }
 
-// Apps Script es de un solo hilo y con cuota: mandar TODAS las evidencias pendientes a la vez
-// las haría esperar en fila igual, solo que con más conexiones abiertas. Unas pocas en
-// paralelo sí recortan la espera de quien tiene varias sin subir, sin saturar la cuota.
+// Unas pocas en paralelo: ya no hay un candado global que las ponga en fila (iban por Apps
+// Script), pero tampoco conviene saturar una conexión móvil con todas a la vez.
 const CONCURRENCIA_EVIDENCIAS = 3;
 
 /** Sube todas las evidencias que estén en 'local'. Devuelve cuántas subieron y cuántas fallaron. */
 export async function subirEvidenciasPendientes() {
+    // "Ver como" es de solo lectura: `postear()` lo bloqueaba solo, pero esto ya no pasa por ahí.
+    if (simulacionActiva()) return { subidas: 0, fallidas: 0 };
+
     const locales = todasLasActividades()
         .filter(({ actividad }) => actividad.evidencia?.estado === 'local');
 
