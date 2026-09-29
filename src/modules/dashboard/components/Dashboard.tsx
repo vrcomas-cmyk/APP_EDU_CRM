@@ -14,6 +14,7 @@ import { BarraFiltros } from './BarraFiltros';
 import { Medidas, Barras, redondear, type Medida } from './Medidas';
 import { TablaEducadores } from './TablaEducadores';
 import type { Visita } from '@core/tipos';
+import { EstadoVacio } from '@shared/components/EstadoVacio';
 
 const ETIQUETAS_ROL: Record<string, string> = {
     administrador: 'Administrador',
@@ -69,12 +70,7 @@ export function Dashboard() {
 
 function Vacio() {
     return (
-        <div className="vacio-grande">
-            <p className="vacio-titulo">Nada que mostrar todavía</p>
-            <p className="ayuda">
-                Cuando guardes visitas —o cambies los filtros— los indicadores aparecen aquí.
-            </p>
-        </div>
+        <EstadoVacio titulo="Nada que mostrar todavía" texto={<>Cuando guardes visitas —o cambies los filtros— los indicadores aparecen aquí.</>} />
     );
 }
 
@@ -88,12 +84,7 @@ function Vacio() {
  */
 function Cargando() {
     return (
-        <div className="vacio-grande">
-            <p className="vacio-titulo">Cargando el equipo…</p>
-            <p className="ayuda">
-                Estamos trayendo las visitas de tu equipo. En un momento aparecen los indicadores.
-            </p>
-        </div>
+        <EstadoVacio titulo="Cargando el equipo…" texto={<>Estamos trayendo las visitas de tu equipo. En un momento aparecen los indicadores.</>} />
     );
 }
 

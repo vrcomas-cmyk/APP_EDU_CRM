@@ -19,15 +19,18 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { estrategiasTrabajadas } from '../services/vinculo';
 import {
     leerEstrategias, upsertEstrategia, eliminarEstrategia, eliminarEstrategiaRemota, nuevoId,
     descargarEstrategiasEquipo, sincronizarEstrategias, clientesEnMisZonas,
     sectores, gruposDeSector, buscarMateriales, tiposEstrategia, descripcionTipoEstrategia,
-    etapasEstrategia, sesionActual, consultarVisitas, type Avisar
+    etapasEstrategia, sesionActual, consultarVisitas, materialesDe, fechaHoraCorta as fechaHoraDdMmAaaa, type Avisar
 } from '@core/puente';
 import { Combo, filtrar } from '@shared/components/Combo';
 import { abrirNuevaVisita } from '@modules/visitas/montarDrawer';
 import type { Estrategia, EtapaHistorial } from '@core/tipos';
+import { Esqueleto } from '@shared/components/Esqueleto';
+import { EstadoVacio } from '@shared/components/EstadoVacio';
 
 export function Estrategias({ avisar }: { avisar?: Avisar }) {
     const [version, setVersion] = useState(0);
@@ -111,12 +114,21 @@ export function Estrategias({ avisar }: { avisar?: Avisar }) {
      */
     const avancePorEstrategia = useMemo(() => {
         const mapa = new Map<string, { visitas: number; ultima: string }>();
+        const todas = leerEstrategias();
+        // Grupo de artículo de un material capturado, según el catálogo del sector: distingue
+        // qué estrategia se trabajó cuando un mismo sector tiene varias (una por grupo).
+        const grupoDeMaterial = (sector: string, material: string) =>
+            materialesDe(sector).find(m => m.material === material)?.grupo_articulo;
+
         for (const v of consultarVisitas()) {
-            if (!v.id_estrategia) continue;
-            const previo = mapa.get(v.id_estrategia) ?? { visitas: 0, ultima: '' };
-            previo.visitas++;
-            if ((v.dia || '') > previo.ultima) previo.ultima = v.dia || '';
-            mapa.set(v.id_estrategia, previo);
+            // Una visita suma avance solo a las estrategias que se TRABAJARON (ver
+            // `estrategiasTrabajadas`): marcar tres y trabajar dos avanza dos.
+            for (const id of estrategiasTrabajadas(v, todas, grupoDeMaterial)) {
+                const previo = mapa.get(id) ?? { visitas: 0, ultima: '' };
+                previo.visitas++;
+                if ((v.dia || '') > previo.ultima) previo.ultima = v.dia || '';
+                mapa.set(id, previo);
+            }
         }
         return mapa;
     }, [version]);
@@ -188,12 +200,9 @@ export function Estrategias({ avisar }: { avisar?: Avisar }) {
             </div>
 
             {cargando && estrategias.length === 0 ? (
-                <p className="ayuda">Cargando…</p>
+                <Esqueleto />
             ) : porCliente.length === 0 ? (
-                <div className="vacio-grande">
-                    <p className="vacio-titulo">Nada que mostrar todavía</p>
-                    <p className="ayuda">Agrega la primera estrategia para este cliente y sector.</p>
-                </div>
+                <EstadoVacio titulo="Nada que mostrar todavía" texto={<>Agrega la primera estrategia para este cliente y sector.</>} />
             ) : (
                 <div className="lista-clientes">
                     {porCliente.map(grupo => (
@@ -408,12 +417,14 @@ function GenerarVisita({ cliente, estrategias, onCerrar, onGenerada }: {
                         <button
                             type="button" className="btn btn-principal" disabled={!listo}
                             onClick={() => {
-                                abrirNuevaVisita({
+                                // Solo se anuncia "Visita generada" si el drawer de verdad abrió: antes
+                                // el aviso salía aunque no hubiera nada que mostrar.
+                                const abierta = abrirNuevaVisita({
                                     cliente,
-                                    id_estrategia: seleccionadas[0]?.id,
+                                    ids_estrategias: seleccionadas.map(e => e.id),
                                     sectorNombres: sectores
                                 });
-                                onGenerada();
+                                if (abierta) onGenerada(); else onCerrar();
                             }}
                         >
                             Generar visita
@@ -629,8 +640,5 @@ function LineaTiempoEtapas({ etapas }: { etapas?: EtapaHistorial[] }) {
 }
 
 function fechaHoraCorta(iso?: string): string {
-    if (!iso) return '—';
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return '—';
-    return d.toLocaleString('es-MX', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    return fechaHoraDdMmAaaa(iso) || '—';
 }

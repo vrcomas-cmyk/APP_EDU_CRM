@@ -25,6 +25,7 @@ import { PanelFlujos } from './PanelFlujos';
 import { PanelTerritorios } from './PanelTerritorios';
 import { PanelTemas } from './PanelTemas';
 import { PanelCatalogoFicha } from './PanelCatalogoFicha';
+import { Esqueleto } from '@shared/components/Esqueleto';
 
 const PESTANAS = [
     { id: 'tipos', etiqueta: 'Tipos y campos' },
@@ -163,7 +164,7 @@ export function Administracion({ avisar, confirmar, onGuardado }: Props) {
             {area === 'flujos' && (
                 <div className="panel-body">
                     {flujos.cargando && flujos.borrador.flujos.length === 0 ? (
-                        <p className="ayuda">Cargando flujos de revisión…</p>
+                        <Esqueleto etiqueta="Cargando flujos de revisión" />
                     ) : flujos.error && flujos.borrador.flujos.length === 0 ? (
                         <div className="campo es-error">
                             <p className="ayuda">No se pudo cargar: {flujos.error}</p>
@@ -195,7 +196,7 @@ export function Administracion({ avisar, confirmar, onGuardado }: Props) {
                     <div className="panel-body">
                         {catalogosEstrategia.cargando && catalogosEstrategia.borrador.tipos.length === 0
                             && catalogosEstrategia.borrador.etapas.length === 0 ? (
-                            <p className="ayuda">Cargando catálogos de Estrategia…</p>
+                            <Esqueleto etiqueta="Cargando catálogos de Estrategia" />
                         ) : catalogosEstrategia.error && catalogosEstrategia.borrador.tipos.length === 0 ? (
                             <div className="campo es-error">
                                 <p className="ayuda">No se pudo cargar: {catalogosEstrategia.error}</p>
@@ -234,7 +235,7 @@ export function Administracion({ avisar, confirmar, onGuardado }: Props) {
                 <div className="panel-body">
                     {territorios.cargando && territorios.borrador.titulares.length === 0
                         && territorios.borrador.coberturas.length === 0 ? (
-                        <p className="ayuda">Cargando territorios…</p>
+                        <Esqueleto etiqueta="Cargando territorios" />
                     ) : territorios.error && territorios.borrador.titulares.length === 0 ? (
                         <div className="campo es-error">
                             <p className="ayuda">No se pudo cargar: {territorios.error}</p>

@@ -19,6 +19,7 @@
 
 import { comentariosDe, comentar, AMBITOS } from './comentarios.js';
 import { puede } from './permisos.js';
+import { fechaHoraCorta } from './fechas.js';
 
 export { AMBITOS };
 
@@ -101,9 +102,7 @@ function burbuja(c) {
 
     const cuando = document.createElement('span');
     cuando.className = 'coment-fecha mono';
-    cuando.textContent = new Date(c.momento).toLocaleString('es-MX', {
-        day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
-    });
+    cuando.textContent = fechaHoraCorta(c.momento);
 
     meta.append(quien, cuando);
 

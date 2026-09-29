@@ -12,6 +12,7 @@ import {
     tiposActividad, areas, tiposEvidencia, fechaCorta
 } from '@core/puente';
 import type { Actividad, Sector, Visita, ModoCampo } from '@core/tipos';
+import { CampoFecha } from '@shared/components/CampoFecha';
 
 export interface PropsFormulario {
     visita: Visita;
@@ -70,8 +71,8 @@ export function FormularioActividad({
             {ver('fecha_documento') && (
                 <Campo etiqueta={etiqueta('Fecha del documento', 'fecha_documento')} error={errores.fecha_documento}>
                     {editable('fecha_documento') ? (
-                        <input
-                            type="date" className="inp"
+                        <CampoFecha
+                            className="inp"
                             value={actividad.fecha_documento || ''}
                             onChange={(e) => editar(a => { a.fecha_documento = e.target.value; })}
                         />

@@ -9,7 +9,7 @@
  */
 
 import {
-    leerVisitas, guardarVisitas as persistirVisitas, guardarCatalogo,
+    leerVisitas, guardarVisitas as persistirVisitas, guardarCatalogo, leerCatalogo,
     leerArchivo, borrarArchivo, todasLasActividades,
     leerEstrategias, guardarEstrategias as persistirEstrategias, fusionarEstrategiasEquipo,
     leerPendientes, guardarPendientes as persistirPendientes, fusionarPendientesEquipo
@@ -24,6 +24,7 @@ import {
 } from './revisiones.js';
 import { postear, leerCatalogos } from '../src/services/google/appsScript';
 import { rpc, rpcEstricto } from '../src/services/supabase/rpc';
+import { subirEvidenciaAStorage } from '../src/services/supabase/evidencias';
 import {
     tieneAccesoCalendar, intentarReconexionCalendar, sincronizarEventoVisita, borrarEventoVisita
 } from './googleCalendar.js';
@@ -32,9 +33,28 @@ import { simulacionActiva } from './simulacion.js';
 
 // ---------- catálogos ----------
 
+const CLAVE_CATALOGO_DESCARGADO = 'pdt:catalogo-descargado';
+
+/**
+ * ¿El catálogo local se bajó hace menos de `maxEdadMs`? Bajarlo es lo más caro de la app
+ * (Apps Script abre ~15 hojas y responde ~1 MB) y antes se repetía en CADA sincronización, cada
+ * vuelta a primer plano y cada aviso de realtime — que llega a todos los dispositivos a la vez
+ * con cada guardado. Con esto se baja al arrancar y luego a lo más cada `maxEdadMs`; quien
+ * necesite lo último (Administración tras guardar) llama a `descargarCatalogo()` directo.
+ */
+export function catalogoEsFresco(maxEdadMs) {
+    try {
+        const t = Number(localStorage.getItem(CLAVE_CATALOGO_DESCARGADO));
+        return Boolean(leerCatalogo()) && t > 0 && Date.now() - t < maxEdadMs;
+    } catch {
+        return false;
+    }
+}
+
 export async function descargarCatalogo() {
     const datos = await leerCatalogos();
     guardarCatalogo(normalizarZonasDelCatalogo(datos));
+    try { localStorage.setItem(CLAVE_CATALOGO_DESCARGADO, String(Date.now())); } catch { /* sin cuota: solo se pierde la marca */ }
     return datos;
 }
 
@@ -183,16 +203,13 @@ export async function sincronizarVisitas() {
 
 // ---------- evidencias ----------
 
-function blobABase64(blob) {
-    return new Promise((resolve, reject) => {
-        const lector = new FileReader();
-        lector.onload = () => resolve(String(lector.result).split(',')[1]);
-        lector.onerror = () => reject(lector.error);
-        lector.readAsDataURL(blob);
-    });
-}
-
-/** Sube el archivo local de una actividad y guarda la URL que devuelve Drive. */
+/**
+ * Sube el archivo local de una actividad a Supabase Storage (binario directo, URL firmada) y lo
+ * registra. Drive es solo la copia de respaldo: Apps Script la hace desde la cola de export.
+ *
+ * La ruta es fija por actividad, así que un reintento tras un corte SOBRESCRIBE el mismo objeto
+ * — antes, cortar la subida a Apps Script y reintentar dejaba archivos duplicados en Drive.
+ */
 export async function subirEvidencia(idActividad) {
     const blob = await leerArchivo(idActividad);
     if (!blob) throw new Error(`Sin archivo local para la actividad ${idActividad}`);
@@ -200,16 +217,20 @@ export async function subirEvidencia(idActividad) {
     const entrada = todasLasActividades().find(x => x.actividad.id === idActividad);
     if (!entrada) throw new Error(`Actividad ${idActividad} no encontrada`);
 
-    const resultado = await postear({
-        action: 'subirEvidencia',
-        id_actividad: idActividad,
-        // El script archiva por cliente y no puede deducirlo: la fila de la actividad
-        // puede no existir todavía si la evidencia se sube antes de sincronizar la visita.
-        cliente: entrada.visita.cliente || '',
-        nombre: entrada.actividad.evidencia?.nombre || `${idActividad}`,
-        mimeType: blob.type || 'application/octet-stream',
-        datos: await blobABase64(blob)
+    const token = sesionActual()?.sesion_token || '';
+    const nombre = entrada.actividad.evidencia?.nombre || `${idActividad}`;
+
+    const { ruta } = await subirEvidenciaAStorage(token, idActividad, nombre, blob);
+    await rpcEstricto('pdt_evidencia_registrar_sesion', {
+        p_sesion_token: token,
+        p_id_actividad: idActividad,
+        p_ruta: ruta,
+        p_nombre: nombre,
+        p_tipo: blob.type || 'application/octet-stream',
+        p_tamano: blob.size
     });
+    // `storage:` marca que el archivo vive en Supabase Storage, no en Drive (ver `urlEvidencia`).
+    const resultado = { url: `storage:${ruta}` };
 
     const visitas = leerVisitas();
     for (const visita of visitas) {
@@ -218,8 +239,7 @@ export async function subirEvidencia(idActividad) {
             if (!act) continue;
 
             act.evidencia = { ...act.evidencia, estado: 'subida', url: resultado.url };
-            // Se reenvía la visita para que la URL quede también en la fila hija por si
-            // el script no la encontró (actividad aún no sincronizada al subir el archivo).
+            // Se reenvía la visita para que la marca quede también en la fila de la actividad.
             visita.sincronizado = false;
             persistirVisitas(visitas);
             await borrarArchivo(idActividad);
@@ -230,13 +250,15 @@ export async function subirEvidencia(idActividad) {
     throw new Error(`No se pudo marcar la evidencia de ${idActividad}`);
 }
 
-// Apps Script es de un solo hilo y con cuota: mandar TODAS las evidencias pendientes a la vez
-// las haría esperar en fila igual, solo que con más conexiones abiertas. Unas pocas en
-// paralelo sí recortan la espera de quien tiene varias sin subir, sin saturar la cuota.
+// Unas pocas en paralelo: ya no hay un candado global que las ponga en fila (iban por Apps
+// Script), pero tampoco conviene saturar una conexión móvil con todas a la vez.
 const CONCURRENCIA_EVIDENCIAS = 3;
 
 /** Sube todas las evidencias que estén en 'local'. Devuelve cuántas subieron y cuántas fallaron. */
 export async function subirEvidenciasPendientes() {
+    // "Ver como" es de solo lectura: `postear()` lo bloqueaba solo, pero esto ya no pasa por ahí.
+    if (simulacionActiva()) return { subidas: 0, fallidas: 0 };
+
     const locales = todasLasActividades()
         .filter(({ actividad }) => actividad.evidencia?.estado === 'local');
 
@@ -561,12 +583,15 @@ export async function sincronizarEventos() {
     const pendientes = eventosPendientes();
     if (pendientes.length === 0) return { enviados: 0 };
 
-    const resultado = await postear({ action: 'guardarEventos', eventos: pendientes });
-    // Igual que en visitas: si el espejo no respondió, no se marca sincronizado — se
-    // reintenta en el siguiente ciclo. Antes esto se ignoraba y un evento con el espejo caído
-    // quedaba marcado "al día" sin haber llegado nunca a Supabase.
-    if (resultado?.espejo !== false) marcarSincronizados(pendientes.map(e => e.id));
-    return { enviados: pendientes.length, espejo: resultado?.espejo !== false };
+    // Supabase primero, directo con el token de sesión (como visitas): Sheets se pone al día
+    // solo, desde `pdt_export_entidades`. Si la RPC falla lanza y no se marca sincronizado —
+    // se reintenta en el siguiente ciclo.
+    await rpcEstricto('pdt_eventos_guardar_sesion', {
+        p_sesion_token: sesionActual()?.sesion_token || '',
+        p_eventos: pendientes
+    });
+    marcarSincronizados(pendientes.map(e => e.id));
+    return { enviados: pendientes.length, espejo: true };
 }
 
 /**
@@ -577,9 +602,12 @@ export async function sincronizarComentarios() {
     const pendientes = comentariosPendientes();
     if (pendientes.length === 0) return { enviados: 0 };
 
-    const resultado = await postear({ action: 'guardarComentarios', comentarios: pendientes });
-    if (resultado?.espejo !== false) marcarComentarios(pendientes.map(c => c.id));
-    return { enviados: pendientes.length, espejo: resultado?.espejo !== false };
+    await rpcEstricto('pdt_comentarios_guardar_sesion', {
+        p_sesion_token: sesionActual()?.sesion_token || '',
+        p_comentarios: pendientes
+    });
+    marcarComentarios(pendientes.map(c => c.id));
+    return { enviados: pendientes.length, espejo: true };
 }
 
 /**
@@ -590,12 +618,14 @@ export async function sincronizarRevisiones() {
     const pendientes = revisionesPendientes();
     if (pendientes.length === 0) return { enviadas: 0 };
 
-    const resultado = await postear({ action: 'guardarRevisiones', revisiones: pendientes });
-    // `marcarRevisiones` BORRA de la cola: si el espejo falló no se llama, porque ahí no
-    // queda ningún flag de "pendiente" que reintentar — perderla de la cola la pierde para
-    // siempre.
-    if (resultado?.espejo !== false) marcarRevisiones(pendientes.map(r => r.id));
-    return { enviadas: pendientes.length, espejo: resultado?.espejo !== false };
+    await rpcEstricto('pdt_revisiones_guardar_sesion', {
+        p_sesion_token: sesionActual()?.sesion_token || '',
+        p_revisiones: pendientes
+    });
+    // `marcarRevisiones` BORRA de la cola: solo se llama si la RPC no lanzó, porque ahí no
+    // queda ningún flag de "pendiente" que reintentar.
+    marcarRevisiones(pendientes.map(r => r.id));
+    return { enviadas: pendientes.length, espejo: true };
 }
 
 // ---------- Google Calendar ----------
@@ -697,10 +727,16 @@ export async function subirCompromisosCalendar(compromisos, desdeISO, hastaISO) 
 export async function descargarCompromisosCalendarEquipo(desdeISO, hastaISO) {
     if (!navigator.onLine) return { compromisos: [], espejo: false };
     try {
-        const r = await postear({ action: 'leerCompromisosCalendarEquipo', desde: desdeISO, hasta: hastaISO });
+        // Directo a Supabase con el token de sesión (como estrategias/pendientes): pasar por
+        // Apps Script tardaba más que el tiempo límite y devolvía 404 del eco de Google.
+        const compromisos = await rpcEstricto('pdt_calendar_compromisos_equipo_sesion', {
+            p_sesion_token: sesionActual()?.sesion_token || '',
+            p_desde: desdeISO,
+            p_hasta: hastaISO
+        });
         return {
-            compromisos: Array.isArray(r?.compromisos) ? r.compromisos : [],
-            espejo: r?.espejo === true
+            compromisos: Array.isArray(compromisos) ? compromisos : [],
+            espejo: true
         };
     } catch (err) {
         console.error('No se pudieron leer los compromisos de Calendar del equipo:', err);

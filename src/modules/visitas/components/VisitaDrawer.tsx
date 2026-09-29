@@ -14,7 +14,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    saludDe, detalleEstado, estadoDe, ESTADOS, duracionTexto, etiquetaDiaLarga,
+    saludDe, detalleEstado, estadoDe, ESTADOS, duracionTexto, fechaCorta,
     sesionActual, registrar, TIPOS_EVENTO, cancelarVisita, reactivarVisita,
     hiloComentarios, AMBITOS, esVisitaCliente, etiquetaVisita, type Avisar
 } from '@core/puente';
@@ -292,7 +292,22 @@ export function VisitaDrawer({
         abrirOtraVisita(copia.id);
     }
 
-    if (!visita) return null;
+    // Nunca en blanco: si la visita ya no está en el almacén (se borró en otra pestaña, o no se
+    // pudo guardar) el drawer lo dice y deja cerrar, en vez de no pintar nada.
+    if (!visita) {
+        return (
+            <div className="drawer-raiz">
+                <div className="scrim" onClick={onCerrar} />
+                <aside className="drawer" role="dialog" aria-modal="true" aria-label="Visita">
+                    <div className="drawer-body">
+                        <p className="vacio-titulo">No se encontró la visita</p>
+                        <p className="ayuda">Pudo haberse eliminado desde otra pestaña o no haberse guardado.</p>
+                        <button type="button" className="btn" onClick={onCerrar}>Cerrar</button>
+                    </div>
+                </aside>
+            </div>
+        );
+    }
 
     const sector = sectorId ? (visita.sectores || []).find(s => s.id === sectorId) ?? null : null;
     const cancelada = estadoDe(visita) === ESTADOS.CANCELADA;
@@ -542,12 +557,12 @@ function CabeceraVisita({ visita, onCerrar }: { visita: Visita; onCerrar: () => 
                 <h3>{visita.borrador ? 'Nueva visita' : (visita.hospital || etiquetaVisita(visita) || 'Visita')}</h3>
 
                 {visita.borrador ? (
-                    <span className="eyebrow">{etiquetaDiaLarga(visita.dia)}</span>
+                    <span className="eyebrow">{fechaCorta(visita.dia)}</span>
                 ) : (
                     <>
                         <p className="drawer-sub">{etiquetaVisita(visita)}</p>
                         <p className="drawer-cuando mono">
-                            {etiquetaDiaLarga(visita.dia)} · {visita.hora_inicio}–{visita.hora_fin} · {duracionTexto(visita)}
+                            {fechaCorta(visita.dia)} · {visita.hora_inicio}–{visita.hora_fin} · {duracionTexto(visita)}
                         </p>
                         <span className={`pill st-${saludDe(visita)}`}>{detalleEstado(visita)}</span>
                     </>

@@ -109,7 +109,7 @@ function FichaTema({ tema, abierta, onAbrir, onCambiar, onBorrar }: FichaProps) 
                         value={tema.nombre}
                         onChange={e => { const nombre = e.target.value; onCambiar(t => ({ ...t, nombre })); }}
                     />
-                    <button type="button" className="icon-btn" aria-label={`Borrar ${tema.nombre || 'tema'}`} onClick={onBorrar}>
+                    <button type="button" className="icon-btn peligro" aria-label={`Borrar ${tema.nombre || 'tema'}`} onClick={onBorrar}>
                         ✕
                     </button>
                 </div>

@@ -14,6 +14,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { StrictMode } from 'react';
 
 import { VisitaDrawer } from './components/VisitaDrawer';
+import { LimiteDeError } from '@shared/components/LimiteDeError';
 import { nuevaVisita, type DatosNuevaVisita } from './services/fabricas';
 import * as repo from './repository/visitasRepo';
 import { sesionActual, zonaDeCliente, ejecutivoDeZona, type Avisar } from '@core/puente';
@@ -85,7 +86,7 @@ export function abrirVisita(id: string): void {
  * cierre accidental— pero con la marca de borrador, así que no existe para el calendario ni
  * para la sincronización hasta que se guarde.
  */
-export function abrirNuevaVisita(datos: DatosNuevaVisita = {}): void {
+export function abrirNuevaVisita(datos: DatosNuevaVisita = {}): boolean {
     // Igual que al elegir el cliente a mano en el formulario: Zona y Ejecutivo se resuelven
     // solos, nunca se escriben. Aquí el cliente ya viene puesto (arrastre de calendario o
     // generado desde una Estrategia), así que toca resolverlos en el mismo acto.
@@ -95,7 +96,16 @@ export function abrirNuevaVisita(datos: DatosNuevaVisita = {}): void {
         sesionActual(), repo.nuevoId
     );
     repo.agregarVisita(visita);
+
+    // Si el navegador no pudo guardar el borrador (almacenamiento lleno, modo privado…) el drawer
+    // no tendría qué mostrar y quedaba en blanco sin decir nada. Se comprueba y se AVISA.
+    if (!repo.obtenerVisita(visita.id)) {
+        avisar('No se pudo crear la visita: el navegador no pudo guardar el borrador (¿almacenamiento lleno?).',
+            { estado: 'sin-registrar', ms: 8000 });
+        return false;
+    }
     abrirVisita(visita.id);
+    return true;
 }
 
 function cerrar(): void {
@@ -114,6 +124,7 @@ function pintar(): void {
 
     raiz.render(
         <StrictMode>
+            <LimiteDeError donde="el registro" reiniciarCon={visitaAbierta} onCerrar={cerrar} variante="capa">
             <VisitaDrawer
                 // La clave fuerza un montaje limpio al cambiar de visita: sin ella, el estado
                 // interno (nivel de sector, reagendando) se arrastraría de una visita a otra.
@@ -156,6 +167,7 @@ function pintar(): void {
                     });
                 }}
             />
+            </LimiteDeError>
         </StrictMode>
     );
 }

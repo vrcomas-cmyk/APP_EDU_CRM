@@ -45,9 +45,30 @@ export function desdeClave(clave) {
  */
 export function fechaCorta(fecha) {
     if (!fecha) return '';
-    const [a, m, d] = String(fecha).slice(0, 10).split('-');
-    if (!a || !m || !d) return String(fecha);
+    const texto = String(fecha);
+
+    // Un instante con zona ("...Z" o "...-06:00", p. ej. `creado_en` de Supabase) NO se corta:
+    // su fecha UTC puede ser el día siguiente al local (a las 19:00 de México ya es "mañana" en
+    // UTC). Se pasa a la fecha LOCAL.
+    if (/T\d{2}:\d{2}.*(Z|[+-]\d{2}:?\d{2})$/.test(texto)) {
+        const d = new Date(texto);
+        if (!Number.isNaN(d.getTime())) {
+            return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+        }
+    }
+
+    const [a, m, d] = texto.slice(0, 10).split('-');
+    if (!a || !m || !d) return texto;
     return `${d}/${m}/${a}`;
+}
+
+/** Un instante (ISO con zona, o un Date) → 'DD/MM/YYYY HH:MM' en hora LOCAL. */
+export function fechaHoraCorta(instante) {
+    if (!instante) return '';
+    const d = instante instanceof Date ? instante : new Date(instante);
+    if (Number.isNaN(d.getTime())) return '';
+    const dos = (n) => String(n).padStart(2, '0');
+    return `${dos(d.getDate())}/${dos(d.getMonth() + 1)}/${d.getFullYear()} ${dos(d.getHours())}:${dos(d.getMinutes())}`;
 }
 
 export function sumarDias(fecha, dias) {

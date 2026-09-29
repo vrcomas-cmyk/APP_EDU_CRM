@@ -15,6 +15,7 @@ import {
     coberturaNueva, conCobertura, conTitular, sinCobertura, sinTitular,
     excepcionNueva, conExcepcion, sinExcepcion
 } from '../services/borradorTerritorios';
+import { CampoFecha } from '@shared/components/CampoFecha';
 
 interface Props {
     borrador: BorradorTerritorios;
@@ -131,7 +132,7 @@ export function PanelTerritorios({ borrador, cambiar, educadores }: Props) {
                             ))}
                         </select>
                         <button
-                            type="button" className="icon-btn" aria-label="Quitar esta cobertura"
+                            type="button" className="icon-btn peligro" aria-label="Quitar esta cobertura"
                             onClick={() => cambiar(b => ({ ...b, coberturas: sinCobertura(b.coberturas, c.id) }))}
                         >
                             ✕
@@ -140,8 +141,8 @@ export function PanelTerritorios({ borrador, cambiar, educadores }: Props) {
                     <div className="admin-fila">
                         <label className="campo">
                             <span className="campo-lbl">Desde</span>
-                            <input
-                                type="date" className="inp mono"
+                            <CampoFecha
+                                className="inp mono"
                                 value={c.desde.slice(0, 10)}
                                 onChange={(e) => cambiar(b => ({
                                     ...b, coberturas: conCobertura(b.coberturas, c.id, { desde: e.target.value })
@@ -150,8 +151,8 @@ export function PanelTerritorios({ borrador, cambiar, educadores }: Props) {
                         </label>
                         <label className="campo">
                             <span className="campo-lbl">Hasta (opcional)</span>
-                            <input
-                                type="date" className="inp mono"
+                            <CampoFecha
+                                className="inp mono"
                                 value={c.hasta?.slice(0, 10) || ''}
                                 onChange={(e) => cambiar(b => ({
                                     ...b, coberturas: conCobertura(b.coberturas, c.id, { hasta: e.target.value || null })
@@ -219,7 +220,7 @@ export function PanelTerritorios({ borrador, cambiar, educadores }: Props) {
                             ))}
                         </select>
                         <button
-                            type="button" className="icon-btn" aria-label="Quitar esta excepción"
+                            type="button" className="icon-btn peligro" aria-label="Quitar esta excepción"
                             onClick={() => cambiar(b => ({ ...b, excepcionesCliente: sinExcepcion(b.excepcionesCliente, e.id) }))}
                         >
                             ✕
@@ -228,8 +229,8 @@ export function PanelTerritorios({ borrador, cambiar, educadores }: Props) {
                     <div className="admin-fila">
                         <label className="campo">
                             <span className="campo-lbl">Desde</span>
-                            <input
-                                type="date" className="inp mono"
+                            <CampoFecha
+                                className="inp mono"
                                 value={e.desde.slice(0, 10)}
                                 onChange={(ev) => cambiar(b => ({
                                     ...b, excepcionesCliente: conExcepcion(b.excepcionesCliente, e.id, { desde: ev.target.value })
@@ -238,8 +239,8 @@ export function PanelTerritorios({ borrador, cambiar, educadores }: Props) {
                         </label>
                         <label className="campo">
                             <span className="campo-lbl">Hasta (opcional)</span>
-                            <input
-                                type="date" className="inp mono"
+                            <CampoFecha
+                                className="inp mono"
                                 value={e.hasta?.slice(0, 10) || ''}
                                 onChange={(ev) => cambiar(b => ({
                                     ...b, excepcionesCliente: conExcepcion(b.excepcionesCliente, e.id, { hasta: ev.target.value || null })

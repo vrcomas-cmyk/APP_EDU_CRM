@@ -2,7 +2,7 @@
  * Cómo se leen las revisiones. Sin estado y sin DOM: es lo que se puede probar sin montar nada.
  */
 
-import { resultadoDe } from '@core/puente';
+import { resultadoDe, fechaHoraCorta } from '@core/puente';
 import type { FlujoRevision, ResultadoFlujo } from '@core/tipos';
 
 /**
@@ -26,13 +26,7 @@ export function etiquetaResultado(flujo: FlujoRevision | string, resultado: stri
 
 /** Fecha corta para metadatos. Una fecha ilegible se muestra como «—», no como `Invalid Date`. */
 export function fechaCorta(iso?: string): string {
-    if (!iso) return '—';
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return '—';
-
-    return d.toLocaleString('es-MX', {
-        day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
-    });
+    return fechaHoraCorta(iso) || '—';
 }
 
 /** «1 elemento» / «3 elementos». */

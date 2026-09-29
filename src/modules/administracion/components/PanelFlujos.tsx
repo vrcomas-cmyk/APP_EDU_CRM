@@ -134,7 +134,7 @@ function FichaFlujo({ flujo, abierta, onAbrir, onCambiar, onBorrar }: FichaProps
                     />
                     <button
                         type="button"
-                        className="icon-btn"
+                        className="icon-btn peligro"
                         aria-label={`Borrar ${flujo.nombre || 'flujo'}`}
                         onClick={onBorrar}
                         disabled={flujo.revisiones > 0}
@@ -271,7 +271,7 @@ function FilaVeredicto({ resultado, onCambiar, onQuitar }: {
                     value={resultado.accion}
                     onChange={e => onCambiar('accion', e.target.value)}
                 />
-                <button type="button" className="icon-btn" aria-label="Quitar veredicto" onClick={onQuitar}>
+                <button type="button" className="icon-btn peligro" aria-label="Quitar veredicto" onClick={onQuitar}>
                     ✕
                 </button>
             </div>

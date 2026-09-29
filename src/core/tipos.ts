@@ -170,6 +170,11 @@ export interface Visita {
      *  educador eligió una al agendar. Opcional: una visita sin estrategia sigue siendo una
      *  visita normal — no todo cliente tiene un plan activo. */
     id_estrategia?: string;
+    /** TODAS las estrategias que esta visita avanza (una visita puede trabajar varias, p. ej. una
+     *  por sector o por grupo de artículo). `id_estrategia` se conserva con la primera para lo que
+     *  ya lo lee (Sheets, indicadores, visitas guardadas antes de esto). Se lee siempre con
+     *  `idsEstrategiasDe`, que resuelve también las visitas viejas de un solo id. */
+    ids_estrategias?: string[];
     dia?: string;                     // 'YYYY-MM-DD'
     hora_inicio?: string;             // 'HH:MM'
     hora_fin?: string;

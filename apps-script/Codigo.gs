@@ -128,6 +128,7 @@ const HOJA_EVENTOS = 'Eventos';
 const HOJA_COMENTARIOS = 'Comentarios';
 const HOJA_REVISIONES = 'Revisiones';
 const HOJA_ESTRATEGIAS = 'Estrategias';
+const HOJA_PENDIENTES = 'Pendientes';
 
 // Catálogo de materiales que lee el buscador de la app (filtrado por sector).
 const COL_MATERIAL = 'Material y Nombre';
@@ -333,7 +334,10 @@ const ENCABEZADOS_VISITAS = [
     'calendar_event_id',
     // true = el sector venía en el plan (agenda/Estrategia); false/vacío = se agregó sobre la
     // marcha, incluido desde "Subir Actividad" como sector trabajado sin haber sido programado.
-    'sector_programado'
+    'sector_programado',
+    // Todas las estrategias que avanza la visita, separadas por "; ". `id_estrategia` sigue con la
+    // primera. Al final, como siempre: `obtenerHoja` solo tolera columnas nuevas al final.
+    'ids_estrategias'
 ];
 
 const ENCABEZADOS_ACTIVIDADES = [
@@ -379,7 +383,14 @@ const ENCABEZADOS_REVISIONES = [
 const ENCABEZADOS_ESTRATEGIAS = [
     'id', 'cliente', 'sector', 'grupo_articulo', 'etapa',
     'proyecto', 'productos', 'observaciones',
-    'actualizado', 'actualizado_por', 'actualizado_correo'
+    'actualizado', 'actualizado_por', 'actualizado_correo',
+    'tipo_estrategia'
+];
+
+// Copia de respaldo de los pendientes (la fuente es Supabase: pdt_pendientes).
+const ENCABEZADOS_PENDIENTES = [
+    'id', 'id_visita', 'cliente', 'hospital', 'descripcion', 'estado',
+    'creado_por', 'creado_correo', 'creado_en', 'resuelto_en', 'resuelto_por', 'resuelto_correo'
 ];
 
 const ENCABEZADOS_EVENTOS = [
@@ -1071,7 +1082,9 @@ function filasDeVisitas(visitas, identidad) {
                     visita.tipo || 'cliente', visita.motivo || '',
                     visita.es_prospecto === true,
                     visita.calendar_event_id || '',
-                    sector.programado === true
+                    sector.programado === true,
+                    (visita.ids_estrategias && visita.ids_estrategias.length
+                        ? visita.ids_estrategias : (visita.id_estrategia ? [visita.id_estrategia] : [])).join('; ')
                 ]
             });
 
@@ -1094,7 +1107,11 @@ function filasDeVisitas(visitas, identidad) {
                         act.id, idPadre, visita.id, sector.nombre || '',
                         act.tipo || '', act.area_visitada || '',
                         contacto.nombre || '', contacto.cargo || '', contacto.servicio || '',
-                        evidencia.url || '', evidencia.estado || '',
+                        // `storage:<ruta>` marca un archivo en Supabase Storage: no es un enlace y
+                        // no debe pisar la URL de Drive que pone `copiarEvidenciaADrive` (vacío =
+                        // se preserva lo que ya hay en la celda).
+                        (String(evidencia.url || '').indexOf('storage:') === 0 ? '' : (evidencia.url || '')),
+                        evidencia.estado || '',
                         act.creada || '', ahora,
                         sello.momento || '', sello.usuario || '', sello.dispositivo || '',
                         act.resultado_seguimiento || '',
@@ -1165,7 +1182,7 @@ function guardarVisitas(visitas, identidad) {
 /**
  * Export principal: Supabase es el almacenamiento de las visitas, y Sheets es una copia de
  * reporte que se regenera desde `pdt_export_cola` (llenada por `pdt_visitas_guardar_sesion`
- * en cada guardado). Se llama sola cada 15 minutos (`instalarTriggerExport`) para que Sheets
+ * en cada guardado). Se llama sola cada minuto (`instalarTriggerExport`) para que Sheets
  * quede casi al día sin depender de una corrida nocturna; también es segura de correr a mano
  * desde el editor si alguien necesita la hoja al día de inmediato.
  *
@@ -1173,9 +1190,49 @@ function guardarVisitas(visitas, identidad) {
  * confirmado vuelve a estar disponible a los 30 min (`pdt_export_tomar`) en vez de perderse.
  */
 function exportarASheets() {
-    var hojaVisitas = obtenerHoja(HOJA_VISITAS, ENCABEZADOS_VISITAS);
-    var hojaActividades = obtenerHoja(HOJA_ACTIVIDADES, ENCABEZADOS_ACTIVIDADES);
-    var hojaMateriales = obtenerHoja(HOJA_MATERIALES_CAPTURA, ENCABEZADOS_MATERIALES_CAPTURA);
+    // El mismo candado que `doPost`: si no, el export y una escritura heredada (guardarVisitas,
+    // subirEvidencia…) agregan filas a la misma hoja con `getLastRow()+1` y se pisan.
+    var lock = LockService.getScriptLock();
+    if (!lock.tryLock(60000)) { Logger.log('exportarASheets: otra corrida tiene el candado.'); return 0; }
+    // Cada etapa por separado: si una falla (una hoja con otras columnas, un límite de Sheets…)
+    // la otra sigue, y el error queda ANOTADO en la pestaña "Export_Log" en vez de perderse en
+    // los registros del script — donde nadie lo ve.
+    var total = 0;
+    try {
+        total = exportarVisitasASheets();
+        if (total) registrarExport('visitas', total, '');
+    } catch (err) {
+        registrarExport('visitas', 0, String(err && err.message || err));
+        Logger.log('exportarVisitasASheets falló: %s', err);
+    }
+    try {
+        var n = exportarEntidadesASheets();
+        if (n) registrarExport('entidades', n, '');
+    } catch (err) {
+        registrarExport('entidades', 0, String(err && err.message || err));
+        Logger.log('exportarEntidadesASheets falló: %s', err);
+    } finally {
+        lock.releaseLock();
+    }
+    return total;
+}
+
+/** Una línea por corrida que hizo algo o falló, en la pestaña "Export_Log" (últimas ~500). */
+function registrarExport(etapa, registros, error) {
+    try {
+        var hoja = obtenerHoja('Export_Log', ['momento', 'etapa', 'registros', 'error']);
+        hoja.appendRow([new Date(), etapa, registros, error]);
+        var filas = hoja.getLastRow();
+        if (filas > 600) hoja.deleteRows(2, filas - 500);
+    } catch (err) {
+        Logger.log('No se pudo escribir Export_Log: %s', err);
+    }
+}
+
+function exportarVisitasASheets() {
+    // Las hojas se abren SOLO cuando hay algo que escribir: con la cola vacía —lo normal— una
+    // corrida cuesta una llamada a Supabase, no abrir tres pestañas.
+    var hojaVisitas = null, hojaActividades = null, hojaMateriales = null;
 
     var limiteMs = new Date().getTime() + 5 * 60 * 1000; // deja margen antes del límite de 6 min
     var totalExportadas = 0;
@@ -1183,6 +1240,12 @@ function exportarASheets() {
     while (new Date().getTime() < limiteMs) {
         var filas = supabaseRPC('pdt_export_tomar', { p_limite: 200 });
         if (!filas || filas.length === 0) break;
+
+        if (!hojaVisitas) {
+            hojaVisitas = obtenerHoja(HOJA_VISITAS, ENCABEZADOS_VISITAS);
+            hojaActividades = obtenerHoja(HOJA_ACTIVIDADES, ENCABEZADOS_ACTIVIDADES);
+            hojaMateriales = obtenerHoja(HOJA_MATERIALES_CAPTURA, ENCABEZADOS_MATERIALES_CAPTURA);
+        }
 
         var visitas = filas.map(function (fila) { return fila.payload; });
         var identidadPorVisita = {};
@@ -1211,8 +1274,177 @@ function exportarASheets() {
         totalExportadas += filas.length;
     }
 
-    Logger.log('exportarASheets: %s visita(s) exportada(s).', totalExportadas);
+    if (totalExportadas) Logger.log('exportarASheets: %s visita(s) exportada(s).', totalExportadas);
     return totalExportadas;
+}
+
+/**
+ * Copia de respaldo a Sheets de lo demás que vive en Supabase: estrategias, pendientes,
+ * eventos, comentarios y revisiones. Drena `pdt_export_entidades` (llenada por triggers) con
+ * el mismo tomar/confirmar en dos pasos que las visitas. Upsert por id: reejecutarla o
+ * recibir una fila dos veces no duplica nada; un registro borrado en Supabase se borra aquí.
+ */
+function exportarEntidadesASheets() {
+    var destinos = {
+        estrategias: { hoja: HOJA_ESTRATEGIAS, encabezados: ENCABEZADOS_ESTRATEGIAS, fila: filaEstrategia },
+        pendientes:  { hoja: HOJA_PENDIENTES,  encabezados: ENCABEZADOS_PENDIENTES,  fila: filaPendiente },
+        eventos:     { hoja: HOJA_EVENTOS,     encabezados: ENCABEZADOS_EVENTOS,     fila: filaEvento },
+        comentarios: { hoja: HOJA_COMENTARIOS, encabezados: ENCABEZADOS_COMENTARIOS, fila: filaComentario },
+        revisiones:  { hoja: HOJA_REVISIONES,  encabezados: ENCABEZADOS_REVISIONES,  fila: filaRevision }
+    };
+
+    var limiteMs = new Date().getTime() + 4 * 60 * 1000;
+    var total = 0;
+
+    while (new Date().getTime() < limiteMs) {
+        var lote = supabaseRPC('pdt_export_entidades_tomar', { p_limite: 200 });
+        if (!lote || lote.length === 0) break;
+
+        var porEntidad = {};
+        var confirmar = [];
+        lote.forEach(function (item) {
+            if (item.entidad === 'evidencias') {
+                // Solo se confirma lo que de verdad quedó copiado: si la actividad aún no llega a
+                // Sheets o Drive falla, se reintenta cuando el reclamo expire (30 min).
+                var copiada = false;
+                try { copiada = copiarEvidenciaADrive(item); }
+                catch (err) { Logger.log('copiarEvidenciaADrive %s falló: %s', item.id, err); }
+                if (copiada) confirmar.push({ entidad: item.entidad, id: item.id });
+                return;
+            }
+            if (!destinos[item.entidad]) return;
+            (porEntidad[item.entidad] = porEntidad[item.entidad] || []).push(item);
+            confirmar.push({ entidad: item.entidad, id: item.id });
+        });
+
+        Object.keys(porEntidad).forEach(function (entidad) {
+            var d = destinos[entidad];
+            var hoja = obtenerHoja(d.hoja, d.encabezados);
+            var filas = [];
+            porEntidad[entidad].forEach(function (item) {
+                if (item.fila) {
+                    filas.push({ id: item.id, valores: d.fila(item.fila) });
+                } else {
+                    var n = filaPorId(hoja, item.id);
+                    if (n) hoja.deleteRow(n);
+                }
+            });
+            upsert(hoja, d.encabezados, filas, []);
+        });
+
+        if (confirmar.length) supabaseRPC('pdt_export_entidades_confirmar', { p_claves: confirmar });
+        total += confirmar.length;
+        // Si nada del lote se pudo confirmar, seguir pidiendo devolvería lo siguiente pero
+        // dejaría este atorado hasta el próximo reclamo: mejor cortar y dejar que el trigger de
+        // 15 min reintente.
+        if (confirmar.length === 0) break;
+    }
+
+    if (total) Logger.log('exportarEntidadesASheets: %s registro(s).', total);
+    return total;
+}
+
+/**
+ * Respaldo en Drive de una evidencia subida a Supabase Storage. Devuelve true si ya no hay nada
+ * pendiente (copiada, ya estaba copiada o el registro se borró) y false si hay que reintentar.
+ *
+ * El nombre del archivo es el id de la actividad + su extensión: si ya existe uno con ese
+ * nombre (la evidencia se volvió a subir) se manda a la papelera y se crea el nuevo, así nunca
+ * quedan duplicados.
+ */
+function copiarEvidenciaADrive(item) {
+    var r = item.fila;
+    if (!r) return true;
+    if (r.drive_url) return true;
+
+    var clave = claveServicioSupabase();
+    if (!clave) return false;
+    var cab = { apikey: clave, Authorization: 'Bearer ' + clave };
+
+    // La actividad tiene que estar ya en la hoja: ahí se escribe el enlace. Las visitas se
+    // exportan antes que las entidades, así que casi siempre está.
+    var hoja = obtenerHoja(HOJA_ACTIVIDADES, ENCABEZADOS_ACTIVIDADES);
+    var fila = filaPorId(hoja, r.id);
+    if (!fila) return false;
+
+    // Cliente, para la subcarpeta: actividad → visita.
+    var cliente = '';
+    var act = UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/pdt_actividades?id=eq.' + encodeURIComponent(r.id) + '&select=id_visita',
+        { headers: cab, muteHttpExceptions: true });
+    var actJson = JSON.parse(act.getContentText() || '[]');
+    if (actJson.length) {
+        var vis = UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/pdt_visitas?id=eq.' + encodeURIComponent(actJson[0].id_visita) + '&select=cliente',
+            { headers: cab, muteHttpExceptions: true });
+        var visJson = JSON.parse(vis.getContentText() || '[]');
+        if (visJson.length) cliente = visJson[0].cliente || '';
+    }
+
+    var descarga = UrlFetchApp.fetch(
+        SUPABASE_URL + '/storage/v1/object/evidencias/' + r.ruta.split('/').map(encodeURIComponent).join('/'),
+        { headers: cab, muteHttpExceptions: true });
+    if (descarga.getResponseCode() !== 200) return false;
+
+    var m = String(r.ruta).match(/\.[A-Za-z0-9]{1,5}$/);
+    var nombre = r.id + (m ? m[0] : '');
+    var blob = descarga.getBlob().setName(nombre);
+
+    var carpeta = carpetaDeCliente(cliente);
+    var previos = carpeta.getFilesByName(nombre);
+    while (previos.hasNext()) previos.next().setTrashed(true);
+
+    var archivo = carpeta.createFile(blob);
+    try {
+        archivo.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    } catch (err) {
+        console.warn('No se pudo abrir el enlace público, queda restringido al dominio: ' + err);
+    }
+
+    var url = archivo.getUrl();
+    hoja.getRange(fila, ENCABEZADOS_ACTIVIDADES.indexOf('evidencia_url') + 1).setValue(url);
+    supabaseRPC('pdt_evidencia_drive_url', { p_id: r.id, p_url: url });
+    return true;
+}
+
+function filaEstrategia(r) {
+    return [
+        r.id, r.cliente || '', r.sector || '', r.grupo_articulo || '', r.etapa || '',
+        r.proyecto || '',
+        Array.isArray(r.productos) ? r.productos.join('; ') : (r.productos || ''),
+        r.observaciones || '', r.actualizado || '', r.actualizado_por || '',
+        r.actualizado_correo || '', r.tipo_estrategia || ''
+    ];
+}
+
+function filaPendiente(r) {
+    return [
+        r.id, r.id_visita || '', r.cliente || '', r.hospital || '', r.descripcion || '',
+        r.estado || '', r.creado_por || '', r.creado_correo || '', r.creado_en || '',
+        r.resuelto_en || '', r.resuelto_por || '', r.resuelto_correo || ''
+    ];
+}
+
+function filaEvento(r) {
+    return [
+        r.id, r.tipo || '', r.momento || '', r.id_visita || '', r.cliente || '', r.hospital || '',
+        r.educador || '', r.educador_correo || '', r.dispositivo || '',
+        JSON.stringify(r.datos || {}), r.actualizado || ''
+    ];
+}
+
+function filaComentario(r) {
+    return [
+        r.id, r.momento || '', r.ambito || '', r.id_ambito || '', r.id_visita || '',
+        r.cliente || '', r.hospital || '', r.usuario || '', r.usuario_correo || '',
+        r.texto || '', r.actualizado || ''
+    ];
+}
+
+function filaRevision(r) {
+    return [
+        r.id, r.momento || '', r.flujo || '', r.ambito || '', r.id_ambito || '',
+        r.id_visita || '', r.educador_correo || '', r.resultado || '', r.observaciones || '',
+        r.revisor || '', r.revisor_correo || '', new Date()
+    ];
 }
 
 /**
@@ -1229,7 +1461,9 @@ function instalarTriggerExport() {
     ScriptApp.getProjectTriggers().forEach(function (t) {
         if (t.getHandlerFunction() === 'exportarASheets') ScriptApp.deleteTrigger(t);
     });
-    ScriptApp.newTrigger('exportarASheets').timeBased().everyMinutes(15).create();
+    // Cada minuto: con la cola vacía una corrida es una sola llamada a Supabase, y lo que se
+    // captura en la app aparece en Sheets en ~1 min en vez de hasta 15.
+    ScriptApp.newTrigger('exportarASheets').timeBased().everyMinutes(1).create();
 }
 
 /** Minutos entre check-in y check-out. null si falta cualquiera de los dos momentos. */
@@ -1522,7 +1756,7 @@ function guardarEstrategias(estrategias, identidad) {
             valores: [
                 e.id, e.cliente || '', e.sector || '', e.grupo_articulo || '', e.etapa || '',
                 e.proyecto || '', e.productos || '', e.observaciones || '',
-                ahora, identidad.nombre || '', identidad.correo || ''
+                ahora, identidad.nombre || '', identidad.correo || '', e.tipo_estrategia || ''
             ]
         };
     });
@@ -2540,4 +2774,100 @@ function revisarConfiguracion() {
                 Logger.log('  "%s": ⚠ %s', par[0], err.message);
             }
         });
+}
+
+// ---------- MIGRACIÓN ÚNICA: Estrategias de la hoja → Supabase ----------
+
+/**
+ * Ejecutar UNA vez a mano desde el editor de Apps Script (Ejecutar → migrarEstrategiasASupabase).
+ *
+ * La Fase 3 movió Estrategias a Supabase pero no copió lo que ya vivía en la hoja "Estrategias",
+ * así que `pdt_estrategias` quedó vacía y la app dejó de mostrarlas. Es seguro repetirla: solo
+ * inserta las estrategias que Supabase aún no tiene y nunca pisa las que ya existen (pueden
+ * haberse editado en la app), y el tránsito de etapa solo se siembra para las recién insertadas.
+ */
+function migrarEstrategiasASupabase() {
+    var clave = claveServicioSupabase();
+    if (!clave) throw new Error('Falta la propiedad de script con la clave de servicio de Supabase.');
+
+    var hoja = obtenerHoja(HOJA_ESTRATEGIAS, ENCABEZADOS_ESTRATEGIAS);
+    if (hoja.getLastRow() < 2) { Logger.log('La hoja Estrategias está vacía: nada que migrar.'); return; }
+
+    var datos = hoja.getRange(2, 1, hoja.getLastRow() - 1, ENCABEZADOS_ESTRATEGIAS.length).getValues();
+    var filas = [];
+    var etapas = [];
+    datos.forEach(function (fila) {
+        var o = {};
+        ENCABEZADOS_ESTRATEGIAS.forEach(function (col, i) { o[col] = fila[i]; });
+        var id = String(o.id || '').trim();
+        var cliente = String(o.cliente || '').trim();
+        if (!id || !cliente) return;
+
+        var productos = String(o.productos || '').split(';')
+            .map(function (s) { return s.trim(); }).filter(Boolean);
+        var etapa = String(o.etapa || '').trim() || null;
+        var actualizado = o.actualizado ? new Date(o.actualizado).toISOString() : new Date().toISOString();
+
+        filas.push({
+            id: id, cliente: cliente,
+            sector: String(o.sector || '').trim() || null,
+            grupo_articulo: String(o.grupo_articulo || '').trim() || null,
+            etapa: etapa,
+            proyecto: String(o.proyecto || '').trim() || null,
+            productos: productos,
+            observaciones: String(o.observaciones || '').trim() || null,
+            actualizado: actualizado,
+            actualizado_por: String(o.actualizado_por || '').trim() || null,
+            actualizado_correo: String(o.actualizado_correo || '').trim().toLowerCase() || null
+        });
+        if (etapa) {
+            etapas.push({
+                id_estrategia: id, etapa: etapa, momento: actualizado,
+                actor_correo: String(o.actualizado_correo || '').trim().toLowerCase() || null,
+                actor_nombre: String(o.actualizado_por || '').trim() || null
+            });
+        }
+    });
+
+    var cabeceras = { apikey: clave, Authorization: 'Bearer ' + clave };
+
+    // Solo se insertan las que Supabase aún no tiene: lo que ya existe puede haberse editado en
+    // la app desde la migración, y la hoja tiene el valor viejo. Nunca se pisa. Se pagina porque
+    // PostgREST corta cada respuesta en 1000 filas.
+    var existentes = {};
+    for (var desde = 0; ; desde += 1000) {
+        var pag = UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/pdt_estrategias?select=id', {
+            headers: Object.assign({ Range: desde + '-' + (desde + 999), 'Range-Unit': 'items' }, cabeceras),
+            muteHttpExceptions: true
+        });
+        var ids = JSON.parse(pag.getContentText() || '[]');
+        ids.forEach(function (r) { existentes[r.id] = true; });
+        if (ids.length < 1000) break;
+    }
+
+    var porInsertar = filas.filter(function (f) { return !existentes[f.id]; });
+    if (porInsertar.length) {
+        var r1 = UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/pdt_estrategias?on_conflict=id', {
+            method: 'post', contentType: 'application/json',
+            headers: Object.assign({ Prefer: 'resolution=ignore-duplicates,return=minimal' }, cabeceras),
+            payload: JSON.stringify(porInsertar), muteHttpExceptions: true
+        });
+        if (r1.getResponseCode() >= 300) throw new Error('pdt_estrategias: ' + r1.getContentText());
+    }
+
+    // Histórico: solo para las recién insertadas.
+    var nuevasIds = {};
+    porInsertar.forEach(function (f) { nuevasIds[f.id] = true; });
+    var nuevas = etapas.filter(function (e) { return nuevasIds[e.id_estrategia]; });
+    if (nuevas.length) {
+        var r2 = UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/pdt_estrategia_etapas', {
+            method: 'post', contentType: 'application/json',
+            headers: Object.assign({ Prefer: 'return=minimal' }, cabeceras),
+            payload: JSON.stringify(nuevas), muteHttpExceptions: true
+        });
+        if (r2.getResponseCode() >= 300) throw new Error('pdt_estrategia_etapas: ' + r2.getContentText());
+    }
+
+    Logger.log('Hoja: %s estrategias. Insertadas: %s (ya existían: %s). Histórico sembrado: %s.',
+               filas.length, porInsertar.length, filas.length - porInsertar.length, nuevas.length);
 }

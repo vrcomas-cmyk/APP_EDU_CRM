@@ -276,6 +276,7 @@ export const bloqueoParaActividades = _visita.bloqueoParaActividades as (v: Visi
 export const etiquetaDiaLarga = _fechas.etiquetaDiaLarga as (dia?: string) => string;
 /** 'YYYY-MM-DD' (o cualquier cadena que empiece así) → 'DD/MM/YYYY'. Cadena vacía si no hay fecha. */
 export const fechaCorta = _fechas.fechaCorta as (fecha?: string | null) => string;
+export const fechaHoraCorta = _fechas.fechaHoraCorta as (instante?: string | Date | null) => string;
 export const claveDia = _fechas.claveDia as (d: Date | string) => string;
 export const claveHoy = _fechas.claveHoy as () => string;
 export const desdeClave = _fechas.desdeClave as (clave: string) => Date;
@@ -359,7 +360,7 @@ export const top = _datos.top as (mapa: Record<string, number>, n?: number) => A
 /** Dónde vive el archivo de una evidencia, o `null` si no hay nada que mostrar todavía. */
 export const urlEvidencia = _datos.urlEvidencia as (
     actividad: Actividad
-) => { tipo: 'remota' | 'local'; url?: string; id?: string; mime: string } | null;
+) => { tipo: 'remota' | 'local' | 'storage'; url?: string; id?: string; mime: string } | null;
 
 export const etiquetaEstado = _estado.etiquetaEstado as (e: string) => string;
 export const ESTADOS_VISITA = _estado.ESTADOS as Record<string, string>;

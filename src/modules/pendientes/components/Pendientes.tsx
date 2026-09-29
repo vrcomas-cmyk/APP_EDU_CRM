@@ -12,6 +12,9 @@ import { ComboFiltro } from '@shared/components/ComboFiltro';
 import { fechaCorta } from '@core/puente';
 import { usePendientes } from '../hooks/usePendientes';
 import type { Pendiente } from '@core/tipos';
+import { CampoFecha } from '@shared/components/CampoFecha';
+import { Esqueleto } from '@shared/components/Esqueleto';
+import { EstadoVacio } from '@shared/components/EstadoVacio';
 
 type Tab = 'abiertos' | 'resueltos' | 'todos';
 
@@ -70,11 +73,11 @@ export function Pendientes({ avisar }: Props) {
                 <ComboFiltro etiqueta="Cliente" valor={cliente} opciones={clientes} onCambiar={setCliente} />
                 <label className="filtro">
                     <span className="campo-lbl">Desde</span>
-                    <input type="date" className="inp" value={desde} onChange={(e) => setDesde(e.target.value)} />
+                    <CampoFecha className="inp" value={desde} onChange={(e) => setDesde(e.target.value)} />
                 </label>
                 <label className="filtro">
                     <span className="campo-lbl">Hasta</span>
-                    <input type="date" className="inp" value={hasta} onChange={(e) => setHasta(e.target.value)} />
+                    <CampoFecha className="inp" value={hasta} onChange={(e) => setHasta(e.target.value)} />
                 </label>
 
                 <div className="filtros-pie">
@@ -91,16 +94,11 @@ export function Pendientes({ avisar }: Props) {
             </div>
 
             {cargando && pendientes.length === 0 ? (
-                <p className="ayuda">Cargando…</p>
+                <Esqueleto />
             ) : filtrados.length === 0 ? (
-                <div className="vacio-grande">
-                    <p className="vacio-titulo">{tab === 'abiertos' ? 'Al día' : 'Nada que mostrar'}</p>
-                    <p className="ayuda">
-                        {tab === 'abiertos'
+                <EstadoVacio titulo={tab === 'abiertos' ? 'Al día' : 'Nada que mostrar'} texto={tab === 'abiertos'
                             ? 'No hay pendientes abiertos.'
-                            : 'Prueba ampliar el rango de fechas o quitar filtros.'}
-                    </p>
-                </div>
+                            : 'Prueba ampliar el rango de fechas o quitar filtros.'} />
             ) : (
                 <div className="revision-lista">
                     {filtrados.map(p => (

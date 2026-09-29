@@ -18,6 +18,7 @@ import { agruparPendientes, SIN_AGRUPAR, type CriteriosAgrupacion } from '../ser
 import { useRevision } from '../hooks/useRevision';
 import { PestanasFlujo } from './PestanasFlujo';
 import { TarjetaPendiente } from './TarjetaPendiente';
+import { EstadoVacio } from '@shared/components/EstadoVacio';
 
 interface Props {
     onCambio?: () => void;
@@ -126,10 +127,7 @@ export function Revision({ onCambio, avisar }: Props) {
 
 function AlDia({ nombre }: { nombre: string }) {
     return (
-        <div className="vacio-grande">
-            <p className="vacio-titulo">Al día</p>
-            <p className="ayuda">No hay nada pendiente en «{nombre}».</p>
-        </div>
+        <EstadoVacio titulo="Al día" texto={<>No hay nada pendiente en «{nombre}».</>} />
     );
 }
 
@@ -139,9 +137,6 @@ function AlDia({ nombre }: { nombre: string }) {
  */
 function SinFlujos() {
     return (
-        <div className="vacio-grande">
-            <p className="vacio-titulo">Nada que revisar</p>
-            <p className="ayuda">Tu perfil no tiene flujos de revisión asignados.</p>
-        </div>
+        <EstadoVacio titulo="Nada que revisar" texto={<>Tu perfil no tiene flujos de revisión asignados.</>} />
     );
 }

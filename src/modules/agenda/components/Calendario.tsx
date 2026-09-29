@@ -138,6 +138,17 @@ export function Calendario({
         return mapa;
     }, [todasVisibles]);
 
+    // Los eventos de Calendar de OTRAS personas solo se muestran si se eligió a una en el filtro
+    // de educador (y solo llegan las que están a mi cargo: el servidor recorta por jerarquía).
+    // Por defecto la agenda muestra únicamente lo propio.
+    const correoElegido = useMemo(() => {
+        if (!filtro.educador) return '';
+        for (const [correo, nombre] of nombrePorCorreo) {
+            if (nombre === filtro.educador) return correo;
+        }
+        return '';
+    }, [filtro.educador, nombrePorCorreo]);
+
     useEffect(() => {
         if (!calendarConectado || claves.length === 0) { setCompromisos(new Map()); return; }
 
@@ -147,11 +158,12 @@ export function Calendario({
         const desdeISO = desde.toISOString();
         const hastaISO = hasta.toISOString();
 
-        // Lo del equipo se pide en paralelo con lo propio; si nadie tiene equipo o el espejo no
-        // responde, `descargarCompromisosCalendarEquipo` ya vuelve `[]` en vez de fallar.
+        // Lo de la persona elegida se pide en paralelo con lo propio; si el espejo no responde,
+        // `descargarCompromisosCalendarEquipo` ya vuelve `[]` en vez de fallar.
+        const verOtra = tieneEquipo() && correoElegido !== '';
         Promise.all([
             listarCompromisos(desdeISO, hastaISO),
-            tieneEquipo() ? descargarCompromisosCalendarEquipo(desdeISO, hastaISO) : Promise.resolve({ compromisos: [] })
+            verOtra ? descargarCompromisosCalendarEquipo(desdeISO, hastaISO) : Promise.resolve({ compromisos: [] })
         ])
             .then(([propios, { compromisos: delEquipo }]) => {
                 if (!vivo) return;
@@ -164,6 +176,7 @@ export function Calendario({
                 };
                 propios.forEach(agregar);
                 for (const c of delEquipo) {
+                    if (c.educadorCorreo.toLowerCase() !== correoElegido) continue;
                     const quien = nombrePorCorreo.get(c.educadorCorreo.toLowerCase()) || c.educadorCorreo;
                     agregar({ ...c, titulo: `${quien}: ${c.titulo}` });
                 }
@@ -179,7 +192,7 @@ export function Calendario({
             });
 
         return () => { vivo = false; };
-    }, [claves, calendarConectado, nombrePorCorreo]);
+    }, [claves, calendarConectado, nombrePorCorreo, correoElegido]);
 
     const compromisosDe = useCallback(
         (clave: string) => compromisos.get(clave) ?? [],

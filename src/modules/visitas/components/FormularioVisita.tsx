@@ -9,12 +9,15 @@
 import { useCallback, useMemo, useRef } from 'react';
 import { Combo, filtrar } from '@shared/components/Combo';
 import {
-    etiquetaDiaLarga, fechaCorta, buscarSolapes, estadoDe, ESTADOS, consultarVisitas, esVisitaCliente,
+    fechaCorta, esVisitaCliente,
     etiquetaVisita, zonaDeCliente, ejecutivoDeZona, clientesEnMisZonas, leerEstrategias,
     type Avisar
 } from '@core/puente';
 import { moverInicio, cambiarFin } from '../services/horario';
+import { AvisoChoque } from './AvisoChoque';
+import { CampoFecha } from '@shared/components/CampoFecha';
 import * as repo from '../repository/visitasRepo';
+import { idsEstrategiasDe, aplicarSeleccion } from '@modules/estrategias/services/vinculo';
 import { HistoricoCliente } from './HistoricoCliente';
 import type { Visita } from '@core/tipos';
 
@@ -101,9 +104,19 @@ function CampoEstrategia({ visita, editar }: { visita: Visita; editar: Props['ed
 
     if (!visita.cliente?.trim() || activas.length === 0) return null;
 
+    const marcadas = new Set(idsEstrategiasDe(visita));
+
+    // Marcar/desmarcar también agrega o quita el sector del plan (ver `aplicarSeleccion`): así
+    // elegir la estrategia deja la visita lista para trabajarla, sin capturar el sector aparte.
+    const alternar = (id: string) => editar(v => {
+        const siguiente = new Set(idsEstrategiasDe(v));
+        if (siguiente.has(id)) siguiente.delete(id); else siguiente.add(id);
+        aplicarSeleccion(v, leerEstrategias().filter(e => e.cliente === v.cliente), [...siguiente], repo.nuevoId);
+    });
+
     return (
-        <label className="campo">
-            <span className="campo-lbl">Estrategia</span>
+        <fieldset className="campo campo-estrategias">
+            <legend className="campo-lbl">Estrategias</legend>
             {/* Recordatorio, no un candado: este cliente ya tiene un plan en Estrategias, y de
                 ahí también se puede generar la visita completa (cliente + sectores del plan de
                 un solo golpe). Vincular aquí sigue siendo válido — capturar primero y enlazar
@@ -114,20 +127,19 @@ function CampoEstrategia({ visita, editar }: { visita: Visita; editar: Props['ed
                     : `Este cliente tiene ${activas.length} estrategias activas.`}
                 {' '}También puedes generar la visita directamente desde Estrategias.
             </p>
-            <select
-                className="inp"
-                value={visita.id_estrategia || ''}
-                onChange={(e) => editar(v => { v.id_estrategia = e.target.value || undefined; })}
-            >
-                <option value="">Sin vincular</option>
-                {activas.map(e => (
-                    <option key={e.id} value={e.id}>
+            {activas.map(e => (
+                <label className="estrategia-opcion" key={e.id}>
+                    <input type="checkbox" checked={marcadas.has(e.id)} onChange={() => alternar(e.id)} />
+                    <span>
                         {[e.sector, e.grupo_articulo, e.proyecto].filter(Boolean).join(' · ') || 'Sin detalle'}
-                    </option>
-                ))}
-            </select>
-            <p className="ayuda">Esta visita cuenta para el avance de la estrategia elegida.</p>
-        </label>
+                    </span>
+                </label>
+            ))}
+            <p className="ayuda">
+                Marca todas las que vas a trabajar; su sector se agrega a la visita. El avance cuenta
+                solo para las que de verdad se trabajen.
+            </p>
+        </fieldset>
     );
 }
 
@@ -152,34 +164,16 @@ function CampoEducador({ visita }: { visita: Visita }) {
     );
 }
 
-/**
- * El `<input type="date">` nativo pinta su valor en el orden del idioma del NAVEGADOR/SO
- * (mm/dd/yyyy en inglés), no en el de la página — `lang` en el propio input no lo garantiza
- * en todos los navegadores. La única forma confiable de que SIEMPRE se lea dd/mm/aaaa es no
- * depender de ese render: el input real queda encima, transparente y funcional (teclado,
- * calendario nativo, accesibilidad), y lo que se VE es este texto de abajo, siempre en
- * `fechaCorta()`.
- */
 function CampoFechaVisita({ visita, editar }: { visita: Visita; editar: Props['editar'] }) {
-    const ref = useRef<HTMLInputElement>(null);
-
     return (
         <label className="campo">
             <span className="campo-lbl">Fecha</span>
-            <div className="campo-fecha-dd">
-                <span className="inp campo-fecha-dd-texto" aria-hidden="true">
-                    {fechaCorta(visita.dia) || 'dd/mm/aaaa'}
-                </span>
-                <input
-                    ref={ref}
-                    type="date"
-                    className="campo-fecha-dd-real"
-                    value={visita.dia || ''}
-                    onChange={(e) => editar(v => { v.dia = e.target.value; })}
-                    onClick={(e) => e.currentTarget.showPicker?.()}
-                    aria-label="Fecha de la visita"
-                />
-            </div>
+            <CampoFecha
+                className="inp"
+                value={visita.dia}
+                onChange={(e) => editar(v => { v.dia = e.target.value; })}
+                aria-label="Fecha de la visita"
+            />
         </label>
     );
 }
@@ -220,6 +214,7 @@ function CampoTipo({ visita, editar }: { visita: Visita; editar: Props['editar']
                                 v.zona = undefined;
                                 v.ejecutivo = undefined;
                                 v.id_estrategia = undefined;
+                                v.ids_estrategias = undefined;
                             }
                         })}
                     >
@@ -298,6 +293,7 @@ function CampoCliente({ visita, editar }: { visita: Visita; editar: Props['edita
                             v.zona = undefined;
                             v.ejecutivo = undefined;
                             v.id_estrategia = undefined;
+                            v.ids_estrategias = undefined;
                         } else {
                             // Al desmarcar, "Prospecto" no es un cliente real: se limpia para
                             // obligar a elegir uno de verdad del catálogo.
@@ -377,42 +373,8 @@ function CampoHoras({ visita, editar, avisar }: Props) {
                     onChange={(e) => alCambiarFin(e.target.value)}
                 />
             </div>
-            <AvisoSolape visita={visita} />
+            <AvisoChoque {...visita} />
         </div>
-    );
-}
-
-/** Avisa, no bloquea: a veces las visitas se solapan de verdad. */
-function AvisoSolape({ visita }: { visita: Visita }) {
-    const { dia, hora_inicio: horaInicio, hora_fin: horaFin, id } = visita;
-
-    const choques = useMemo(() => {
-        if (!dia || !horaInicio || !horaFin) return [];
-        // `consultarVisitas()` (local + espejo de equipo), no solo local: si no, un choque
-        // contra una visita capturada en otro dispositivo —o la de alguien más, para quien
-        // agenda por su equipo— nunca se avisaba.
-        const vivas = consultarVisitas().filter(v => estadoDe(v) !== ESTADOS.CANCELADA);
-        return buscarSolapes(vivas, visita, id);
-        // Deps por campo, no por el objeto `visita` completo: ese objeto es una referencia
-        // nueva cada vez que `editar()` relee el almacén, así que escribir en CUALQUIER otro
-        // campo (Hospital, Notas…) recalculaba este choque sobre todas las visitas locales sin
-        // que el horario hubiera cambiado — el costo real de este aviso es por tecla, no por
-        // cambio de horario.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [dia, horaInicio, horaFin, id]);
-
-    if (choques.length === 0) return null;
-
-    const quien = choques
-        .map(v => `${v.hora_inicio}–${v.hora_fin} ${etiquetaVisita(v)}`)
-        .join(', ');
-
-    return (
-        <p className="aviso">
-            {choques.length === 1
-                ? `Se encima con ${quien}.`
-                : `Se encima con ${choques.length} visitas: ${quien}.`}
-        </p>
     );
 }
 
@@ -430,7 +392,7 @@ export function PanelInformacion({ visita, editar }: { visita: Visita; editar?: 
                 ? 'No aplica — prospecto, sin catálogo'
                 : `${visita.zona || '—'} · ${visita.ejecutivo || '—'}`],
             ['Hospital', visita.hospital || '—'],
-            ['Fecha', etiquetaDiaLarga(visita.dia)],
+            ['Fecha', fechaCorta(visita.dia)],
             ['Horario', `${visita.hora_inicio}–${visita.hora_fin}`],
             ['Sectores', String((visita.sectores || []).length)]
         ]
@@ -438,16 +400,20 @@ export function PanelInformacion({ visita, editar }: { visita: Visita; editar?: 
             ['Educador', visita.educador || '—'],
             ['Tipo', visita.tipo === 'evento' ? 'Evento' : 'Administrativo'],
             ['Motivo', visita.motivo || '—'],
-            ['Fecha', etiquetaDiaLarga(visita.dia)],
+            ['Fecha', fechaCorta(visita.dia)],
             ['Horario', `${visita.hora_inicio}–${visita.hora_fin}`]
         ];
 
     // Solo si esta visita quedó vinculada a una — la mayoría de los clientes no tienen plan.
-    if (cliente && visita.id_estrategia) {
-        const estrategia = leerEstrategias().find(e => e.id === visita.id_estrategia);
-        filas.splice(3, 0, ['Estrategia', estrategia
-            ? [estrategia.sector, estrategia.grupo_articulo, estrategia.proyecto].filter(Boolean).join(' · ') || 'Sin detalle'
-            : '—']);
+    const idsEstrategias = idsEstrategiasDe(visita);
+    if (cliente && idsEstrategias.length) {
+        const todas = leerEstrategias();
+        const descripcion = (id: string) => {
+            const e = todas.find(x => x.id === id);
+            return e ? [e.sector, e.grupo_articulo, e.proyecto].filter(Boolean).join(' · ') || 'Sin detalle' : '—';
+        };
+        filas.splice(3, 0, [idsEstrategias.length > 1 ? 'Estrategias' : 'Estrategia',
+            idsEstrategias.map(descripcion).join(' | ')]);
     }
 
     return (

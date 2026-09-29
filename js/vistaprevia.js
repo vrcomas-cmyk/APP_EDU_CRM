@@ -25,6 +25,8 @@
 
 import { leerArchivo } from './storage.js';
 import { urlEvidencia } from './datos.js';
+import { sesionActual } from './auth.js';
+import { urlDeLecturaEvidencia } from '../src/services/supabase/evidencias';
 
 const esImagen = (mime) => String(mime || '').startsWith('image/');
 const esPDF = (mime) => String(mime || '') === 'application/pdf';
@@ -107,6 +109,16 @@ function cuerpoMiniatura(url, mime) {
  * de evidencias se va acumulando en memoria hasta que la pestaña se vuelve lenta.
  */
 async function resolver(fuente) {
+    if (fuente.tipo === 'storage') {
+        // URL firmada de Supabase Storage (vive una hora; se cachea 50 min en el servicio).
+        try {
+            const url = await urlDeLecturaEvidencia(sesionActual()?.sesion_token || '', fuente.id);
+            return { url, urlMiniatura: url, urlVisor: url, mime: fuente.mime, revocar: () => {} };
+        } catch (err) {
+            console.error('No se pudo obtener la evidencia de Storage:', err);
+            return { url: null };
+        }
+    }
     if (fuente.tipo === 'remota') {
         // `urlMiniatura`/`urlVisor` embebibles; `url` es la original de Drive, para
         // "Abrir aparte". Un archivo remoto sin id reconocible (formato inesperado) cae a

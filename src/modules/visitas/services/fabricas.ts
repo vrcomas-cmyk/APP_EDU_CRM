@@ -21,6 +21,8 @@ export interface DatosNuevaVisita {
     zona?: string;
     ejecutivo?: string;
     id_estrategia?: string;
+    /** Todas las estrategias que entran a la visita (ver `Visita.ids_estrategias`). */
+    ids_estrategias?: string[];
     sectorNombres?: string[];
 }
 
@@ -37,7 +39,7 @@ export interface DatosNuevaVisita {
 export function nuevaVisita(
     {
         dia = '', hora_inicio = '', hora_fin = '',
-        cliente = '', zona, ejecutivo, id_estrategia, sectorNombres
+        cliente = '', zona, ejecutivo, id_estrategia, ids_estrategias, sectorNombres
     }: DatosNuevaVisita,
     sesion: Sesion | null,
     nuevoId: GeneradorId
@@ -52,6 +54,9 @@ export function nuevaVisita(
         programado: true
     }));
 
+    // `id_estrategia` (la primera) se conserva: Sheets, indicadores y visitas ya guardadas lo leen.
+    const ids = [...new Set([...(ids_estrategias || []), ...(id_estrategia ? [id_estrategia] : [])])];
+
     return {
         id: nuevoId('v'),
         educador: sesion?.nombre || '',
@@ -59,7 +64,8 @@ export function nuevaVisita(
         cliente,
         zona,
         ejecutivo,
-        id_estrategia,
+        id_estrategia: ids[0],
+        ...(ids.length ? { ids_estrategias: ids } : {}),
         hospital: '',
         dia, hora_inicio, hora_fin,
         estado: 'programada',
