@@ -108,6 +108,55 @@ function sincronizarBarraMovil() {
     if (!temaActual()) metaColor.setAttribute('content', colorDeBarraActivo());
 }
 
+// ---------- estilo (subtema) ----------
+//
+// El ESTILO es ortogonal al tema de color: `data-theme` decide la paleta (Claro, Oscuro, DEGASA o
+// uno creado en Administración) y `data-estilo` decide la forma (radios, profundidad, vidrio,
+// botones). Ver `estilo-apple.css`. Se combinan libremente y se guardan por separado.
+
+const CLAVE_ESTILO = 'pdt_estilo';
+const ESTILOS = [
+    { clave: 'clasico', nombre: 'Clásico' },
+    { clave: 'apple', nombre: 'Apple' }
+];
+
+export function estiloActual() {
+    return localStorage.getItem(CLAVE_ESTILO) === 'apple' ? 'apple' : 'clasico';
+}
+
+export function aplicarEstilo(estilo) {
+    if (estilo === 'apple') {
+        document.documentElement.dataset.estilo = 'apple';
+        localStorage.setItem(CLAVE_ESTILO, 'apple');
+    } else {
+        delete document.documentElement.dataset.estilo;
+        localStorage.removeItem(CLAVE_ESTILO);
+    }
+}
+
+export function initEstilo(host) {
+    if (!host) return;
+
+    const pintar = () => {
+        const activo = estiloActual();
+        host.querySelectorAll('button[data-estilo]').forEach(b => {
+            b.setAttribute('aria-pressed', String(b.dataset.estilo === activo));
+        });
+    };
+
+    host.innerHTML = '';
+    for (const { clave, nombre } of ESTILOS) {
+        const boton = document.createElement('button');
+        boton.type = 'button';
+        boton.dataset.estilo = clave;
+        boton.textContent = nombre;
+        boton.setAttribute('aria-pressed', 'false');
+        boton.addEventListener('click', () => { aplicarEstilo(clave); pintar(); });
+        host.appendChild(boton);
+    }
+    pintar();
+}
+
 /**
  * Pinta los botones del selector — ya no son markup fijo en `index.html`: la lista depende de
  * cuántos temas personalizados haya, así que se construye aquí cada vez que `initTema` corre

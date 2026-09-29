@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Plan de Trabajo</title>
     <link rel="stylesheet" href="style.css">
+    <!-- Subtema de forma (data-estilo="apple"): no hace nada sin el atributo. -->
+    <link rel="stylesheet" href="estilo-apple.css">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#F5F8F7" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#0D1112" media="(prefers-color-scheme: dark)">
@@ -18,6 +20,10 @@
         // personalizado, lee el último cálculo cacheado (`pdt_tema_custom`, escrito por
         // `js/tema.js` la última vez que se aplicó) e inyecta esas variables directo.
         (function () {
+            try {
+                // Estilo (subtema de forma), independiente del tema de color de abajo.
+                if (localStorage.getItem('pdt_estilo') === 'apple') document.documentElement.dataset.estilo = 'apple';
+            } catch (e) {}
             try {
                 var t = localStorage.getItem('pdt_tema');
                 var colores = { light: '#F5F8F7', dark: '#0D1112', degasa: '#F7F9F1' };
@@ -95,6 +101,8 @@
                  —depende de cuántos temas personalizados haya en el catálogo—, así que no hay
                  markup que escribir a mano aquí. -->
             <div class="seg tema-switch" id="tema-switch" role="group" aria-label="Tema"></div>
+            <!-- Estilo (Clásico / Apple): se combina con cualquier tema de color. Lo pinta js/tema.js. -->
+            <div class="seg estilo-switch" id="estilo-switch" role="group" aria-label="Estilo"></div>
 
             <button type="button" id="btn-deuda" class="deuda" hidden>
                 <span class="dot st-faltan-evidencias" style="--st: var(--st-part)"></span>

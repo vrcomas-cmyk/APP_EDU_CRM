@@ -26,7 +26,7 @@ import { ponerVisitasEquipo, olvidarVisitasEquipo, hayEquipoCargado } from './da
 import { guardarCache, leerCache, borrarCache } from './cacheLocal.js';
 import { ponerFlujos, ponerRevisiones, olvidarRevisiones, hayRevisionesCargadas } from './revisiones.js';
 import { initAuth, sesionActual, pintarBotonEntrada, cerrarSesion } from './auth.js';
-import { initTema } from './tema.js';
+import { initTema, initEstilo } from './tema.js';
 import { ES_PRUEBAS } from '../src/services/config';
 import { conectarCanal } from '../src/services/supabase/realtime';
 
@@ -99,6 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     initTema(document.getElementById('tema-switch'));
+    initEstilo(document.getElementById('estilo-switch'));
 
     initPermisos();
     pintarBannerSimulacion();
