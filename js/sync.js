@@ -697,10 +697,16 @@ export async function subirCompromisosCalendar(compromisos, desdeISO, hastaISO) 
 export async function descargarCompromisosCalendarEquipo(desdeISO, hastaISO) {
     if (!navigator.onLine) return { compromisos: [], espejo: false };
     try {
-        const r = await postear({ action: 'leerCompromisosCalendarEquipo', desde: desdeISO, hasta: hastaISO });
+        // Directo a Supabase con el token de sesión (como estrategias/pendientes): pasar por
+        // Apps Script tardaba más que el tiempo límite y devolvía 404 del eco de Google.
+        const compromisos = await rpcEstricto('pdt_calendar_compromisos_equipo_sesion', {
+            p_sesion_token: sesionActual()?.sesion_token || '',
+            p_desde: desdeISO,
+            p_hasta: hastaISO
+        });
         return {
-            compromisos: Array.isArray(r?.compromisos) ? r.compromisos : [],
-            espejo: r?.espejo === true
+            compromisos: Array.isArray(compromisos) ? compromisos : [],
+            espejo: true
         };
     } catch (err) {
         console.error('No se pudieron leer los compromisos de Calendar del equipo:', err);

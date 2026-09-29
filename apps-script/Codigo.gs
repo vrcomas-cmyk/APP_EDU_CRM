@@ -2541,3 +2541,99 @@ function revisarConfiguracion() {
             }
         });
 }
+
+// ---------- MIGRACIÓN ÚNICA: Estrategias de la hoja → Supabase ----------
+
+/**
+ * Ejecutar UNA vez a mano desde el editor de Apps Script (Ejecutar → migrarEstrategiasASupabase).
+ *
+ * La Fase 3 movió Estrategias a Supabase pero no copió lo que ya vivía en la hoja "Estrategias",
+ * así que `pdt_estrategias` quedó vacía y la app dejó de mostrarlas. Es seguro repetirla: solo
+ * inserta las estrategias que Supabase aún no tiene y nunca pisa las que ya existen (pueden
+ * haberse editado en la app), y el tránsito de etapa solo se siembra para las recién insertadas.
+ */
+function migrarEstrategiasASupabase() {
+    var clave = claveServicioSupabase();
+    if (!clave) throw new Error('Falta la propiedad de script con la clave de servicio de Supabase.');
+
+    var hoja = obtenerHoja(HOJA_ESTRATEGIAS, ENCABEZADOS_ESTRATEGIAS);
+    if (hoja.getLastRow() < 2) { Logger.log('La hoja Estrategias está vacía: nada que migrar.'); return; }
+
+    var datos = hoja.getRange(2, 1, hoja.getLastRow() - 1, ENCABEZADOS_ESTRATEGIAS.length).getValues();
+    var filas = [];
+    var etapas = [];
+    datos.forEach(function (fila) {
+        var o = {};
+        ENCABEZADOS_ESTRATEGIAS.forEach(function (col, i) { o[col] = fila[i]; });
+        var id = String(o.id || '').trim();
+        var cliente = String(o.cliente || '').trim();
+        if (!id || !cliente) return;
+
+        var productos = String(o.productos || '').split(';')
+            .map(function (s) { return s.trim(); }).filter(Boolean);
+        var etapa = String(o.etapa || '').trim() || null;
+        var actualizado = o.actualizado ? new Date(o.actualizado).toISOString() : new Date().toISOString();
+
+        filas.push({
+            id: id, cliente: cliente,
+            sector: String(o.sector || '').trim() || null,
+            grupo_articulo: String(o.grupo_articulo || '').trim() || null,
+            etapa: etapa,
+            proyecto: String(o.proyecto || '').trim() || null,
+            productos: productos,
+            observaciones: String(o.observaciones || '').trim() || null,
+            actualizado: actualizado,
+            actualizado_por: String(o.actualizado_por || '').trim() || null,
+            actualizado_correo: String(o.actualizado_correo || '').trim().toLowerCase() || null
+        });
+        if (etapa) {
+            etapas.push({
+                id_estrategia: id, etapa: etapa, momento: actualizado,
+                actor_correo: String(o.actualizado_correo || '').trim().toLowerCase() || null,
+                actor_nombre: String(o.actualizado_por || '').trim() || null
+            });
+        }
+    });
+
+    var cabeceras = { apikey: clave, Authorization: 'Bearer ' + clave };
+
+    // Solo se insertan las que Supabase aún no tiene: lo que ya existe puede haberse editado en
+    // la app desde la migración, y la hoja tiene el valor viejo. Nunca se pisa. Se pagina porque
+    // PostgREST corta cada respuesta en 1000 filas.
+    var existentes = {};
+    for (var desde = 0; ; desde += 1000) {
+        var pag = UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/pdt_estrategias?select=id', {
+            headers: Object.assign({ Range: desde + '-' + (desde + 999), 'Range-Unit': 'items' }, cabeceras),
+            muteHttpExceptions: true
+        });
+        var ids = JSON.parse(pag.getContentText() || '[]');
+        ids.forEach(function (r) { existentes[r.id] = true; });
+        if (ids.length < 1000) break;
+    }
+
+    var porInsertar = filas.filter(function (f) { return !existentes[f.id]; });
+    if (porInsertar.length) {
+        var r1 = UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/pdt_estrategias?on_conflict=id', {
+            method: 'post', contentType: 'application/json',
+            headers: Object.assign({ Prefer: 'resolution=ignore-duplicates,return=minimal' }, cabeceras),
+            payload: JSON.stringify(porInsertar), muteHttpExceptions: true
+        });
+        if (r1.getResponseCode() >= 300) throw new Error('pdt_estrategias: ' + r1.getContentText());
+    }
+
+    // Histórico: solo para las recién insertadas.
+    var nuevasIds = {};
+    porInsertar.forEach(function (f) { nuevasIds[f.id] = true; });
+    var nuevas = etapas.filter(function (e) { return nuevasIds[e.id_estrategia]; });
+    if (nuevas.length) {
+        var r2 = UrlFetchApp.fetch(SUPABASE_URL + '/rest/v1/pdt_estrategia_etapas', {
+            method: 'post', contentType: 'application/json',
+            headers: Object.assign({ Prefer: 'return=minimal' }, cabeceras),
+            payload: JSON.stringify(nuevas), muteHttpExceptions: true
+        });
+        if (r2.getResponseCode() >= 300) throw new Error('pdt_estrategia_etapas: ' + r2.getContentText());
+    }
+
+    Logger.log('Hoja: %s estrategias. Insertadas: %s (ya existían: %s). Histórico sembrado: %s.',
+               filas.length, porInsertar.length, filas.length - porInsertar.length, nuevas.length);
+}
