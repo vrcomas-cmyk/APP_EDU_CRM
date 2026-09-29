@@ -60,18 +60,16 @@ describe('sincronizarTodo — una etapa caída no bloquea a las demás', () => {
             if (funcion === 'pdt_visitas_guardar_sesion') throw new Error('Supabase no respondió');
             return { status: 'ok' };
         });
-        postear.mockImplementation(async ({ action }) => {
-            if (action === 'guardarEventos') return { status: 'ok', espejo: true };
-            return { status: 'ok' };
-        });
+        postear.mockResolvedValue({ status: 'ok' });
 
         const r = await sincronizarTodo();
 
         assert.ok(r.errores?.visitas, 'la etapa de visitas debe quedar registrada como fallida');
         assert.equal(r.eventos.enviados, 1, 'la etapa de eventos debió correr de todos modos');
 
-        const llamadas = postear.mock.calls.map(([body]) => body.action);
-        assert.ok(llamadas.includes('guardarEventos'),
+        // Los eventos ya no pasan por Apps Script: van directo a Supabase con el token.
+        const llamadas = rpcEstricto.mock.calls.map(([funcion]) => funcion);
+        assert.ok(llamadas.includes('pdt_eventos_guardar_sesion'),
             'una cola caída no debe impedir que se intenten las demás');
     });
 

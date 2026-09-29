@@ -561,12 +561,15 @@ export async function sincronizarEventos() {
     const pendientes = eventosPendientes();
     if (pendientes.length === 0) return { enviados: 0 };
 
-    const resultado = await postear({ action: 'guardarEventos', eventos: pendientes });
-    // Igual que en visitas: si el espejo no respondió, no se marca sincronizado — se
-    // reintenta en el siguiente ciclo. Antes esto se ignoraba y un evento con el espejo caído
-    // quedaba marcado "al día" sin haber llegado nunca a Supabase.
-    if (resultado?.espejo !== false) marcarSincronizados(pendientes.map(e => e.id));
-    return { enviados: pendientes.length, espejo: resultado?.espejo !== false };
+    // Supabase primero, directo con el token de sesión (como visitas): Sheets se pone al día
+    // solo, desde `pdt_export_entidades`. Si la RPC falla lanza y no se marca sincronizado —
+    // se reintenta en el siguiente ciclo.
+    await rpcEstricto('pdt_eventos_guardar_sesion', {
+        p_sesion_token: sesionActual()?.sesion_token || '',
+        p_eventos: pendientes
+    });
+    marcarSincronizados(pendientes.map(e => e.id));
+    return { enviados: pendientes.length, espejo: true };
 }
 
 /**
@@ -577,9 +580,12 @@ export async function sincronizarComentarios() {
     const pendientes = comentariosPendientes();
     if (pendientes.length === 0) return { enviados: 0 };
 
-    const resultado = await postear({ action: 'guardarComentarios', comentarios: pendientes });
-    if (resultado?.espejo !== false) marcarComentarios(pendientes.map(c => c.id));
-    return { enviados: pendientes.length, espejo: resultado?.espejo !== false };
+    await rpcEstricto('pdt_comentarios_guardar_sesion', {
+        p_sesion_token: sesionActual()?.sesion_token || '',
+        p_comentarios: pendientes
+    });
+    marcarComentarios(pendientes.map(c => c.id));
+    return { enviados: pendientes.length, espejo: true };
 }
 
 /**
@@ -590,12 +596,14 @@ export async function sincronizarRevisiones() {
     const pendientes = revisionesPendientes();
     if (pendientes.length === 0) return { enviadas: 0 };
 
-    const resultado = await postear({ action: 'guardarRevisiones', revisiones: pendientes });
-    // `marcarRevisiones` BORRA de la cola: si el espejo falló no se llama, porque ahí no
-    // queda ningún flag de "pendiente" que reintentar — perderla de la cola la pierde para
-    // siempre.
-    if (resultado?.espejo !== false) marcarRevisiones(pendientes.map(r => r.id));
-    return { enviadas: pendientes.length, espejo: resultado?.espejo !== false };
+    await rpcEstricto('pdt_revisiones_guardar_sesion', {
+        p_sesion_token: sesionActual()?.sesion_token || '',
+        p_revisiones: pendientes
+    });
+    // `marcarRevisiones` BORRA de la cola: solo se llama si la RPC no lanzó, porque ahí no
+    // queda ningún flag de "pendiente" que reintentar.
+    marcarRevisiones(pendientes.map(r => r.id));
+    return { enviadas: pendientes.length, espejo: true };
 }
 
 // ---------- Google Calendar ----------

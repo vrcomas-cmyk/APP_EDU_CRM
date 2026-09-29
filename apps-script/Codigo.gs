@@ -128,6 +128,7 @@ const HOJA_EVENTOS = 'Eventos';
 const HOJA_COMENTARIOS = 'Comentarios';
 const HOJA_REVISIONES = 'Revisiones';
 const HOJA_ESTRATEGIAS = 'Estrategias';
+const HOJA_PENDIENTES = 'Pendientes';
 
 // Catálogo de materiales que lee el buscador de la app (filtrado por sector).
 const COL_MATERIAL = 'Material y Nombre';
@@ -379,7 +380,14 @@ const ENCABEZADOS_REVISIONES = [
 const ENCABEZADOS_ESTRATEGIAS = [
     'id', 'cliente', 'sector', 'grupo_articulo', 'etapa',
     'proyecto', 'productos', 'observaciones',
-    'actualizado', 'actualizado_por', 'actualizado_correo'
+    'actualizado', 'actualizado_por', 'actualizado_correo',
+    'tipo_estrategia'
+];
+
+// Copia de respaldo de los pendientes (la fuente es Supabase: pdt_pendientes).
+const ENCABEZADOS_PENDIENTES = [
+    'id', 'id_visita', 'cliente', 'hospital', 'descripcion', 'estado',
+    'creado_por', 'creado_correo', 'creado_en', 'resuelto_en', 'resuelto_por', 'resuelto_correo'
 ];
 
 const ENCABEZADOS_EVENTOS = [
@@ -1173,6 +1181,20 @@ function guardarVisitas(visitas, identidad) {
  * confirmado vuelve a estar disponible a los 30 min (`pdt_export_tomar`) en vez de perderse.
  */
 function exportarASheets() {
+    // El mismo candado que `doPost`: si no, el export y una escritura heredada (guardarVisitas,
+    // subirEvidencia…) agregan filas a la misma hoja con `getLastRow()+1` y se pisan.
+    var lock = LockService.getScriptLock();
+    if (!lock.tryLock(60000)) { Logger.log('exportarASheets: otra corrida tiene el candado.'); return 0; }
+    try {
+        var total = exportarVisitasASheets();
+        exportarEntidadesASheets();
+        return total;
+    } finally {
+        lock.releaseLock();
+    }
+}
+
+function exportarVisitasASheets() {
     var hojaVisitas = obtenerHoja(HOJA_VISITAS, ENCABEZADOS_VISITAS);
     var hojaActividades = obtenerHoja(HOJA_ACTIVIDADES, ENCABEZADOS_ACTIVIDADES);
     var hojaMateriales = obtenerHoja(HOJA_MATERIALES_CAPTURA, ENCABEZADOS_MATERIALES_CAPTURA);
@@ -1213,6 +1235,101 @@ function exportarASheets() {
 
     Logger.log('exportarASheets: %s visita(s) exportada(s).', totalExportadas);
     return totalExportadas;
+}
+
+/**
+ * Copia de respaldo a Sheets de lo demás que vive en Supabase: estrategias, pendientes,
+ * eventos, comentarios y revisiones. Drena `pdt_export_entidades` (llenada por triggers) con
+ * el mismo tomar/confirmar en dos pasos que las visitas. Upsert por id: reejecutarla o
+ * recibir una fila dos veces no duplica nada; un registro borrado en Supabase se borra aquí.
+ */
+function exportarEntidadesASheets() {
+    var destinos = {
+        estrategias: { hoja: HOJA_ESTRATEGIAS, encabezados: ENCABEZADOS_ESTRATEGIAS, fila: filaEstrategia },
+        pendientes:  { hoja: HOJA_PENDIENTES,  encabezados: ENCABEZADOS_PENDIENTES,  fila: filaPendiente },
+        eventos:     { hoja: HOJA_EVENTOS,     encabezados: ENCABEZADOS_EVENTOS,     fila: filaEvento },
+        comentarios: { hoja: HOJA_COMENTARIOS, encabezados: ENCABEZADOS_COMENTARIOS, fila: filaComentario },
+        revisiones:  { hoja: HOJA_REVISIONES,  encabezados: ENCABEZADOS_REVISIONES,  fila: filaRevision }
+    };
+
+    var limiteMs = new Date().getTime() + 4 * 60 * 1000;
+    var total = 0;
+
+    while (new Date().getTime() < limiteMs) {
+        var lote = supabaseRPC('pdt_export_entidades_tomar', { p_limite: 200 });
+        if (!lote || lote.length === 0) break;
+
+        var porEntidad = {};
+        lote.forEach(function (item) {
+            if (!destinos[item.entidad]) return;
+            (porEntidad[item.entidad] = porEntidad[item.entidad] || []).push(item);
+        });
+
+        Object.keys(porEntidad).forEach(function (entidad) {
+            var d = destinos[entidad];
+            var hoja = obtenerHoja(d.hoja, d.encabezados);
+            var filas = [];
+            porEntidad[entidad].forEach(function (item) {
+                if (item.fila) {
+                    filas.push({ id: item.id, valores: d.fila(item.fila) });
+                } else {
+                    var n = filaPorId(hoja, item.id);
+                    if (n) hoja.deleteRow(n);
+                }
+            });
+            upsert(hoja, d.encabezados, filas, []);
+        });
+
+        supabaseRPC('pdt_export_entidades_confirmar', {
+            p_claves: lote.map(function (i) { return { entidad: i.entidad, id: i.id }; })
+        });
+        total += lote.length;
+    }
+
+    Logger.log('exportarEntidadesASheets: %s registro(s).', total);
+    return total;
+}
+
+function filaEstrategia(r) {
+    return [
+        r.id, r.cliente || '', r.sector || '', r.grupo_articulo || '', r.etapa || '',
+        r.proyecto || '',
+        Array.isArray(r.productos) ? r.productos.join('; ') : (r.productos || ''),
+        r.observaciones || '', r.actualizado || '', r.actualizado_por || '',
+        r.actualizado_correo || '', r.tipo_estrategia || ''
+    ];
+}
+
+function filaPendiente(r) {
+    return [
+        r.id, r.id_visita || '', r.cliente || '', r.hospital || '', r.descripcion || '',
+        r.estado || '', r.creado_por || '', r.creado_correo || '', r.creado_en || '',
+        r.resuelto_en || '', r.resuelto_por || '', r.resuelto_correo || ''
+    ];
+}
+
+function filaEvento(r) {
+    return [
+        r.id, r.tipo || '', r.momento || '', r.id_visita || '', r.cliente || '', r.hospital || '',
+        r.educador || '', r.educador_correo || '', r.dispositivo || '',
+        JSON.stringify(r.datos || {}), r.actualizado || ''
+    ];
+}
+
+function filaComentario(r) {
+    return [
+        r.id, r.momento || '', r.ambito || '', r.id_ambito || '', r.id_visita || '',
+        r.cliente || '', r.hospital || '', r.usuario || '', r.usuario_correo || '',
+        r.texto || '', r.actualizado || ''
+    ];
+}
+
+function filaRevision(r) {
+    return [
+        r.id, r.momento || '', r.flujo || '', r.ambito || '', r.id_ambito || '',
+        r.id_visita || '', r.educador_correo || '', r.resultado || '', r.observaciones || '',
+        r.revisor || '', r.revisor_correo || '', new Date()
+    ];
 }
 
 /**
@@ -1522,7 +1639,7 @@ function guardarEstrategias(estrategias, identidad) {
             valores: [
                 e.id, e.cliente || '', e.sector || '', e.grupo_articulo || '', e.etapa || '',
                 e.proyecto || '', e.productos || '', e.observaciones || '',
-                ahora, identidad.nombre || '', identidad.correo || ''
+                ahora, identidad.nombre || '', identidad.correo || '', e.tipo_estrategia || ''
             ]
         };
     });
