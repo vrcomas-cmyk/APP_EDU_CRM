@@ -9,7 +9,7 @@
  */
 
 import {
-    leerVisitas, guardarVisitas as persistirVisitas, guardarCatalogo,
+    leerVisitas, guardarVisitas as persistirVisitas, guardarCatalogo, leerCatalogo,
     leerArchivo, borrarArchivo, todasLasActividades,
     leerEstrategias, guardarEstrategias as persistirEstrategias, fusionarEstrategiasEquipo,
     leerPendientes, guardarPendientes as persistirPendientes, fusionarPendientesEquipo
@@ -33,9 +33,28 @@ import { simulacionActiva } from './simulacion.js';
 
 // ---------- catálogos ----------
 
+const CLAVE_CATALOGO_DESCARGADO = 'pdt:catalogo-descargado';
+
+/**
+ * ¿El catálogo local se bajó hace menos de `maxEdadMs`? Bajarlo es lo más caro de la app
+ * (Apps Script abre ~15 hojas y responde ~1 MB) y antes se repetía en CADA sincronización, cada
+ * vuelta a primer plano y cada aviso de realtime — que llega a todos los dispositivos a la vez
+ * con cada guardado. Con esto se baja al arrancar y luego a lo más cada `maxEdadMs`; quien
+ * necesite lo último (Administración tras guardar) llama a `descargarCatalogo()` directo.
+ */
+export function catalogoEsFresco(maxEdadMs) {
+    try {
+        const t = Number(localStorage.getItem(CLAVE_CATALOGO_DESCARGADO));
+        return Boolean(leerCatalogo()) && t > 0 && Date.now() - t < maxEdadMs;
+    } catch {
+        return false;
+    }
+}
+
 export async function descargarCatalogo() {
     const datos = await leerCatalogos();
     guardarCatalogo(normalizarZonasDelCatalogo(datos));
+    try { localStorage.setItem(CLAVE_CATALOGO_DESCARGADO, String(Date.now())); } catch { /* sin cuota: solo se pierde la marca */ }
     return datos;
 }
 

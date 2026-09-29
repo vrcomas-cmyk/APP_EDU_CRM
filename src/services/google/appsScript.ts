@@ -121,6 +121,8 @@ export async function postear<T extends RespuestaAppsScript = RespuestaAppsScrip
     return (resultado ?? ({} as T));
 }
 
+const TIMEOUT_CATALOGO_MS = 60_000;
+
 /** GET sin parámetros: devuelve los catálogos. Es la única lectura pública del script. */
 export async function leerCatalogos<T = unknown>(): Promise<T> {
     if (APPS_SCRIPT_PENDIENTE) {
@@ -130,7 +132,23 @@ export async function leerCatalogos<T = unknown>(): Promise<T> {
             APPS_SCRIPT_URL
         );
     }
-    const respuesta = await fetch(APPS_SCRIPT_URL);
+    // El catálogo es pesado (~1 MB) y Apps Script tarda en arrancar: más margen que un POST
+    // normal, pero con tope — sin él, una conexión colgada dejaba la bajada en vuelo para siempre
+    // (y `bajarDelEspejo` deduplica contra ella, así que nada más se bajaba).
+    const control = new AbortController();
+    const reloj = setTimeout(() => control.abort(), TIMEOUT_CATALOGO_MS);
+    let respuesta: Response;
+    try {
+        respuesta = await fetch(APPS_SCRIPT_URL, { signal: control.signal });
+    } catch (err) {
+        const abortado = err instanceof Error && err.name === 'AbortError';
+        throw new ErrorDeRed(
+            abortado ? 'El catálogo tardó demasiado en descargarse.' : 'No se pudo conectar con el servidor.',
+            APPS_SCRIPT_URL
+        );
+    } finally {
+        clearTimeout(reloj);
+    }
     if (!respuesta.ok) {
         throw new ErrorDeRed(`Error al descargar catálogos: ${respuesta.status}`, APPS_SCRIPT_URL, respuesta.status);
     }

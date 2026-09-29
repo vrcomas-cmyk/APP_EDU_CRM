@@ -8,7 +8,7 @@
 
 import { migrarSiHaceFalta, leerCatalogo, adoptarVisitasPropias } from './storage.js';
 import {
-    descargarCatalogo, sincronizarTodo, descargarVisitasEquipo, descargarRevisiones
+    descargarCatalogo, catalogoEsFresco, sincronizarTodo, descargarVisitasEquipo, descargarRevisiones
 } from './sync.js';
 import { deudaGlobal } from './estado.js';
 import {
@@ -22,8 +22,9 @@ import {
     accesoBloqueado, aceptarInvitacion,
     enSimulacion, detalleSimulacion, salirSimulacion
 } from './permisos.js';
-import { ponerVisitasEquipo, olvidarVisitasEquipo } from './datos.js';
-import { ponerFlujos, ponerRevisiones, olvidarRevisiones } from './revisiones.js';
+import { ponerVisitasEquipo, olvidarVisitasEquipo, hayEquipoCargado } from './datos.js';
+import { guardarCache, leerCache, borrarCache } from './cacheLocal.js';
+import { ponerFlujos, ponerRevisiones, olvidarRevisiones, hayRevisionesCargadas } from './revisiones.js';
 import { initAuth, sesionActual, pintarBotonEntrada, cerrarSesion } from './auth.js';
 import { initTema } from './tema.js';
 import { ES_PRUEBAS } from '../src/services/config';
@@ -80,6 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!confirm('¿Cerrar sesión en este dispositivo?')) return;
         // El perfil cacheado es de quien se va: dejarlo daría sus permisos a quien entre.
         olvidarPerfil();
+        borrarCache(sesionActual()?.correo);
         cerrarSesion();
     });
 
@@ -87,6 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
         olvidarPerfil();
         olvidarVisitasEquipo();
         olvidarRevisiones();
+        borrarCache(sesionActual()?.correo);
         cerrarSesion();
     });
 
@@ -235,6 +238,7 @@ function cargarEquipo() {
     return descargarVisitasEquipo().then(({ visitas, espejo }) => {
         if (!espejo) return;      // el espejo no está configurado: se sigue con lo local
         ponerVisitasEquipo(visitas);
+        guardarCache(sesionActual()?.correo, 'visitas', visitas);
         if (!enSimulacion()) adoptarVisitasPropias(visitas, sesionActual()?.correo);
         refrescarTodo();
     });
@@ -249,6 +253,7 @@ function cargarRevisiones() {
         if (!espejo) return;
         ponerFlujos(flujos);
         ponerRevisiones(revisiones);
+        guardarCache(sesionActual()?.correo, 'revisiones', { flujos, revisiones });
         pintarAccesos();
         refrescarTodo();
     });
@@ -276,9 +281,31 @@ function bajarDelEspejo() {
     return bajadaEnVuelo;
 }
 
+/**
+ * Arranque instantáneo: pinta lo último que se bajó del equipo (IndexedDB) mientras el servidor
+ * responde. Solo llena lo que aún está vacío — si la bajada real ya llegó, esa manda.
+ */
+async function hidratarDesdeCache() {
+    const correo = sesionActual()?.correo;
+    const [visitas, rev] = await Promise.all([leerCache(correo, 'visitas'), leerCache(correo, 'revisiones')]);
+    let algo = false;
+
+    if (Array.isArray(visitas) && !hayEquipoCargado()) {
+        ponerVisitasEquipo(visitas);
+        algo = true;
+    }
+    if (rev && !hayRevisionesCargadas()) {
+        ponerFlujos(rev.flujos);
+        ponerRevisiones(rev.revisiones);
+        algo = true;
+    }
+    if (algo) { pintarAccesos(); refrescarTodo(); }
+}
+
 /** Todo lo que antes vivía suelto en DOMContentLoaded: ahora espera a que haya sesión. */
 function iniciarApp() {
     appIniciada = true;
+    hidratarDesdeCache();
 
     configurarToken(() => {
         const sesion = sesionActual();
@@ -654,7 +681,12 @@ async function sincronizar({ manual = false, reintentoPorConexion = false } = {}
 
 // ---------- catálogo ----------
 
+// El catálogo cambia poco (Administración fuerza su propia descarga al guardar): no hace falta
+// repetirlo en cada sincronización, foco o aviso de realtime.
+const EDAD_MAXIMA_CATALOGO_MS = 30 * 60 * 1000;
+
 async function descargarCatalogoSiSePuede() {
+    if (catalogoEsFresco(EDAD_MAXIMA_CATALOGO_MS)) return;
     try {
         await descargarCatalogo();
         pintarAccesos();   // el catálogo pudo cambiar
