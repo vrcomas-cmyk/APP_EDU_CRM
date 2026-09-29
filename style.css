@@ -2250,3 +2250,6 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 .expediente-en-curso > p { font-size: 13px; margin: 0 0 8px; }
 .expediente-en-curso .expediente { border-top: 1px solid var(--rule-soft); padding-top: 8px; }
 
+
+/* Marcador de un CampoFecha sin valor ("dd/mm/aaaa"). */
+.campo-fecha-dd-vacio { color: var(--muted); }

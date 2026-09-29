@@ -276,6 +276,7 @@ export const bloqueoParaActividades = _visita.bloqueoParaActividades as (v: Visi
 export const etiquetaDiaLarga = _fechas.etiquetaDiaLarga as (dia?: string) => string;
 /** 'YYYY-MM-DD' (o cualquier cadena que empiece así) → 'DD/MM/YYYY'. Cadena vacía si no hay fecha. */
 export const fechaCorta = _fechas.fechaCorta as (fecha?: string | null) => string;
+export const fechaHoraCorta = _fechas.fechaHoraCorta as (instante?: string | Date | null) => string;
 export const claveDia = _fechas.claveDia as (d: Date | string) => string;
 export const claveHoy = _fechas.claveHoy as () => string;
 export const desdeClave = _fechas.desdeClave as (clave: string) => Date;

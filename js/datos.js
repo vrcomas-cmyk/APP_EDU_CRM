@@ -410,7 +410,7 @@ const MIME_POR_EXTENSION = {
 
 /** El espejo no siempre trae el MIME: se deduce de la extensión del nombre. */
 function mimePorNombre(nombre) {
-    const m = String(nombre || '').toLowerCase().match(/.([a-z0-9]{1,5})$/);
+    const m = String(nombre || '').toLowerCase().match(/\.([a-z0-9]{1,5})$/);
     return (m && MIME_POR_EXTENSION[m[1]]) || '';
 }
 

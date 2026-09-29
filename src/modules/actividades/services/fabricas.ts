@@ -3,6 +3,7 @@
  */
 
 import type { Actividad, Sello, Sesion } from '@core/tipos';
+import { fechaHoraCorta } from '@core/puente';
 
 export type GeneradorId = (prefijo: string) => string;
 
@@ -56,9 +57,7 @@ export function textoDelSello(sello: Sello | undefined): string {
     }
 
     const cuando = sello.momento
-        ? new Date(sello.momento).toLocaleString('es-MX', {
-            day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
-        })
+        ? fechaHoraCorta(sello.momento)
         : '—';
 
     return `Guardada el ${cuando}${sello.usuario ? ` por ${sello.usuario}` : ''}.`;

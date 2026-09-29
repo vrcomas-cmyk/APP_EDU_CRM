@@ -10,6 +10,7 @@ import { useMemo } from 'react';
 import { consultarVisitas, opcionesDeFiltro, etiquetaEstado, tieneEquipo, type Filtro } from '@core/puente';
 import { ComboFiltro } from '@shared/components/ComboFiltro';
 import type { Visita } from '@core/tipos';
+import { CampoFecha } from '@shared/components/CampoFecha';
 
 interface Props {
     filtro: Filtro;
@@ -103,8 +104,8 @@ function Fecha({ etiqueta, clave, filtro, onCambiar }: {
     return (
         <label className="filtro">
             <span className="campo-lbl">{etiqueta}</span>
-            <input
-                type="date" className="inp"
+            <CampoFecha
+                className="inp"
                 value={filtro[clave] || ''}
                 onChange={(e) => onCambiar(clave, e.target.value)}
             />

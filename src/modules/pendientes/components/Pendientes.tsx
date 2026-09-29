@@ -12,6 +12,7 @@ import { ComboFiltro } from '@shared/components/ComboFiltro';
 import { fechaCorta } from '@core/puente';
 import { usePendientes } from '../hooks/usePendientes';
 import type { Pendiente } from '@core/tipos';
+import { CampoFecha } from '@shared/components/CampoFecha';
 
 type Tab = 'abiertos' | 'resueltos' | 'todos';
 
@@ -70,11 +71,11 @@ export function Pendientes({ avisar }: Props) {
                 <ComboFiltro etiqueta="Cliente" valor={cliente} opciones={clientes} onCambiar={setCliente} />
                 <label className="filtro">
                     <span className="campo-lbl">Desde</span>
-                    <input type="date" className="inp" value={desde} onChange={(e) => setDesde(e.target.value)} />
+                    <CampoFecha className="inp" value={desde} onChange={(e) => setDesde(e.target.value)} />
                 </label>
                 <label className="filtro">
                     <span className="campo-lbl">Hasta</span>
-                    <input type="date" className="inp" value={hasta} onChange={(e) => setHasta(e.target.value)} />
+                    <CampoFecha className="inp" value={hasta} onChange={(e) => setHasta(e.target.value)} />
                 </label>
 
                 <div className="filtros-pie">

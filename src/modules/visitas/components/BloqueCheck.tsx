@@ -11,7 +11,7 @@ import {
     tieneCheckIn, tieneCheckOut, puedeIniciar, iniciarVisita, finalizarVisita,
     permanenciaTexto, duracionTexto, describirUbicacion, precisionDudosa,
     reactivarVisita, minutosDeRetraso, esVisitaCliente, consultarVisitas, visitaAbiertaDe,
-    upsertPendiente, sincronizarPendientes, nuevoId, sesionActual,
+    upsertPendiente, sincronizarPendientes, nuevoId, sesionActual, fechaHoraCorta,
     type Resultado, type Avisar
 } from '@core/puente';
 import type { Visita, Marca } from '@core/tipos';
@@ -178,9 +178,7 @@ export function BloqueCheck({ visita, avisar, alTerminar, soloLectura, abrirOtra
 }
 
 function MarcaCheck({ etiqueta, marca }: { etiqueta: string; marca: Marca }) {
-    const cuando = new Date(marca.momento).toLocaleString('es-MX', {
-        day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
-    });
+    const cuando = fechaHoraCorta(marca.momento);
 
     return (
         <div className="marca">

@@ -36,6 +36,7 @@ import type { Medida } from '../../dashboard/components/Medidas';
 import { Dona } from '@shared/components/Dona';
 import { BarraApilada, type FilaApilada } from '@shared/components/BarraApilada';
 import { descargarReporteExcel } from '../services/exportarExcel';
+import { CampoFecha } from '@shared/components/CampoFecha';
 
 const HOY = () => new Date().toISOString().slice(0, 10);
 const PRIMER_DIA_MES = () => {
@@ -151,12 +152,12 @@ export function ReporteActividades() {
             <div className="filtros">
                 <label className="filtro">
                     <span className="campo-lbl">Desde</span>
-                    <input type="date" className="inp" value={filtro.desde}
+                    <CampoFecha className="inp" value={filtro.desde}
                            onChange={(e) => cambiar('desde', e.target.value)} />
                 </label>
                 <label className="filtro">
                     <span className="campo-lbl">Hasta</span>
-                    <input type="date" className="inp" value={filtro.hasta}
+                    <CampoFecha className="inp" value={filtro.hasta}
                            onChange={(e) => cambiar('hasta', e.target.value)} />
                 </label>
                 <Select etiqueta="Sector" valor={filtro.sector} opciones={opcionesSector}

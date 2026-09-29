@@ -23,7 +23,7 @@ import {
     leerEstrategias, upsertEstrategia, eliminarEstrategia, eliminarEstrategiaRemota, nuevoId,
     descargarEstrategiasEquipo, sincronizarEstrategias, clientesEnMisZonas,
     sectores, gruposDeSector, buscarMateriales, tiposEstrategia, descripcionTipoEstrategia,
-    etapasEstrategia, sesionActual, consultarVisitas, type Avisar
+    etapasEstrategia, sesionActual, consultarVisitas, fechaHoraCorta as fechaHoraDdMmAaaa, type Avisar
 } from '@core/puente';
 import { Combo, filtrar } from '@shared/components/Combo';
 import { abrirNuevaVisita } from '@modules/visitas/montarDrawer';
@@ -629,8 +629,5 @@ function LineaTiempoEtapas({ etapas }: { etapas?: EtapaHistorial[] }) {
 }
 
 function fechaHoraCorta(iso?: string): string {
-    if (!iso) return '—';
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return '—';
-    return d.toLocaleString('es-MX', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    return fechaHoraDdMmAaaa(iso) || '—';
 }

@@ -15,6 +15,7 @@ import {
 } from '@core/puente';
 import { moverInicio, cambiarFin } from '../services/horario';
 import { AvisoChoque } from './AvisoChoque';
+import { CampoFecha } from '@shared/components/CampoFecha';
 import * as repo from '../repository/visitasRepo';
 import { HistoricoCliente } from './HistoricoCliente';
 import type { Visita } from '@core/tipos';
@@ -153,34 +154,16 @@ function CampoEducador({ visita }: { visita: Visita }) {
     );
 }
 
-/**
- * El `<input type="date">` nativo pinta su valor en el orden del idioma del NAVEGADOR/SO
- * (mm/dd/yyyy en inglés), no en el de la página — `lang` en el propio input no lo garantiza
- * en todos los navegadores. La única forma confiable de que SIEMPRE se lea dd/mm/aaaa es no
- * depender de ese render: el input real queda encima, transparente y funcional (teclado,
- * calendario nativo, accesibilidad), y lo que se VE es este texto de abajo, siempre en
- * `fechaCorta()`.
- */
 function CampoFechaVisita({ visita, editar }: { visita: Visita; editar: Props['editar'] }) {
-    const ref = useRef<HTMLInputElement>(null);
-
     return (
         <label className="campo">
             <span className="campo-lbl">Fecha</span>
-            <div className="campo-fecha-dd">
-                <span className="inp campo-fecha-dd-texto" aria-hidden="true">
-                    {fechaCorta(visita.dia) || 'dd/mm/aaaa'}
-                </span>
-                <input
-                    ref={ref}
-                    type="date"
-                    className="campo-fecha-dd-real"
-                    value={visita.dia || ''}
-                    onChange={(e) => editar(v => { v.dia = e.target.value; })}
-                    onClick={(e) => e.currentTarget.showPicker?.()}
-                    aria-label="Fecha de la visita"
-                />
-            </div>
+            <CampoFecha
+                className="inp"
+                value={visita.dia}
+                onChange={(e) => editar(v => { v.dia = e.target.value; })}
+                aria-label="Fecha de la visita"
+            />
         </label>
     );
 }

@@ -7,12 +7,13 @@
  */
 
 import { useState } from 'react';
-import { reagendarVisita, fechaCorta, type Avisar } from '@core/puente';
+import { reagendarVisita, fechaCorta, fechaHoraCorta, type Avisar } from '@core/puente';
 import { moverInicio } from '../services/horario';
 import { AvisoChoque } from './AvisoChoque';
 import { reflejarEnCalendar } from '../services/calendarSync';
 import * as repo from '../repository/visitasRepo';
 import type { Visita } from '@core/tipos';
+import { CampoFecha } from '@shared/components/CampoFecha';
 
 interface Props {
     visita: Visita;
@@ -56,7 +57,7 @@ export function BloqueReagendar({ visita, avisar, alReagendar }: Props) {
 
             <label className="campo">
                 <span className="campo-lbl">Fecha</span>
-                <input type="date" className="inp" value={dia} onChange={(e) => setDia(e.target.value)} />
+                <CampoFecha className="inp" value={dia} onChange={(e) => setDia(e.target.value)} />
             </label>
 
             <div className="campo">
@@ -122,7 +123,7 @@ export function HistorialReagendas({ visita }: { visita: Visita }) {
                             {fechaCorta(r.despues.dia)} {r.despues.hora_inicio}–{r.despues.hora_fin}
                         </p>
                         <p className="historial-meta">
-                            {r.motivo} · {r.usuario || 'Sin usuario'} · {new Date(r.momento).toLocaleString('es-MX')}
+                            {r.motivo} · {r.usuario || 'Sin usuario'} · {fechaHoraCorta(r.momento)}
                         </p>
                     </div>
                 );

@@ -11,6 +11,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { leerHistoricoActividades, leerHistoricoPlanTrabajo, fechaCorta } from '@core/puente';
 import type { FilaHistoricoActividad, FilaHistoricoPlanTrabajo } from '@core/tipos';
+import { CampoFecha } from '@shared/components/CampoFecha';
 
 type Pagina = 'actividades' | 'plan-trabajo';
 
@@ -131,12 +132,12 @@ function TablaActividades({ filas }: { filas: FilaHistoricoActividad[] }) {
             <div className="filtros">
                 <label className="filtro">
                     <span className="campo-lbl">Desde</span>
-                    <input type="date" className="inp" value={filtro.desde}
+                    <CampoFecha className="inp" value={filtro.desde}
                            onChange={(e) => setFiltro(f => ({ ...f, desde: e.target.value }))} />
                 </label>
                 <label className="filtro">
                     <span className="campo-lbl">Hasta</span>
-                    <input type="date" className="inp" value={filtro.hasta}
+                    <CampoFecha className="inp" value={filtro.hasta}
                            onChange={(e) => setFiltro(f => ({ ...f, hasta: e.target.value }))} />
                 </label>
                 <Select etiqueta="Educador" valor={filtro.educador}
@@ -222,12 +223,12 @@ function TablaPlanTrabajo({ filas }: { filas: FilaHistoricoPlanTrabajo[] }) {
             <div className="filtros">
                 <label className="filtro">
                     <span className="campo-lbl">Desde</span>
-                    <input type="date" className="inp" value={filtro.desde}
+                    <CampoFecha className="inp" value={filtro.desde}
                            onChange={(e) => setFiltro(f => ({ ...f, desde: e.target.value }))} />
                 </label>
                 <label className="filtro">
                     <span className="campo-lbl">Hasta</span>
-                    <input type="date" className="inp" value={filtro.hasta}
+                    <CampoFecha className="inp" value={filtro.hasta}
                            onChange={(e) => setFiltro(f => ({ ...f, hasta: e.target.value }))} />
                 </label>
                 <Select etiqueta="Educador" valor={filtro.educador}

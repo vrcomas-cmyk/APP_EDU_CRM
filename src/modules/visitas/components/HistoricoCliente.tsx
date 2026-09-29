@@ -9,7 +9,7 @@
  */
 
 import { useMemo } from 'react';
-import { historicoDeHospital } from '@core/puente';
+import { historicoDeHospital, fechaCorta as fechaDdMmAaaa } from '@core/puente';
 import type { Visita } from '@core/tipos';
 
 export function HistoricoCliente({ visita }: { visita: Visita }) {
@@ -48,8 +48,5 @@ export function HistoricoCliente({ visita }: { visita: Visita }) {
 }
 
 function fechaCorta(iso?: string): string {
-    if (!iso) return '—';
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return '—';
-    return d.toLocaleString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+    return fechaDdMmAaaa(iso) || '—';
 }

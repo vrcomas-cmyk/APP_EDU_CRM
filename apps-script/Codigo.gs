@@ -1347,7 +1347,7 @@ function copiarEvidenciaADrive(item) {
         { headers: cab, muteHttpExceptions: true });
     if (descarga.getResponseCode() !== 200) return false;
 
-    var m = String(r.ruta).match(/.[A-Za-z0-9]{1,5}$/);
+    var m = String(r.ruta).match(/\.[A-Za-z0-9]{1,5}$/);
     var nombre = r.id + (m ? m[0] : '');
     var blob = descarga.getBlob().setName(nombre);
 
