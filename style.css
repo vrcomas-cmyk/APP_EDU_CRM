@@ -2309,3 +2309,14 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 .vista-encabezado h2 { margin: 0; font-size: var(--fs-xl); font-weight: 650; letter-spacing: -.01em; }
 .vista-encabezado p { margin: var(--sp-1) 0 0; color: var(--muted); font-size: var(--fs-md); }
 .vista-acciones { display: flex; gap: var(--sp-2); align-items: center; flex-wrap: wrap; }
+
+/* Estrategias de una visita: una casilla por estrategia (antes un <select> de una sola). */
+.campo-estrategias { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: var(--sp-2); }
+.campo-estrategias > legend { padding: 0; margin-bottom: var(--sp-1); }
+.estrategia-opcion {
+  display: flex; align-items: flex-start; gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3); border: 1px solid var(--rule); border-radius: var(--r-md);
+  background: var(--surface); cursor: pointer; font-size: var(--fs-md);
+}
+.estrategia-opcion:hover { background: var(--surface-2); }
+.estrategia-opcion input { margin-top: 3px; flex: none; }

@@ -334,7 +334,10 @@ const ENCABEZADOS_VISITAS = [
     'calendar_event_id',
     // true = el sector venía en el plan (agenda/Estrategia); false/vacío = se agregó sobre la
     // marcha, incluido desde "Subir Actividad" como sector trabajado sin haber sido programado.
-    'sector_programado'
+    'sector_programado',
+    // Todas las estrategias que avanza la visita, separadas por "; ". `id_estrategia` sigue con la
+    // primera. Al final, como siempre: `obtenerHoja` solo tolera columnas nuevas al final.
+    'ids_estrategias'
 ];
 
 const ENCABEZADOS_ACTIVIDADES = [
@@ -1079,7 +1082,9 @@ function filasDeVisitas(visitas, identidad) {
                     visita.tipo || 'cliente', visita.motivo || '',
                     visita.es_prospecto === true,
                     visita.calendar_event_id || '',
-                    sector.programado === true
+                    sector.programado === true,
+                    (visita.ids_estrategias && visita.ids_estrategias.length
+                        ? visita.ids_estrategias : (visita.id_estrategia ? [visita.id_estrategia] : [])).join('; ')
                 ]
             });
 

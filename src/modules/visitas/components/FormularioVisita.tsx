@@ -17,6 +17,7 @@ import { moverInicio, cambiarFin } from '../services/horario';
 import { AvisoChoque } from './AvisoChoque';
 import { CampoFecha } from '@shared/components/CampoFecha';
 import * as repo from '../repository/visitasRepo';
+import { idsEstrategiasDe, aplicarSeleccion } from '@modules/estrategias/services/vinculo';
 import { HistoricoCliente } from './HistoricoCliente';
 import type { Visita } from '@core/tipos';
 
@@ -103,9 +104,19 @@ function CampoEstrategia({ visita, editar }: { visita: Visita; editar: Props['ed
 
     if (!visita.cliente?.trim() || activas.length === 0) return null;
 
+    const marcadas = new Set(idsEstrategiasDe(visita));
+
+    // Marcar/desmarcar también agrega o quita el sector del plan (ver `aplicarSeleccion`): así
+    // elegir la estrategia deja la visita lista para trabajarla, sin capturar el sector aparte.
+    const alternar = (id: string) => editar(v => {
+        const siguiente = new Set(idsEstrategiasDe(v));
+        if (siguiente.has(id)) siguiente.delete(id); else siguiente.add(id);
+        aplicarSeleccion(v, leerEstrategias().filter(e => e.cliente === v.cliente), [...siguiente], repo.nuevoId);
+    });
+
     return (
-        <label className="campo">
-            <span className="campo-lbl">Estrategia</span>
+        <fieldset className="campo campo-estrategias">
+            <legend className="campo-lbl">Estrategias</legend>
             {/* Recordatorio, no un candado: este cliente ya tiene un plan en Estrategias, y de
                 ahí también se puede generar la visita completa (cliente + sectores del plan de
                 un solo golpe). Vincular aquí sigue siendo válido — capturar primero y enlazar
@@ -116,20 +127,19 @@ function CampoEstrategia({ visita, editar }: { visita: Visita; editar: Props['ed
                     : `Este cliente tiene ${activas.length} estrategias activas.`}
                 {' '}También puedes generar la visita directamente desde Estrategias.
             </p>
-            <select
-                className="inp"
-                value={visita.id_estrategia || ''}
-                onChange={(e) => editar(v => { v.id_estrategia = e.target.value || undefined; })}
-            >
-                <option value="">Sin vincular</option>
-                {activas.map(e => (
-                    <option key={e.id} value={e.id}>
+            {activas.map(e => (
+                <label className="estrategia-opcion" key={e.id}>
+                    <input type="checkbox" checked={marcadas.has(e.id)} onChange={() => alternar(e.id)} />
+                    <span>
                         {[e.sector, e.grupo_articulo, e.proyecto].filter(Boolean).join(' · ') || 'Sin detalle'}
-                    </option>
-                ))}
-            </select>
-            <p className="ayuda">Esta visita cuenta para el avance de la estrategia elegida.</p>
-        </label>
+                    </span>
+                </label>
+            ))}
+            <p className="ayuda">
+                Marca todas las que vas a trabajar; su sector se agrega a la visita. El avance cuenta
+                solo para las que de verdad se trabajen.
+            </p>
+        </fieldset>
     );
 }
 
@@ -204,6 +214,7 @@ function CampoTipo({ visita, editar }: { visita: Visita; editar: Props['editar']
                                 v.zona = undefined;
                                 v.ejecutivo = undefined;
                                 v.id_estrategia = undefined;
+                                v.ids_estrategias = undefined;
                             }
                         })}
                     >
@@ -282,6 +293,7 @@ function CampoCliente({ visita, editar }: { visita: Visita; editar: Props['edita
                             v.zona = undefined;
                             v.ejecutivo = undefined;
                             v.id_estrategia = undefined;
+                            v.ids_estrategias = undefined;
                         } else {
                             // Al desmarcar, "Prospecto" no es un cliente real: se limpia para
                             // obligar a elegir uno de verdad del catálogo.
@@ -393,11 +405,15 @@ export function PanelInformacion({ visita, editar }: { visita: Visita; editar?: 
         ];
 
     // Solo si esta visita quedó vinculada a una — la mayoría de los clientes no tienen plan.
-    if (cliente && visita.id_estrategia) {
-        const estrategia = leerEstrategias().find(e => e.id === visita.id_estrategia);
-        filas.splice(3, 0, ['Estrategia', estrategia
-            ? [estrategia.sector, estrategia.grupo_articulo, estrategia.proyecto].filter(Boolean).join(' · ') || 'Sin detalle'
-            : '—']);
+    const idsEstrategias = idsEstrategiasDe(visita);
+    if (cliente && idsEstrategias.length) {
+        const todas = leerEstrategias();
+        const descripcion = (id: string) => {
+            const e = todas.find(x => x.id === id);
+            return e ? [e.sector, e.grupo_articulo, e.proyecto].filter(Boolean).join(' · ') || 'Sin detalle' : '—';
+        };
+        filas.splice(3, 0, [idsEstrategias.length > 1 ? 'Estrategias' : 'Estrategia',
+            idsEstrategias.map(descripcion).join(' | ')]);
     }
 
     return (

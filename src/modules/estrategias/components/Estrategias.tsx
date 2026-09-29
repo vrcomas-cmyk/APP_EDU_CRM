@@ -19,11 +19,12 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { estrategiasTrabajadas } from '../services/vinculo';
 import {
     leerEstrategias, upsertEstrategia, eliminarEstrategia, eliminarEstrategiaRemota, nuevoId,
     descargarEstrategiasEquipo, sincronizarEstrategias, clientesEnMisZonas,
     sectores, gruposDeSector, buscarMateriales, tiposEstrategia, descripcionTipoEstrategia,
-    etapasEstrategia, sesionActual, consultarVisitas, fechaHoraCorta as fechaHoraDdMmAaaa, type Avisar
+    etapasEstrategia, sesionActual, consultarVisitas, materialesDe, fechaHoraCorta as fechaHoraDdMmAaaa, type Avisar
 } from '@core/puente';
 import { Combo, filtrar } from '@shared/components/Combo';
 import { abrirNuevaVisita } from '@modules/visitas/montarDrawer';
@@ -113,12 +114,21 @@ export function Estrategias({ avisar }: { avisar?: Avisar }) {
      */
     const avancePorEstrategia = useMemo(() => {
         const mapa = new Map<string, { visitas: number; ultima: string }>();
+        const todas = leerEstrategias();
+        // Grupo de artículo de un material capturado, según el catálogo del sector: distingue
+        // qué estrategia se trabajó cuando un mismo sector tiene varias (una por grupo).
+        const grupoDeMaterial = (sector: string, material: string) =>
+            materialesDe(sector).find(m => m.material === material)?.grupo_articulo;
+
         for (const v of consultarVisitas()) {
-            if (!v.id_estrategia) continue;
-            const previo = mapa.get(v.id_estrategia) ?? { visitas: 0, ultima: '' };
-            previo.visitas++;
-            if ((v.dia || '') > previo.ultima) previo.ultima = v.dia || '';
-            mapa.set(v.id_estrategia, previo);
+            // Una visita suma avance solo a las estrategias que se TRABAJARON (ver
+            // `estrategiasTrabajadas`): marcar tres y trabajar dos avanza dos.
+            for (const id of estrategiasTrabajadas(v, todas, grupoDeMaterial)) {
+                const previo = mapa.get(id) ?? { visitas: 0, ultima: '' };
+                previo.visitas++;
+                if ((v.dia || '') > previo.ultima) previo.ultima = v.dia || '';
+                mapa.set(id, previo);
+            }
         }
         return mapa;
     }, [version]);
@@ -409,7 +419,7 @@ function GenerarVisita({ cliente, estrategias, onCerrar, onGenerada }: {
                             onClick={() => {
                                 abrirNuevaVisita({
                                     cliente,
-                                    id_estrategia: seleccionadas[0]?.id,
+                                    ids_estrategias: seleccionadas.map(e => e.id),
                                     sectorNombres: sectores
                                 });
                                 onGenerada();
