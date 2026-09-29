@@ -15,6 +15,7 @@ import { PanelRoles } from './PanelRoles';
 import { PanelUsuarios } from './PanelUsuarios';
 import { PanelSimular } from './PanelSimular';
 import { PanelSectoresGerente } from './PanelSectoresGerente';
+import { Esqueleto } from '@shared/components/Esqueleto';
 
 const SUBPESTANAS = [
     { id: 'roles', etiqueta: 'Roles' },
@@ -42,7 +43,7 @@ export function GestionAccesos({ estado, confirmar, avisar }: Props) {
     const { borrador, cambiar, cargando, error } = estado;
 
     if (cargando && borrador.roles.length === 0) {
-        return <p className="ayuda">Cargando roles, usuarios y jerarquía…</p>;
+        return <Esqueleto etiqueta="Cargando roles, usuarios y jerarquía" />;
     }
 
     if (error && borrador.roles.length === 0) {

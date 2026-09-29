@@ -132,7 +132,7 @@ export function PanelTerritorios({ borrador, cambiar, educadores }: Props) {
                             ))}
                         </select>
                         <button
-                            type="button" className="icon-btn" aria-label="Quitar esta cobertura"
+                            type="button" className="icon-btn peligro" aria-label="Quitar esta cobertura"
                             onClick={() => cambiar(b => ({ ...b, coberturas: sinCobertura(b.coberturas, c.id) }))}
                         >
                             ✕
@@ -220,7 +220,7 @@ export function PanelTerritorios({ borrador, cambiar, educadores }: Props) {
                             ))}
                         </select>
                         <button
-                            type="button" className="icon-btn" aria-label="Quitar esta excepción"
+                            type="button" className="icon-btn peligro" aria-label="Quitar esta excepción"
                             onClick={() => cambiar(b => ({ ...b, excepcionesCliente: sinExcepcion(b.excepcionesCliente, e.id) }))}
                         >
                             ✕

@@ -37,6 +37,8 @@ import { Dona } from '@shared/components/Dona';
 import { BarraApilada, type FilaApilada } from '@shared/components/BarraApilada';
 import { descargarReporteExcel } from '../services/exportarExcel';
 import { CampoFecha } from '@shared/components/CampoFecha';
+import { Esqueleto } from '@shared/components/Esqueleto';
+import { EstadoVacio } from '@shared/components/EstadoVacio';
 
 const HOY = () => new Date().toISOString().slice(0, 10);
 const PRIMER_DIA_MES = () => {
@@ -200,15 +202,10 @@ export function ReporteActividades() {
             {error && <p className="ayuda es-error">No se pudo cargar: {error}</p>}
 
             {cargando && filas.length === 0 ? (
-                <p className="ayuda">Cargando…</p>
+                <Esqueleto />
             ) : enEsta.length === 0 ? (
-                <div className="vacio-grande">
-                    <p className="vacio-titulo">Nada que mostrar todavía</p>
-                    <p className="ayuda">
-                        Prueba ampliar el rango de fechas, o revisa en Administración → Accesos → Sectores
-                        que tengas al menos un sector asignado — sin eso no se ve nada del equipo, solo lo propio.
-                    </p>
-                </div>
+                <EstadoVacio titulo="Nada que mostrar todavía" texto={<>Prueba ampliar el rango de fechas, o revisa en Administración → Accesos → Sectores
+                        que tengas al menos un sector asignado — sin eso no se ve nada del equipo, solo lo propio.</>} />
             ) : pagina === 'resumen' ? (
                 <Resumen filas={filtradas} />
             ) : pagina === 'resultado' ? (

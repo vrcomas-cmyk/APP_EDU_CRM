@@ -12,6 +12,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { leerHistoricoActividades, leerHistoricoPlanTrabajo, fechaCorta } from '@core/puente';
 import type { FilaHistoricoActividad, FilaHistoricoPlanTrabajo } from '@core/tipos';
 import { CampoFecha } from '@shared/components/CampoFecha';
+import { Esqueleto } from '@shared/components/Esqueleto';
+import { EstadoVacio } from '@shared/components/EstadoVacio';
 
 type Pagina = 'actividades' | 'plan-trabajo';
 
@@ -72,7 +74,7 @@ export function Historico() {
             {error && <p className="ayuda es-error">No se pudo cargar: {error}</p>}
 
             {cargando && !cargado ? (
-                <p className="ayuda">Cargando…</p>
+                <Esqueleto />
             ) : pagina === 'actividades' ? (
                 <TablaActividades filas={act} />
             ) : (
@@ -159,10 +161,7 @@ function TablaActividades({ filas }: { filas: FilaHistoricoActividad[] }) {
             </div>
 
             {filtradas.length === 0 ? (
-                <div className="vacio-grande">
-                    <p className="vacio-titulo">Nada que mostrar</p>
-                    <p className="ayuda">Prueba ampliar el rango de fechas o quitar filtros.</p>
-                </div>
+                <EstadoVacio titulo="Nada que mostrar" texto={<>Prueba ampliar el rango de fechas o quitar filtros.</>} />
             ) : (
                 <div className="tabla-scroll">
                     <table className="tabla">
@@ -248,10 +247,7 @@ function TablaPlanTrabajo({ filas }: { filas: FilaHistoricoPlanTrabajo[] }) {
             </div>
 
             {filtradas.length === 0 ? (
-                <div className="vacio-grande">
-                    <p className="vacio-titulo">Nada que mostrar</p>
-                    <p className="ayuda">Prueba ampliar el rango de fechas o quitar filtros.</p>
-                </div>
+                <EstadoVacio titulo="Nada que mostrar" texto={<>Prueba ampliar el rango de fechas o quitar filtros.</>} />
             ) : (
                 <div className="tabla-scroll">
                     <table className="tabla">

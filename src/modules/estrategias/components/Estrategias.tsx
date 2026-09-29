@@ -28,6 +28,8 @@ import {
 import { Combo, filtrar } from '@shared/components/Combo';
 import { abrirNuevaVisita } from '@modules/visitas/montarDrawer';
 import type { Estrategia, EtapaHistorial } from '@core/tipos';
+import { Esqueleto } from '@shared/components/Esqueleto';
+import { EstadoVacio } from '@shared/components/EstadoVacio';
 
 export function Estrategias({ avisar }: { avisar?: Avisar }) {
     const [version, setVersion] = useState(0);
@@ -188,12 +190,9 @@ export function Estrategias({ avisar }: { avisar?: Avisar }) {
             </div>
 
             {cargando && estrategias.length === 0 ? (
-                <p className="ayuda">Cargando…</p>
+                <Esqueleto />
             ) : porCliente.length === 0 ? (
-                <div className="vacio-grande">
-                    <p className="vacio-titulo">Nada que mostrar todavía</p>
-                    <p className="ayuda">Agrega la primera estrategia para este cliente y sector.</p>
-                </div>
+                <EstadoVacio titulo="Nada que mostrar todavía" texto={<>Agrega la primera estrategia para este cliente y sector.</>} />
             ) : (
                 <div className="lista-clientes">
                     {porCliente.map(grupo => (

@@ -13,6 +13,7 @@ import { sectoresDelCatalogo } from '@core/puente';
 import type { BorradorRBAC, GerenteSector } from '@core/tipos';
 import type { EstadoSectoresGerente } from '../hooks/useSectoresGerente';
 import { ChipToggle } from '@shared/components/ChipToggle';
+import { Esqueleto } from '@shared/components/Esqueleto';
 
 interface Props {
     estado: EstadoSectoresGerente;
@@ -33,7 +34,7 @@ export function PanelSectoresGerente({ estado, usuarios }: Props) {
     );
 
     if (cargando && borrador.length === 0) {
-        return <p className="ayuda">Cargando sectores por gerente…</p>;
+        return <Esqueleto etiqueta="Cargando sectores por gerente" />;
     }
 
     if (error && borrador.length === 0) {
