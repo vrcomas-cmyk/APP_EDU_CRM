@@ -14,6 +14,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { StrictMode } from 'react';
 
 import { VisitaDrawer } from './components/VisitaDrawer';
+import { LimiteDeError } from '@shared/components/LimiteDeError';
 import { nuevaVisita, type DatosNuevaVisita } from './services/fabricas';
 import * as repo from './repository/visitasRepo';
 import { sesionActual, zonaDeCliente, ejecutivoDeZona, type Avisar } from '@core/puente';
@@ -114,6 +115,7 @@ function pintar(): void {
 
     raiz.render(
         <StrictMode>
+            <LimiteDeError donde="el registro" reiniciarCon={visitaAbierta} onCerrar={cerrar}>
             <VisitaDrawer
                 // La clave fuerza un montaje limpio al cambiar de visita: sin ella, el estado
                 // interno (nivel de sector, reagendando) se arrastraría de una visita a otra.
@@ -156,6 +158,7 @@ function pintar(): void {
                     });
                 }}
             />
+            </LimiteDeError>
         </StrictMode>
     );
 }

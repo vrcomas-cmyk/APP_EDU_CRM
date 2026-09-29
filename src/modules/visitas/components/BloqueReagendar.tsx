@@ -9,6 +9,7 @@
 import { useState } from 'react';
 import { reagendarVisita, fechaCorta, type Avisar } from '@core/puente';
 import { moverInicio } from '../services/horario';
+import { AvisoChoque } from './AvisoChoque';
 import { reflejarEnCalendar } from '../services/calendarSync';
 import * as repo from '../repository/visitasRepo';
 import type { Visita } from '@core/tipos';
@@ -71,6 +72,10 @@ export function BloqueReagendar({ visita, avisar, alReagendar }: Props) {
                         value={fin} onChange={(e) => setFin(e.target.value)}
                     />
                 </div>
+                <AvisoChoque
+                    id={visita.id} dia={dia} hora_inicio={inicio} hora_fin={fin}
+                    educador_correo={visita.educador_correo}
+                />
             </div>
 
             <label className="campo">
@@ -98,18 +103,30 @@ export function HistorialReagendas({ visita }: { visita: Visita }) {
                 Reagendada {reagendas.length} {reagendas.length === 1 ? 'vez' : 'veces'}
             </summary>
 
-            {[...reagendas].reverse().map((r, i) => (
-                <div className="historial-item" key={`${r.momento}-${i}`}>
-                    <p className="mono">
-                        {fechaCorta(r.antes.dia)} {r.antes.hora_inicio}–{r.antes.hora_fin}
-                        {'  →  '}
-                        {fechaCorta(r.despues.dia)} {r.despues.hora_inicio}–{r.despues.hora_fin}
-                    </p>
-                    <p className="historial-meta">
-                        {r.motivo} · {r.usuario || 'Sin usuario'} · {new Date(r.momento).toLocaleString('es-MX')}
-                    </p>
-                </div>
-            ))}
+            {[...reagendas].reverse().map((r, i) => {
+                // Lo que vuelve de Supabase solo trae un marcador por reagenda (`{ id }`), sin
+                // el antes/después: leer `r.antes.dia` ahí lanzaba y, sin límite de error,
+                // React desmontaba el drawer entero — "se cierra al darle Historial".
+                if (!r.antes || !r.despues) {
+                    return (
+                        <div className="historial-item" key={`sin-detalle-${i}`}>
+                            <p className="historial-meta">Reagenda sin detalle disponible</p>
+                        </div>
+                    );
+                }
+                return (
+                    <div className="historial-item" key={`${r.momento}-${i}`}>
+                        <p className="mono">
+                            {fechaCorta(r.antes.dia)} {r.antes.hora_inicio}–{r.antes.hora_fin}
+                            {'  →  '}
+                            {fechaCorta(r.despues.dia)} {r.despues.hora_inicio}–{r.despues.hora_fin}
+                        </p>
+                        <p className="historial-meta">
+                            {r.motivo} · {r.usuario || 'Sin usuario'} · {new Date(r.momento).toLocaleString('es-MX')}
+                        </p>
+                    </div>
+                );
+            })}
         </details>
     );
 }

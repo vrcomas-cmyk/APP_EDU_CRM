@@ -219,7 +219,20 @@ export function adoptarVisitasPropias(remotas, correo) {
         .map(v => {
             const local = locPorId.get(v.id);
             const pendiente = local?.calendar_pendiente && !v.calendar_event_id;
-            return { ...v, sincronizado: true, ...(pendiente ? { calendar_pendiente: true } : {}) };
+            // El espejo solo guarda cuántas veces se reagendó (`reagendas int`) y devuelve un
+            // marcador `{ id }` por cada una, sin el antes/después/motivo. Si lo local trae el
+            // detalle real, se conserva: pisarlo lo perdería (y al resubir, para siempre).
+            const detalleLocal = Array.isArray(local?.reagendas) && local.reagendas.length > 0
+                && local.reagendas.every(r => r && r.antes && r.despues);
+            const remotoSinDetalle = !Array.isArray(v.reagendas) || v.reagendas.some(r => !r || !r.antes);
+            const conservarReagendas = detalleLocal && remotoSinDetalle
+                && local.reagendas.length >= (v.reagendas?.length || 0);
+            return {
+                ...v,
+                sincronizado: true,
+                ...(conservarReagendas ? { reagendas: local.reagendas } : {}),
+                ...(pendiente ? { calendar_pendiente: true } : {})
+            };
         });
 
     guardarVisitas([...ajenas, ...propiasProtegidas, ...adoptadas]);

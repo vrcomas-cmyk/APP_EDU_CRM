@@ -9,11 +9,12 @@
 import { useCallback, useMemo, useRef } from 'react';
 import { Combo, filtrar } from '@shared/components/Combo';
 import {
-    etiquetaDiaLarga, fechaCorta, buscarSolapes, estadoDe, ESTADOS, consultarVisitas, esVisitaCliente,
+    etiquetaDiaLarga, fechaCorta, esVisitaCliente,
     etiquetaVisita, zonaDeCliente, ejecutivoDeZona, clientesEnMisZonas, leerEstrategias,
     type Avisar
 } from '@core/puente';
 import { moverInicio, cambiarFin } from '../services/horario';
+import { AvisoChoque } from './AvisoChoque';
 import * as repo from '../repository/visitasRepo';
 import { HistoricoCliente } from './HistoricoCliente';
 import type { Visita } from '@core/tipos';
@@ -377,42 +378,8 @@ function CampoHoras({ visita, editar, avisar }: Props) {
                     onChange={(e) => alCambiarFin(e.target.value)}
                 />
             </div>
-            <AvisoSolape visita={visita} />
+            <AvisoChoque {...visita} />
         </div>
-    );
-}
-
-/** Avisa, no bloquea: a veces las visitas se solapan de verdad. */
-function AvisoSolape({ visita }: { visita: Visita }) {
-    const { dia, hora_inicio: horaInicio, hora_fin: horaFin, id } = visita;
-
-    const choques = useMemo(() => {
-        if (!dia || !horaInicio || !horaFin) return [];
-        // `consultarVisitas()` (local + espejo de equipo), no solo local: si no, un choque
-        // contra una visita capturada en otro dispositivo —o la de alguien más, para quien
-        // agenda por su equipo— nunca se avisaba.
-        const vivas = consultarVisitas().filter(v => estadoDe(v) !== ESTADOS.CANCELADA);
-        return buscarSolapes(vivas, visita, id);
-        // Deps por campo, no por el objeto `visita` completo: ese objeto es una referencia
-        // nueva cada vez que `editar()` relee el almacén, así que escribir en CUALQUIER otro
-        // campo (Hospital, Notas…) recalculaba este choque sobre todas las visitas locales sin
-        // que el horario hubiera cambiado — el costo real de este aviso es por tecla, no por
-        // cambio de horario.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [dia, horaInicio, horaFin, id]);
-
-    if (choques.length === 0) return null;
-
-    const quien = choques
-        .map(v => `${v.hora_inicio}–${v.hora_fin} ${etiquetaVisita(v)}`)
-        .join(', ');
-
-    return (
-        <p className="aviso">
-            {choques.length === 1
-                ? `Se encima con ${quien}.`
-                : `Se encima con ${choques.length} visitas: ${quien}.`}
-        </p>
     );
 }
 

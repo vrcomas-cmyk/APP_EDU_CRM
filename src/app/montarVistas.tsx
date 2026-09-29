@@ -23,6 +23,7 @@ import { Administracion } from '@modules/administracion/components/Administracio
 import { ReporteActividades } from '@modules/reporteActividades/components/ReporteActividades';
 import { Historico } from '@modules/historico/components/Historico';
 import { Supervision } from '@modules/supervision/components/Supervision';
+import { LimiteDeError } from '@shared/components/LimiteDeError';
 import type { Avisar } from '@core/puente';
 
 export interface OpcionesVistas {
@@ -91,6 +92,7 @@ function Shell() {
             <Navegacion activo={activo} onElegir={elegir} />
 
             <div className="vista-host">
+              <LimiteDeError donde="esta pantalla" reiniciarCon={activo}>
                 {enCalendario ? (
                     <Calendario
                         version={version}
@@ -137,6 +139,7 @@ function Shell() {
                         onGuardado={() => { opciones.onCambio?.(); refrescarVistas(); }}
                     />
                 )}
+              </LimiteDeError>
             </div>
         </>
     );

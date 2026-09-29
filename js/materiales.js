@@ -92,6 +92,7 @@ export function abrirModalMaterial({ host, sector, onAgregar, alToast = () => {}
 
     const pintarRes = () => {
         const encontrados = buscarMateriales(sector, inp.value);
+        res.hidden = false;
         res.innerHTML = '';
 
         if (encontrados.length === 0) {
@@ -114,7 +115,11 @@ export function abrirModalMaterial({ host, sector, onAgregar, alToast = () => {}
                 elegido = m;
                 inp.value = m.material;
                 detalle.hidden = false;
-                pintarRes();
+                // Ya se eligió: la lista se cierra. Volver a pintarla (`pintarRes`) buscaba por
+                // el nombre completo y devolvía el elegido más lo que se le parece, así que
+                // las sugerencias nunca desaparecían.
+                res.innerHTML = '';
+                res.hidden = true;
                 cantidad.focus();
             });
             res.appendChild(b);
