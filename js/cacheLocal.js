@@ -79,7 +79,7 @@ export async function borrarCache(correo) {
         await new Promise((resolve, reject) => {
             const tx = db.transaction(STORE, 'readwrite');
             const almacen = tx.objectStore(STORE);
-            ['visitas', 'revisiones'].forEach(n => almacen.delete(clavePara(correo, n)));
+            ['visitas', 'revisiones', 'avisos'].forEach(n => almacen.delete(clavePara(correo, n)));
             tx.oncomplete = () => resolve();
             tx.onerror = () => reject(tx.error);
         });

@@ -14,7 +14,8 @@ import {
     leerEstrategias, guardarEstrategias as persistirEstrategias, fusionarEstrategiasEquipo,
     leerPendientes, guardarPendientes as persistirPendientes, fusionarPendientesEquipo
 } from './storage.js';
-import { normalizarZona } from './catalogos.js';
+import { normalizarZona, fechaDocumentoFaltante } from './catalogos.js';
+import { ordenarEs } from './orden.js';
 import { eventosPendientes, marcarSincronizados } from './eventos.js';
 import {
     comentariosPendientes, marcarSincronizados as marcarComentarios
@@ -53,7 +54,7 @@ export function catalogoEsFresco(maxEdadMs) {
 
 export async function descargarCatalogo() {
     const datos = await leerCatalogos();
-    guardarCatalogo(normalizarZonasDelCatalogo(datos));
+    guardarCatalogo(ordenarClientes(normalizarZonasDelCatalogo(datos)));
     try { localStorage.setItem(CLAVE_CATALOGO_DESCARGADO, String(Date.now())); } catch { /* sin cuota: solo se pierde la marca */ }
     return datos;
 }
@@ -65,6 +66,16 @@ export async function descargarCatalogo() {
  * Apps Script entra a la app, para que `zonaDeCliente`/`ejecutivoDeZona`/`zonasDelCatalogo`
  * (catalogos.js) trabajen siempre sobre el mismo formato de 3 dígitos.
  */
+/**
+ * Los ~11.5k clientes se ordenan UNA vez, aquí al descargar, y no cada vez que se lee el
+ * catálogo: `leerCatalogo()` vuelve a parsear el JSON en cada llamada y esta lista se consulta en
+ * cada tecla del buscador de clientes.
+ */
+function ordenarClientes(datos) {
+    if (!Array.isArray(datos?.clientes)) return datos;
+    return { ...datos, clientes: ordenarEs(datos.clientes) };
+}
+
 function normalizarZonasDelCatalogo(datos) {
     const clientesZona = datos?.clientes_zona;
     const ejecutivos = datos?.ejecutivos;
@@ -95,13 +106,29 @@ function normalizarZonasDelCatalogo(datos) {
  * sectores ya ocurrieron—; solo se recorta lo que aún se está capturando.
  */
 function soloGuardadas(visita) {
+    // `huella_subida` es solo local (ver `huellaDeSubida`): no es parte de lo que la visita afirma.
+    const { huella_subida, ...resto } = visita;
     return {
-        ...visita,
+        ...resto,
         sectores: (visita.sectores || []).map(s => ({
             ...s,
             actividades: (s.actividades || []).filter(a => a.guardada)
         }))
     };
+}
+
+/**
+ * Huella de lo que de verdad llega al servidor de una visita: lo mismo que `soloGuardadas`, sin
+ * las banderas de sincronización. Sirve para saber si un cambio local SÍ cambia algo allá.
+ *
+ * Capturar una actividad (un borrador) vuelve a marcar la visita como "por sincronizar" con cada
+ * tecla, aunque el borrador nunca se sube. Sin esto, cada ciclo "subía" la visita idéntica y
+ * avisaba "1 visita sincronizada" mientras la persona aún estaba escribiendo — y sin haber
+ * registrado nada.
+ */
+function huellaDeSubida(visita) {
+    const { sincronizado, ...resto } = soloGuardadas(visita);
+    return JSON.stringify(resto);
 }
 
 /**
@@ -143,7 +170,20 @@ export async function sincronizarVisitas() {
 
     // Un borrador no se envía: la visita no existe hasta que alguien presiona Guardar visita,
     // y subirla crearía en la hoja una cita que nadie confirmó.
-    const pendientes = leerVisitas().filter(v => !v.sincronizado && !v.borrador);
+    const porSincronizar = leerVisitas().filter(v => !v.sincronizado && !v.borrador);
+
+    // Las que solo cambiaron en lo que NO se sube (un borrador de actividad) ya están al día en el
+    // servidor: se marcan sin red ni aviso.
+    const yaAlDia = new Set(porSincronizar
+        .filter(v => v.huella_subida && v.huella_subida === huellaDeSubida(v))
+        .map(v => v.id));
+    if (yaAlDia.size > 0) {
+        const visitas = leerVisitas();
+        visitas.forEach(v => { if (yaAlDia.has(v.id)) v.sincronizado = true; });
+        persistirVisitas(visitas);
+    }
+
+    const pendientes = porSincronizar.filter(v => !yaAlDia.has(v.id));
     if (pendientes.length === 0) return { enviadas: 0 };
 
     // Huella de lo que de verdad se mandó, tomada ANTES de cualquier `await` — para TODOS los
@@ -152,6 +192,7 @@ export async function sincronizarVisitas() {
     // Comparar contra la huella (no contra el objeto en memoria, que ya pudo mutar) es lo que
     // distingue "llegó" de "coincide por casualidad".
     const huellas = new Map(pendientes.map(v => [v.id, JSON.stringify(soloGuardadas(v))]));
+    const huellasDeSubida = new Map(pendientes.map(v => [v.id, huellaDeSubida(v)]));
 
     let enviadas = 0;
     let primerError = null;
@@ -180,6 +221,7 @@ export async function sincronizarVisitas() {
                 if (!idsDelLote.has(v.id)) return;
                 if (huellas.get(v.id) === JSON.stringify(soloGuardadas(v))) {
                     v.sincronizado = true;
+                    v.huella_subida = huellasDeSubida.get(v.id);
                     enviadas++;
                 }
             });
@@ -212,10 +254,19 @@ export async function sincronizarVisitas() {
  */
 export async function subirEvidencia(idActividad) {
     const blob = await leerArchivo(idActividad);
-    if (!blob) throw new Error(`Sin archivo local para la actividad ${idActividad}`);
+    if (!blob) {
+        // No es un fallo de red: este dispositivo simplemente no tiene el archivo (la evidencia se
+        // adjuntó en otro dispositivo de la misma cuenta y esa visita se adoptó aquí).
+        throw Object.assign(new Error(`Sin archivo local para la actividad ${idActividad}`), { codigo: 'sin_archivo' });
+    }
 
     const entrada = todasLasActividades().find(x => x.actividad.id === idActividad);
     if (!entrada) throw new Error(`Actividad ${idActividad} no encontrada`);
+
+    // Con la fecha del documento obligatoria y sin capturar, la evidencia espera: no es un fallo.
+    if (fechaDocumentoFaltante(entrada.actividad)) {
+        throw Object.assign(new Error('Falta la fecha del documento'), { codigo: 'falta_fecha' });
+    }
 
     const token = sesionActual()?.sesion_token || '';
     const nombre = entrada.actividad.evidencia?.nombre || `${idActividad}`;
@@ -238,7 +289,11 @@ export async function subirEvidencia(idActividad) {
             const act = (sector.actividades || []).find(a => a.id === idActividad);
             if (!act) continue;
 
-            act.evidencia = { ...act.evidencia, estado: 'subida', url: resultado.url };
+            act.evidencia = {
+                ...act.evidencia, estado: 'subida', url: resultado.url,
+                // Ya no hay nada que reintentar: el error anterior (si lo hubo) no debe quedar.
+                ultimo_error: undefined, intentos: undefined, ultimo_intento: undefined
+            };
             // Se reenvía la visita para que la marca quede también en la fila de la actividad.
             visita.sincronizado = false;
             persistirVisitas(visitas);
@@ -254,30 +309,109 @@ export async function subirEvidencia(idActividad) {
 // Script), pero tampoco conviene saturar una conexión móvil con todas a la vez.
 const CONCURRENCIA_EVIDENCIAS = 3;
 
-/** Sube todas las evidencias que estén en 'local'. Devuelve cuántas subieron y cuántas fallaron. */
-export async function subirEvidenciasPendientes() {
+// ---- progreso visible de la subida ----
+//
+// Antes la subida era invisible: el chip solo decía "Enviando", los fallos se tragaban y nadie
+// sabía si una foto estaba subiendo, esperando señal o rota. Este estado se anuncia con el evento
+// `pdt:evidencia-progreso` para que el chip de la barra y la bandeja lo pinten sin sondear.
+let progresoEvidencias = { enCurso: false, total: 0, hechas: 0, fallidas: 0, subiendo: [] };
+// Evidencias 'local' cuyo archivo NO está en este dispositivo: no se pueden subir desde aquí y no
+// son "cola de este dispositivo" ni un error — las subirá el dispositivo que las adjuntó.
+const sinArchivoEnEsteDispositivo = new Set();
+
+export function progresoSubidaEvidencias() {
+    return { ...progresoEvidencias, subiendo: [...progresoEvidencias.subiendo] };
+}
+
+export function evidenciasSinArchivoLocal() {
+    return new Set(sinArchivoEnEsteDispositivo);
+}
+
+function anunciarProgresoEvidencias() {
+    if (typeof window === 'undefined') return;
+    window.dispatchEvent(new CustomEvent('pdt:evidencia-progreso', { detail: progresoSubidaEvidencias() }));
+}
+
+/** Deja en la actividad por qué falló la última subida, SIN marcarla para reenviar a la nube. */
+function anotarFalloDeEvidencia(entrada, mensaje) {
+    actualizarVisitaLocal(entrada.visita.id, (v) => {
+        for (const sector of v.sectores || []) {
+            const act = (sector.actividades || []).find(a => a.id === entrada.actividad.id);
+            if (!act) continue;
+            act.evidencia = {
+                ...act.evidencia,
+                ultimo_error: mensaje,
+                intentos: (act.evidencia?.intentos || 0) + 1,
+                ultimo_intento: new Date().toISOString()
+            };
+            return;
+        }
+    });
+}
+
+/**
+ * Sube todas las evidencias que estén en 'local'. Devuelve cuántas subieron y cuántas fallaron.
+ *
+ * Una sola corrida a la vez: con un ciclo cada 60 s y una subida que puede tardar más (tres
+ * intentos por archivo), dos ciclos se encimaban y mandaban el mismo archivo dos veces.
+ */
+let subiendoEvidencias = null;
+
+export function subirEvidenciasPendientes() {
+    if (subiendoEvidencias) return subiendoEvidencias;
+    subiendoEvidencias = correrSubidaDeEvidencias().finally(() => { subiendoEvidencias = null; });
+    return subiendoEvidencias;
+}
+
+async function correrSubidaDeEvidencias() {
     // "Ver como" es de solo lectura: `postear()` lo bloqueaba solo, pero esto ya no pasa por ahí.
     if (simulacionActiva()) return { subidas: 0, fallidas: 0 };
 
+    // Las que esperan la fecha del documento no se intentan: no son cola de red, son un dato que
+    // falta (y se avisa en "Avisos").
     const locales = todasLasActividades()
-        .filter(({ actividad }) => actividad.evidencia?.estado === 'local');
+        .filter(({ actividad }) => actividad.evidencia?.estado === 'local' && !fechaDocumentoFaltante(actividad));
 
     let subidas = 0;
     let fallidas = 0;
+
+    progresoEvidencias = { enCurso: true, total: locales.length, hechas: 0, fallidas: 0, subiendo: [] };
+    anunciarProgresoEvidencias();
 
     // Cada tarea hace su único tramo de `await`s propio (postear + borrarArchivo) sobre SU
     // actividad; el único estado compartido (`visitas` en disco) se lee-muta-persiste de un
     // tirón dentro de `subirEvidencia`, así que subir varias a la vez no se pisa entre sí —
     // ver el comentario en `conLimiteDeConcurrencia`.
-    await conLimiteDeConcurrencia(locales.map(({ actividad }) => async () => {
-        try {
-            await subirEvidencia(actividad.id);
-            subidas++;
-        } catch (err) {
-            console.error(`Falló la evidencia ${actividad.id}:`, err);
-            fallidas++;
-        }
-    }), CONCURRENCIA_EVIDENCIAS);
+    try {
+        await conLimiteDeConcurrencia(locales.map((entrada) => async () => {
+            const id = entrada.actividad.id;
+            progresoEvidencias.subiendo.push(id);
+            anunciarProgresoEvidencias();
+            try {
+                await subirEvidencia(id);
+                sinArchivoEnEsteDispositivo.delete(id);
+                subidas++;
+            } catch (err) {
+                if (err?.codigo === 'sin_archivo') {
+                    sinArchivoEnEsteDispositivo.add(id);
+                } else if (err?.codigo === 'falta_fecha') {
+                    // la fecha se capturó/quitó entre medio: no es un fallo
+                } else {
+                    console.error(`Falló la evidencia ${id}:`, err);
+                    fallidas++;
+                    progresoEvidencias.fallidas++;
+                    anotarFalloDeEvidencia(entrada, err?.message || String(err));
+                }
+            } finally {
+                progresoEvidencias.hechas++;
+                progresoEvidencias.subiendo = progresoEvidencias.subiendo.filter(x => x !== id);
+                anunciarProgresoEvidencias();
+            }
+        }), CONCURRENCIA_EVIDENCIAS);
+    } finally {
+        progresoEvidencias = { ...progresoEvidencias, enCurso: false, subiendo: [] };
+        anunciarProgresoEvidencias();
+    }
 
     return { subidas, fallidas };
 }
@@ -458,6 +592,47 @@ export async function descargarRevisiones() {
     } catch (err) {
         console.error('No se pudieron leer las revisiones:', err);
         return { flujos: [], revisiones: [], espejo: false };
+    }
+}
+
+// ---------- avisos al educador ----------
+
+/**
+ * Los avisos abiertos de la persona con sesión: lo que un revisor le rechazó o le pidió corregir.
+ * Directo a Supabase con el token de sesión (como las visitas del equipo): pasar por Apps Script
+ * tardaba más que el tiempo límite. Vuelve vacío en vez de lanzar: un aviso que no llega no debe
+ * romper nada de lo que la persona está haciendo.
+ */
+export async function descargarAvisos() {
+    if (!navigator.onLine) return { avisos: [], espejo: false };
+
+    try {
+        const avisos = await rpcEstricto('pdt_avisos_mios_sesion', {
+            p_sesion_token: sesionActual()?.sesion_token || '',
+            p_solo_abiertos: true,
+            p_limite: 100
+        });
+        return { avisos: Array.isArray(avisos) ? avisos : [], espejo: true };
+    } catch (err) {
+        console.error('No se pudieron leer los avisos:', err);
+        return { avisos: [], espejo: false };
+    }
+}
+
+/** Marca avisos como 'leido' o 'resuelto'. El servidor solo toca los de quien tiene la sesión. */
+export async function marcarAvisos(ids, accion) {
+    if (!ids?.length || !navigator.onLine || simulacionActiva()) return false;
+
+    try {
+        await rpcEstricto('pdt_avisos_marcar_sesion', {
+            p_sesion_token: sesionActual()?.sesion_token || '',
+            p_ids: ids,
+            p_accion: accion
+        });
+        return true;
+    } catch (err) {
+        console.error('No se pudo marcar el aviso:', err);
+        return false;
     }
 }
 
@@ -700,18 +875,39 @@ export async function sincronizarCalendar() {
  * igual que el resto de los espejos: si falla, lo único que pasa es que el gerente ve esto un
  * poco más tarde, nunca bloquea nada de lo que el educador está haciendo.
  */
+// Lo último que se subió y cuándo. El calendario se vuelve a leer cada vez que la pantalla se
+// refresca (cada minuto y tras cada sync); subir lo MISMO cada vez solo saturaba al servidor.
+let ultimaSubidaCompromisos = { huella: '', cuando: 0 };
+const REPETIR_SUBIDA_MS = 10 * 60000;
+const MAX_DESCRIPCION = 500;
+
 export async function subirCompromisosCalendar(compromisos, desdeISO, hastaISO) {
     if (!navigator.onLine) return { espejo: false };
+    if (simulacionActiva()) return { espejo: false };
+
+    const lista = compromisos.map(c => ({
+        id: c.id, titulo: c.titulo, inicio: c.inicio, fin: c.fin,
+        todoElDia: c.todoElDia, ubicacion: c.ubicacion,
+        // Recortada: una descripción larga (invitaciones con agenda completa) inflaba el envío
+        // y el espejo solo necesita saber de qué trata.
+        descripcion: String(c.descripcion || '').slice(0, MAX_DESCRIPCION), url: c.url
+    }));
+
+    const huella = JSON.stringify([lista, desdeISO, hastaISO]);
+    const reciente = Date.now() - ultimaSubidaCompromisos.cuando < REPETIR_SUBIDA_MS;
+    if (huella === ultimaSubidaCompromisos.huella && reciente) return { espejo: true };
+
     try {
-        const r = await postear({
-            action: 'guardarCompromisosCalendar',
-            compromisos: compromisos.map(c => ({
-                id: c.id, titulo: c.titulo, inicio: c.inicio, fin: c.fin,
-                todoElDia: c.todoElDia, ubicacion: c.ubicacion, descripcion: c.descripcion, url: c.url
-            })),
-            desde: desdeISO, hasta: hastaISO
+        // Directo a Supabase con el token de sesión (como la lectura del equipo): pasar por Apps
+        // Script esperaba el candado global y su arranque en frío, y agotaba el tiempo.
+        await rpcEstricto('pdt_calendar_compromisos_guardar_sesion', {
+            p_sesion_token: sesionActual()?.sesion_token || '',
+            p_compromisos: lista,
+            p_desde: desdeISO,
+            p_hasta: hastaISO
         });
-        return { espejo: r?.espejo === true };
+        ultimaSubidaCompromisos = { huella, cuando: Date.now() };
+        return { espejo: true };
     } catch (err) {
         console.error('No se pudieron subir los compromisos de Calendar:', err);
         return { espejo: false };
@@ -780,14 +976,30 @@ export async function sincronizarTodo() {
     };
 
     const visitas = await etapa('visitas', sincronizarVisitas, { enviadas: 0 });
-    const evidencias = await etapa('evidencias', subirEvidenciasPendientes, { subidas: 0, fallidas: 0 });
-    if (evidencias.subidas > 0) await etapa('visitas-tras-evidencias', sincronizarVisitas, { enviadas: 0 });
-    const calendar = await etapa('calendar', sincronizarCalendar, { revisadas: 0 });
-    const eventos = await etapa('eventos', sincronizarEventos, { enviados: 0 });
-    const comentarios = await etapa('comentarios', sincronizarComentarios, { enviados: 0 });
-    const revisiones = await etapa('revisiones', sincronizarRevisiones, { enviadas: 0 });
-    const estrategias = await etapa('estrategias', sincronizarEstrategias, { enviadas: 0 });
-    const pendientes = await etapa('pendientes', sincronizarPendientes, { enviadas: 0 });
+
+    // Lo demás no depende entre sí: antes iba todo en fila, y una subida de evidencias lenta (o
+    // las llamadas a Calendar, una por visita) retrasaba eventos, comentarios, revisiones y
+    // estrategias. Cada etapa sigue atrapando SU error. Todo lo que toca las visitas en disco lo
+    // hace leyendo-mutando-persistiendo de un tirón, así que correr juntas no se pisa.
+    const [evidencias, calendar, eventos, comentarios, revisiones, estrategias, pendientes] = await Promise.all([
+        (async () => {
+            const r = await etapa('evidencias', subirEvidenciasPendientes, { subidas: 0, fallidas: 0 });
+            if (r.subidas > 0) await etapa('visitas-tras-evidencias', sincronizarVisitas, { enviadas: 0 });
+            return r;
+        })(),
+        etapa('calendar', sincronizarCalendar, { revisadas: 0 }),
+        etapa('eventos', sincronizarEventos, { enviados: 0 }),
+        etapa('comentarios', sincronizarComentarios, { enviados: 0 }),
+        etapa('revisiones', sincronizarRevisiones, { enviadas: 0 }),
+        etapa('estrategias', sincronizarEstrategias, { enviadas: 0 }),
+        etapa('pendientes', sincronizarPendientes, { enviadas: 0 })
+    ]);
+
+    // Las evidencias que fallan se atrapan una por una (para no frenar a las demás), así que
+    // `etapa()` nunca las ve: sin esto el chip no se ponía en rojo y no había reintento con espera.
+    if (evidencias.fallidas > 0) {
+        errores.evidencias = `${evidencias.fallidas} evidencia(s) no se pudieron subir`;
+    }
 
     // `sincronizarCalendar` atrapa el error de CADA visita por separado —a propósito, para que
     // una sola falle sin frenar a las demás— así que nunca lanza y `etapa()` nunca la ve

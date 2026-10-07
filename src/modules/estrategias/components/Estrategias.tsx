@@ -29,6 +29,8 @@ import {
 import { Combo, filtrar } from '@shared/components/Combo';
 import { abrirNuevaVisita } from '@modules/visitas/montarDrawer';
 import type { Estrategia, EtapaHistorial } from '@core/tipos';
+import { faltaEnEstrategia } from '../validators/requisitos';
+import { rotuloEn, esVisibleEn } from '@shared/services/campos';
 import { Esqueleto } from '@shared/components/Esqueleto';
 import { EstadoVacio } from '@shared/components/EstadoVacio';
 
@@ -475,7 +477,12 @@ function FormularioEstrategia({ estrategia, sectores, clientes, onGuardar, onEli
         [sector]
     );
 
-    const listo = cliente.trim().length > 0;
+    const falta = faltaEnEstrategia({
+        cliente, sector, grupo, tipo: tipoEstrategia, etapa, proyecto, productos, observaciones
+    });
+    const listo = falta.length === 0;
+    const visible = (campo: string) => esVisibleEn('estrategia', campo);
+    const rotulo = (campo: string, texto: string) => rotuloEn('estrategia', campo, texto);
 
     return (
         <div className="modal" onClick={(e) => { if (e.target === e.currentTarget) onCerrar(); }}>
@@ -500,62 +507,76 @@ function FormularioEstrategia({ estrategia, sectores, clientes, onGuardar, onEli
                         onEscribir={setCliente}
                     />
 
-                    <div className="grid-2">
+                    {(visible('sector') || visible('grupo_articulo')) && (
+                        <div className="grid-2">
+                            {visible('sector') && (
+                                <label className="campo">
+                                    <span className="campo-lbl">{rotulo('sector', 'Sector')}</span>
+                                    <select className="inp" value={sector} onChange={(e) => setSector(e.target.value)}>
+                                        <option value="">Sin definir</option>
+                                        {sectores.map(s => <option key={s} value={s}>{s}</option>)}
+                                    </select>
+                                </label>
+                            )}
+                            {visible('grupo_articulo') && (
+                                <label className="campo">
+                                    <span className="campo-lbl">{rotulo('grupo_articulo', 'Grupo de artículo')}</span>
+                                    <select className="inp" value={grupo} onChange={(e) => setGrupo(e.target.value)}>
+                                        <option value="">Sin definir</option>
+                                        {grupos.map(g => <option key={g} value={g}>{g}</option>)}
+                                    </select>
+                                </label>
+                            )}
+                        </div>
+                    )}
+
+                    {visible('tipo') && (
                         <label className="campo">
-                            <span className="campo-lbl">Sector</span>
-                            <select className="inp" value={sector} onChange={(e) => setSector(e.target.value)}>
+                            <span className="campo-lbl">{rotulo('tipo', 'Estrategia')}</span>
+                            <select className="inp" value={tipoEstrategia} onChange={(e) => setTipoEstrategia(e.target.value)}>
                                 <option value="">Sin definir</option>
-                                {sectores.map(s => <option key={s} value={s}>{s}</option>)}
+                                {catalogoTipos.map(o => <option key={o} value={o}>{o}</option>)}
+                            </select>
+                            {ayudaTipo && <p className="ayuda">{ayudaTipo}</p>}
+                        </label>
+                    )}
+
+                    {visible('etapa') && (
+                        <label className="campo">
+                            <span className="campo-lbl">{rotulo('etapa', 'Etapa')}</span>
+                            <select className="inp" value={etapa} onChange={(e) => setEtapa(e.target.value)}>
+                                <option value="">Sin definir</option>
+                                {catalogoEtapas.map(o => <option key={o} value={o}>{o}</option>)}
                             </select>
                         </label>
+                    )}
+
+                    {estrategia && visible('etapa') && <LineaTiempoEtapas etapas={estrategia.etapas} />}
+
+                    {visible('proyecto') && (
                         <label className="campo">
-                            <span className="campo-lbl">Grupo de artículo</span>
-                            <select className="inp" value={grupo} onChange={(e) => setGrupo(e.target.value)}>
-                                <option value="">Sin definir</option>
-                                {grupos.map(g => <option key={g} value={g}>{g}</option>)}
-                            </select>
+                            <span className="campo-lbl">{rotulo('proyecto', 'Proyecto / objetivo')}</span>
+                            <input
+                                type="text" className="inp" placeholder="¿Qué se busca conseguir con este cliente aquí?"
+                                value={proyecto} onChange={(e) => setProyecto(e.target.value)}
+                            />
                         </label>
-                    </div>
-
-                    <label className="campo">
-                        <span className="campo-lbl">Estrategia</span>
-                        <select className="inp" value={tipoEstrategia} onChange={(e) => setTipoEstrategia(e.target.value)}>
-                            <option value="">Sin definir</option>
-                            {catalogoTipos.map(o => <option key={o} value={o}>{o}</option>)}
-                        </select>
-                        {ayudaTipo && <p className="ayuda">{ayudaTipo}</p>}
-                    </label>
-
-                    <label className="campo">
-                        <span className="campo-lbl">Etapa</span>
-                        <select className="inp" value={etapa} onChange={(e) => setEtapa(e.target.value)}>
-                            <option value="">Sin definir</option>
-                            {catalogoEtapas.map(o => <option key={o} value={o}>{o}</option>)}
-                        </select>
-                    </label>
-
-                    {estrategia && <LineaTiempoEtapas etapas={estrategia.etapas} />}
-
-                    <label className="campo">
-                        <span className="campo-lbl">Proyecto / objetivo</span>
-                        <input
-                            type="text" className="inp" placeholder="¿Qué se busca conseguir con este cliente aquí?"
-                            value={proyecto} onChange={(e) => setProyecto(e.target.value)}
-                        />
-                    </label>
+                    )}
 
                     {/* `key` fuerza un remontaje al agregar uno: así el campo queda limpio y
                         listo para el siguiente en vez de conservar el texto ya elegido. */}
-                    <Combo
-                        key={productos.length}
-                        etiqueta="Productos"
-                        valor=""
-                        placeholder={sector ? 'Busca un material de este sector…' : 'Elige un sector primero'}
-                        opciones={opcionesProductos}
-                        onElegir={(m) => setProductos(ps => (ps.includes(m) ? ps : [...ps, m]))}
-                        onEscribir={() => {}}
-                    />
-                    {productos.length > 0 && (
+                    {visible('productos') && (
+                        <Combo
+                            key={productos.length}
+                            etiqueta={rotulo('productos', 'Productos')}
+                            valor=""
+                            placeholder={sector ? 'Busca un material de este sector…' : 'Elige un sector primero'}
+                            opciones={opcionesProductos}
+                            onElegir={(m) => setProductos(ps => (ps.includes(m) ? ps : [...ps, m]))}
+                            onEscribir={() => {}}
+                        />
+                    )}
+                    {visible('productos') && productos.length > 0 && (
                         <div className="chips">
                             {productos.map(p => (
                                 <span className="pill neutro" key={p}>
@@ -571,17 +592,19 @@ function FormularioEstrategia({ estrategia, sectores, clientes, onGuardar, onEli
                         </div>
                     )}
 
-                    <label className="campo">
-                        <span className="campo-lbl">Observaciones</span>
-                        <textarea
-                            className="inp notas-area" rows={3}
-                            value={observaciones} onChange={(e) => setObservaciones(e.target.value)}
-                        />
-                    </label>
+                    {visible('observaciones') && (
+                        <label className="campo">
+                            <span className="campo-lbl">{rotulo('observaciones', 'Observaciones')}</span>
+                            <textarea
+                                className="inp notas-area" rows={3}
+                                value={observaciones} onChange={(e) => setObservaciones(e.target.value)}
+                            />
+                        </label>
+                    )}
 
                     <div className="modal-foot">
                         <span className={'pista' + (listo ? ' es-ok' : '')}>
-                            {listo ? 'Listo para guardar.' : 'Falta el cliente.'}
+                            {listo ? 'Listo para guardar.' : `Falta ${falta.join(' · ')}`}
                         </span>
                         <span style={{ flex: 1 }} />
                         {onEliminar && (

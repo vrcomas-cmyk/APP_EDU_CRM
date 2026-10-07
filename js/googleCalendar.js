@@ -98,6 +98,31 @@ function aplicarToken(resp) {
     programarRenovacionProactiva();
 }
 
+// El canje del login ya devuelve un access_token de Calendar (`auth.js` lo anuncia con este
+// evento): se usa tal cual, sin otra ida a Apps Script nada más entrar. Por evento y no por
+// import para no crear un ciclo auth.js ↔ googleCalendar.js.
+if (typeof window !== 'undefined') {
+    window.addEventListener('pdt:calendar-token', (e) => {
+        if (e.detail?.access_token) aplicarToken(e.detail);
+    });
+}
+
+const TIEMPO_TOKEN_MS = 15000;
+const TIEMPO_CALENDAR_MS = 20000;
+
+/** `fetch` con tiempo límite: una llamada a Calendar que no responde no debe colgar la
+ *  etapa de sync entera (se hacen una tras otra, una por visita). */
+function fetchCalendar(url, opciones = {}) {
+    const control = new AbortController();
+    const reloj = setTimeout(() => control.abort(), TIEMPO_CALENDAR_MS);
+    return fetch(url, { ...opciones, signal: control.signal })
+        .catch((err) => {
+            if (err?.name === 'AbortError') throw new Error('Calendar no respondió a tiempo');
+            throw err;
+        })
+        .finally(() => clearTimeout(reloj));
+}
+
 /**
  * Pide (o renueva) el access_token de Calendar contra el servidor. Ya no hay pantalla de
  * consentimiento que mostrar aquí: el refresh token vive en Supabase desde el login. Los
@@ -124,10 +149,16 @@ export function intentarReconexionCalendar() {
     // con "leer" mientras alguien está en modo "ver como" (`simulacionActiva`), y pedir un
     // access_token de Calendar no es una escritura de datos — bloquearlo ahí apagaría
     // Calendario/Mi día para quien esté simulando otro rol, que sigue siendo de solo lectura.
+    // Con tiempo límite: sin él, una petición que nunca termina dejaba esta promesa pendiente
+    // para siempre y Calendar no volvía a reconectarse hasta recargar.
+    const control = new AbortController();
+    const reloj = setTimeout(() => control.abort(), TIEMPO_TOKEN_MS);
+
     intentoSilenciosoEnVuelo = fetch(APPS_SCRIPT_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'calendarToken', sesion_token: sesionActual()?.sesion_token })
+        body: JSON.stringify({ action: 'calendarToken', sesion_token: sesionActual()?.sesion_token }),
+        signal: control.signal
     })
         .then((resp) => resp.json())
         .then((datos) => {
@@ -139,7 +170,7 @@ export function intentarReconexionCalendar() {
             return true;
         })
         .catch(() => false)
-        .finally(() => { intentoSilenciosoEnVuelo = null; });
+        .finally(() => { clearTimeout(reloj); intentoSilenciosoEnVuelo = null; });
 
     return intentoSilenciosoEnVuelo;
 }
@@ -189,7 +220,7 @@ export async function buscarEventoDeVisita(idVisita) {
         showDeleted: 'false',
         maxResults: '1'
     });
-    const resp = await fetch(`${CALENDAR_API}?${parametros}`, { headers: encabezados() });
+    const resp = await fetchCalendar(`${CALENDAR_API}?${parametros}`, { headers: encabezados() });
     if (!resp.ok) throw new Error(`Calendar respondió ${resp.status} al buscar el evento`);
     const datos = await resp.json();
     return datos.items?.[0]?.id || null;
@@ -215,7 +246,7 @@ export async function sincronizarEventoVisita(visita) {
     if (!existente) existente = await buscarEventoDeVisita(visita.id);
 
     const cuerpo = JSON.stringify(eventoDeVisita(visita));
-    const resp = await fetch(
+    const resp = await fetchCalendar(
         existente ? `${CALENDAR_API}/${existente}` : CALENDAR_API,
         { method: existente ? 'PATCH' : 'POST', headers: encabezados(), body: cuerpo }
     );
@@ -234,7 +265,7 @@ export async function sincronizarEventoVisita(visita) {
 /** Borra el evento de una visita cancelada. Que ya no exista del otro lado no es un error. */
 export async function borrarEventoVisita(idEvento) {
     if (!idEvento) return;
-    const resp = await fetch(`${CALENDAR_API}/${idEvento}`, { method: 'DELETE', headers: encabezados() });
+    const resp = await fetchCalendar(`${CALENDAR_API}/${idEvento}`, { method: 'DELETE', headers: encabezados() });
     if (!resp.ok && resp.status !== 404 && resp.status !== 410) {
         throw new Error(`Calendar respondió ${resp.status} al borrar el evento`);
     }
@@ -260,7 +291,7 @@ export async function listarCompromisos(desdeISO, hastaISO) {
         });
         if (pageToken) parametros.set('pageToken', pageToken);
 
-        const resp = await fetch(`${CALENDAR_API}?${parametros}`, { headers: encabezados() });
+        const resp = await fetchCalendar(`${CALENDAR_API}?${parametros}`, { headers: encabezados() });
         if (!resp.ok) throw new Error(`Calendar respondió ${resp.status} al leer eventos`);
 
         const datos = await resp.json();

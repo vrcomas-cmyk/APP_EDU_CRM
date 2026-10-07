@@ -22,6 +22,7 @@ import { filtrarSectores } from '../services/busqueda';
 import * as repo from '@modules/visitas/repository/visitasRepo';
 import type { Sector, Visita } from '@core/tipos';
 import { Dato } from '@shared/components/Dato';
+import { rotuloEn, esVisibleEn } from '@shared/services/campos';
 
 export interface PropsVentanaSector {
     visitaId: string;
@@ -125,7 +126,7 @@ export function VentanaSector({
                             agregadosEnSesion.current.add(id);
                             editar(v => {
                                 (v.sectores ||= []).push({
-                                    id, nombre, objetivo: '', origen: [],
+                                    id, creado: new Date().toISOString(), nombre, objetivo: '', origen: [],
                                     solicitado_por: '', actividades: []
                                 });
                             });
@@ -266,9 +267,13 @@ function PasoCompletar({ visita, sector, editar, avisar, onListo }: {
             <div className="modal-body">
                 <div className="datos">
                     <Dato etiqueta="Sector" valor={sector.nombre} />
-                    <Dato etiqueta="Objetivo" valor={sector.objetivo} />
-                    <Dato etiqueta="Origen de la actividad" valor={(sector.origen || []).join(', ')} />
-                    <Dato etiqueta="Solicitado por" valor={sector.solicitado_por} />
+                    {esVisibleEn('sector', 'objetivo') && <Dato etiqueta="Objetivo" valor={sector.objetivo} />}
+                    {esVisibleEn('sector', 'origen') && (
+                        <Dato etiqueta="Origen de la actividad" valor={(sector.origen || []).join(', ')} />
+                    )}
+                    {esVisibleEn('sector', 'solicitado_por') && (
+                        <Dato etiqueta="Solicitado por" valor={sector.solicitado_por} />
+                    )}
                 </div>
                 <div className="modal-foot">
                     <span style={{ flex: 1 }} />
@@ -283,35 +288,41 @@ function PasoCompletar({ visita, sector, editar, avisar, onListo }: {
 
     return (
         <div className="modal-body">
-            <label className="campo">
-                <span className="campo-lbl">Objetivo</span>
-                {estrategiaDelSector && (
+            {esVisibleEn('sector', 'objetivo') && (
+                <label className="campo">
+                    <span className="campo-lbl">{rotuloEn('sector', 'objetivo', 'Objetivo')}</span>
+                    {estrategiaDelSector && (
+                        <p className="ayuda">
+                            Estrategia en curso: {[estrategiaDelSector.grupo_articulo, estrategiaDelSector.proyecto]
+                                .filter(Boolean).join(' · ') || 'sin más detalle'}
+                        </p>
+                    )}
+                    <input
+                        type="text" className="inp" placeholder="¿Qué se busca lograr aquí?"
+                        value={sector.objetivo || ''}
+                        autoFocus
+                        onChange={(e) => editarSector(s => { s.objetivo = e.target.value; })}
+                    />
+                </label>
+            )}
+
+            {esVisibleEn('sector', 'origen') && (
+                <ChipsOrigen sector={sector} editarSector={editarSector} />
+            )}
+
+            {esVisibleEn('sector', 'solicitado_por') && (
+                <label className="campo">
+                    <span className="campo-lbl">{rotuloEn('sector', 'solicitado_por', 'Solicitado por')}</span>
+                    <input
+                        type="text" className="inp" placeholder="Nombre de quien pidió la actividad"
+                        value={sector.solicitado_por || ''}
+                        onChange={(e) => editarSector(s => { s.solicitado_por = e.target.value; })}
+                    />
                     <p className="ayuda">
-                        Estrategia en curso: {[estrategiaDelSector.grupo_articulo, estrategiaDelSector.proyecto]
-                            .filter(Boolean).join(' · ') || 'sin más detalle'}
+                        Quién originó la visita a este sector: el gerente de marca, el vendedor, el propio cliente…
                     </p>
-                )}
-                <input
-                    type="text" className="inp" placeholder="¿Qué se busca lograr aquí?"
-                    value={sector.objetivo || ''}
-                    autoFocus
-                    onChange={(e) => editarSector(s => { s.objetivo = e.target.value; })}
-                />
-            </label>
-
-            <ChipsOrigen sector={sector} editarSector={editarSector} />
-
-            <label className="campo">
-                <span className="campo-lbl">Solicitado por</span>
-                <input
-                    type="text" className="inp" placeholder="Nombre de quien pidió la actividad"
-                    value={sector.solicitado_por || ''}
-                    onChange={(e) => editarSector(s => { s.solicitado_por = e.target.value; })}
-                />
-                <p className="ayuda">
-                    Quién originó la visita a este sector: el gerente de marca, el vendedor, el propio cliente…
-                </p>
-            </label>
+                </label>
+            )}
 
             <div className="modal-foot">
                 <span className={'pista' + (listo ? ' es-ok' : '')}>
@@ -358,7 +369,7 @@ function ChipsOrigen({ sector, editarSector }: {
 
     return (
         <div className="campo">
-            <span className="campo-lbl">Origen de la actividad</span>
+            <span className="campo-lbl">{rotuloEn('sector', 'origen', 'Origen de la actividad')}</span>
             <div className="chips">
                 {lista.map(origen => {
                     const activo = activos.includes(origen);

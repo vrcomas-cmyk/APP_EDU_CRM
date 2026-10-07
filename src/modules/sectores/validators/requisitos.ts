@@ -2,21 +2,23 @@
  * Qué exige un sector, y qué se hace con los que quedan a medias.
  */
 
+import { esRequeridoEn } from '@core/puente';
 import type { Sector, Visita } from '@core/tipos';
 
 /**
- * Los tres que el sector exige.
+ * Lo que el sector exige.
  *
- * Sin ellos el sector no dice nada útil sobre a qué se fue: "GASAS" solo es una etiqueta.
- * El objetivo explica qué se buscaba, el origen de dónde salió la petición y `solicitado_por`
- * a quién responderle — que es justo lo que alguien preguntará tres meses después.
+ * Por defecto los tres: sin ellos el sector no dice nada útil sobre a qué se fue: "GASAS" solo
+ * es una etiqueta. El objetivo explica qué se buscaba, el origen de dónde salió la petición y
+ * `solicitado_por` a quién responderle — que es justo lo que alguien preguntará tres meses
+ * después. Administración (Formularios → Sector) puede volver opcional u ocultar cualquiera.
  */
 export function faltaEnSector(sector: Partial<Sector> | null | undefined): string[] {
     const falta: string[] = [];
 
-    if (!(sector?.objetivo || '').trim()) falta.push('Objetivo');
-    if (!(sector?.origen || []).length) falta.push('Origen de la actividad');
-    if (!(sector?.solicitado_por || '').trim()) falta.push('Solicitado por');
+    if (esRequeridoEn('sector', 'objetivo') && !(sector?.objetivo || '').trim()) falta.push('Objetivo');
+    if (esRequeridoEn('sector', 'origen') && !(sector?.origen || []).length) falta.push('Origen de la actividad');
+    if (esRequeridoEn('sector', 'solicitado_por') && !(sector?.solicitado_por || '').trim()) falta.push('Solicitado por');
 
     return falta;
 }

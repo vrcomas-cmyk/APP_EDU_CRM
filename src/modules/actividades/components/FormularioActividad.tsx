@@ -9,7 +9,7 @@
 import { useMemo } from 'react';
 import {
     MODOS, configuracionCampos, campoEditable, camposExtra,
-    tiposActividad, areas, tiposEvidencia, fechaCorta
+    tiposActividad, areas, tiposEvidencia, fechaCorta, fechaDocumentoEnEvidencia
 } from '@core/puente';
 import type { Actividad, Sector, Visita, ModoCampo } from '@core/tipos';
 import { CampoFecha } from '@shared/components/CampoFecha';
@@ -31,11 +31,14 @@ export function FormularioActividad({
     const config = useMemo(() => configuracionCampos(actividad.tipo), [actividad.tipo]);
 
     const ver = (id: string) => config[id] !== MODOS.OCULTO;
+    // Con la evidencia obligatoria, la fecha del documento se pregunta al ADJUNTARLA (js/evidencias.js).
+    const fechaEnEvidencia = fechaDocumentoEnEvidencia(actividad.tipo);
     const editable = (id: string) => campoEditable(actividad.tipo, id);
 
     /** Un obligatorio se anuncia en su etiqueta, no solo al fallar el guardado. */
     const etiqueta = (texto: string, id: string) =>
-        config[id] === MODOS.OBLIGATORIO ? `${texto} *` : texto;
+        config[id] === MODOS.OBLIGATORIO || config[id] === MODOS.OBLIGATORIO_DESPUES
+            ? `${texto} *` : texto;
 
     return (
         <div className="modal-body">
@@ -68,7 +71,7 @@ export function FormularioActividad({
                 </Campo>
             )}
 
-            {ver('fecha_documento') && (
+            {ver('fecha_documento') && !fechaEnEvidencia && (
                 <Campo etiqueta={etiqueta('Fecha del documento', 'fecha_documento')} error={errores.fecha_documento}>
                     {editable('fecha_documento') ? (
                         <CampoFecha
@@ -107,7 +110,7 @@ export function FormularioActividad({
 
             {/* Igual que la evidencia: si el resultado todavía no se sabe (una llamada
                 pendiente, una respuesta que tarda), no debería detener el guardado. */}
-            {config.resultado_seguimiento === MODOS.OBLIGATORIO && !actividad.resultado_seguimiento && (
+            {config.resultado_seguimiento === MODOS.OBLIGATORIO_DESPUES && !actividad.resultado_seguimiento && (
                 <p className="ayuda">Si aún no lo sabes, puedes completarlo después de guardar.</p>
             )}
 
@@ -142,8 +145,9 @@ export function FormularioActividad({
             */}
             {ver('evidencia') && (
                 <p className="ayuda">
-                    {config.evidencia === MODOS.OBLIGATORIO
+                    {config.evidencia === MODOS.OBLIGATORIO_DESPUES
                         ? 'La evidencia se carga después de guardar; puede ser hoy o cuando haya señal.'
+                            + (fechaEnEvidencia ? ' Ahí mismo se te pedirá la fecha del documento.' : '')
                         : 'Este tipo admite evidencia, pero no la exige.'}
                 </p>
             )}

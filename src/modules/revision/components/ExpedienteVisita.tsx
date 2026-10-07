@@ -10,7 +10,8 @@
  */
 
 import type { Actividad, Sector, Visita } from '@core/tipos';
-import { miniaturaEvidencia, urlEvidencia } from '@core/puente';
+import { miniaturaEvidencia, urlEvidencia, fechaCorta } from '@core/puente';
+import { pideOrigen, textoMaterial } from '../services/materiales';
 import { NodoVanilla } from '@shared/components/NodoVanilla';
 
 export function ExpedienteVisita({ visita }: { visita: Visita }) {
@@ -74,12 +75,19 @@ function BloqueActividad({ actividad }: { actividad: Actividad }) {
                 </p>
             )}
 
+            {actividad.fecha_documento && (
+                <p className="expediente-dato">Fecha del documento: {fechaCorta(actividad.fecha_documento)}</p>
+            )}
+
             {materiales.length > 0 && (
-                <p className="expediente-dato">
-                    Materiales: {materiales.map(m =>
-                        `${m.material || 'Sin nombre'} ×${m.cantidad ?? '—'}${m.unidad ? ` ${m.unidad}` : ''}`
-                    ).join(', ')}
-                </p>
+                <div className="expediente-dato">
+                    <span>Materiales:</span>
+                    <ul className="expediente-materiales">
+                        {materiales.map(m => (
+                            <li key={m.id}>{textoMaterial(m, pideOrigen(actividad))}</li>
+                        ))}
+                    </ul>
+                </div>
             )}
         </div>
     );

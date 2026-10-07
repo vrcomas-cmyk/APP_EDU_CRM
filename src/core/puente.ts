@@ -13,6 +13,7 @@
 
 import * as _estado from '../../js/estado.js';
 import * as _catalogos from '../../js/catalogos.js';
+import * as _orden from '../../js/orden.js';
 import * as _visita from '../../js/visita.js';
 import * as _fechas from '../../js/fechas.js';
 import * as _geo from '../../js/geo.js';
@@ -25,7 +26,8 @@ import type {
     PendienteRevision, Comentario, CampoConfigurable, Catalogo, BorradorCatalogo,
     ResultadoFlujo, RolAdmin, CapacidadAdmin, UsuarioAdmin, FlujoAdmin, Estrategia, CatalogoFicha,
     Pendiente, GerenteSector, ReporteActividades, FiltroReporteActividades,
-    FilaHistoricoActividad, FilaHistoricoPlanTrabajo, TemaPersonalizado
+    FilaHistoricoActividad, FilaHistoricoPlanTrabajo, TemaPersonalizado,
+    CampoFormulario, IdFormulario, ReglasCaptura, AvisoRevision
 } from './tipos';
 
 // ---------- estado (salud, ciclo de vida, tiempo) ----------
@@ -48,12 +50,20 @@ export const etiquetaSector = _estado.etiquetaSector as (e: string) => string;
 export const esVisitaCliente = _estado.esVisitaCliente as (v: Visita) => boolean;
 export const etiquetaTipoVisita = _estado.etiquetaTipoVisita as (v: Visita) => string | null;
 export const etiquetaVisita = _estado.etiquetaVisita as (v: Visita) => string;
+/** Lo que falta respaldar con evidencia, de toda la app: [{ visita, sector, actividad }]. */
+export const deudaGlobal = _estado.deudaGlobal as () => Array<{ visita: Visita; sector: Sector; actividad: Actividad }>;
 export const buscarSolapes = _estado.buscarSolapes as (
     visitas: Visita[], candidata: Visita, ignorarId?: string | null
 ) => Visita[];
 export const visitaAbiertaDe = _estado.visitaAbiertaDe as (
     visitas: Visita[], correo: string | undefined, ignorarId?: string | null
 ) => Visita | null;
+
+// ---------- orden ----------
+
+/** Comparador alfabético en español con números como números: el de TODOS los menús. */
+export const compararEs = _orden.compararEs as (a: unknown, b: unknown) => number;
+export const ordenarEs = _orden.ordenarEs as <T>(lista: Iterable<T>, clave?: (x: T) => unknown) => T[];
 
 // ---------- catálogos ----------
 
@@ -91,11 +101,11 @@ export interface MaterialCatalogo {
     sector: string;
     grupo_articulo?: string;
 }
-/** Materiales de un sector, tal cual vienen de "Materiales". */
-export const materialesDe = _catalogos.materialesDe as (sector: string) => MaterialCatalogo[];
+/** Materiales de un sector (o de varios, sin repetir), ordenados. */
+export const materialesDe = _catalogos.materialesDe as (sector: string | string[]) => MaterialCatalogo[];
 /** Buscador fuzzy (palabras sueltas, cualquier orden) dentro de los materiales de un sector. */
 export const buscarMateriales = _catalogos.buscarMateriales as (
-    sector: string, consulta: string, limite?: number
+    sector: string | string[], consulta: string, limite?: number
 ) => MaterialCatalogo[];
 
 /** "1"/"01"/"001" → "001": mismo formato de 3 dígitos en toda la app. */
@@ -121,6 +131,33 @@ export const ETIQUETAS_MODO = _catalogos.ETIQUETAS_MODO as Record<string, string
  */
 export const CAMPOS_ACTIVIDAD = _catalogos.CAMPOS_ACTIVIDAD as CampoConfigurable[];
 export const IDS_CAMPOS = _catalogos.IDS_CAMPOS as string[];
+/** Los modos que el administrador puede elegir para un campo de la actividad. */
+export const modosPermitidos = _catalogos.modosPermitidos as (campo?: CampoConfigurable) => ModoCampo[];
+/** Reglas ajustables del origen del material (dígitos mínimos de un folio, caracteres mínimos de un texto). */
+export const reglasCaptura = _catalogos.reglasCaptura as () => ReglasCaptura;
+/** Qué le falta a un origen escrito, o '' si está bien. */
+export const problemaDeOrigen = _catalogos.problemaDeOrigen as (valor: string, reglas?: ReglasCaptura) => string;
+/** A esta actividad le falta la fecha del documento (obligatoria, con archivo ya adjunto): la evidencia espera. */
+export const fechaDocumentoFaltante = _catalogos.fechaDocumentoFaltante as (a: Actividad) => boolean;
+/** ¿La fecha del documento se pide al subir la evidencia (evidencia obligatoria) y no en el formulario? */
+export const fechaDocumentoEnEvidencia = _catalogos.fechaDocumentoEnEvidencia as (tipo?: string) => boolean;
+/** El resultado de un seguimiento "obligatorio después" que todavía no se captura. */
+export const resultadoPendiente = _catalogos.resultadoPendiente as (a: Actividad) => boolean;
+
+/** Visita, sector y estrategia: una configuración de campos por formulario. */
+export const FORMULARIOS = _catalogos.FORMULARIOS as Record<IdFormulario, {
+    etiqueta: string; campos: CampoFormulario[];
+}>;
+export const modosDeFormulario = _catalogos.modosDeFormulario as (campo: CampoFormulario) => ModoCampo[];
+export const configuracionFormulario = _catalogos.configuracionFormulario as (
+    formulario: IdFormulario
+) => Record<string, ModoCampo>;
+export const modoEnFormulario = _catalogos.modoEnFormulario as (
+    formulario: IdFormulario, campo: string
+) => ModoCampo;
+/** ¿Bloquea el guardado si falta? Solo `obligatorio`. */
+export const esRequeridoEn = _catalogos.esRequeridoEn as (formulario: IdFormulario, campo: string) => boolean;
+export const esVisibleEn = _catalogos.esVisibleEn as (formulario: IdFormulario, campo: string) => boolean;
 /** Todos los sectores que existen en Materiales, escondidos incluidos. */
 export const sectoresDelCatalogo = _catalogos.sectoresDelCatalogo as () => string[];
 
@@ -128,6 +165,16 @@ import { leerCatalogo as _leerCatalogo } from '../../js/storage.js';
 export const leerCatalogo = _leerCatalogo as () => Catalogo | null;
 
 import * as _sync from '../../js/sync.js';
+
+/** Marca avisos como 'leido' o 'resuelto' en el servidor (solo los de quien tiene la sesión). */
+export const marcarAvisos = _sync.marcarAvisos as (ids: string[], accion: 'leido' | 'resuelto') => Promise<boolean>;
+
+/** Avance de la subida automática de fotos (también se anuncia con `pdt:evidencia-progreso`). */
+export const progresoSubidaEvidencias = _sync.progresoSubidaEvidencias as () => {
+    enCurso: boolean; total: number; hechas: number; fallidas: number; subiendo: string[];
+};
+/** Evidencias 'local' cuyo archivo no está en este dispositivo (se subirán desde el que las adjuntó). */
+export const evidenciasSinArchivoLocal = _sync.evidenciasSinArchivoLocal as () => Set<string>;
 export const guardarCatalogosAdmin = _sync.guardarCatalogosAdmin as (
     cambios: BorradorCatalogo
 ) => Promise<unknown>;
@@ -381,6 +428,27 @@ export const conteoPendientes = _revisiones.conteoPendientes as (
  * un badge pululante en vez de prometer "no hay nada que hacer".
  */
 export const hayRevisionesCargadas = _revisiones.hayRevisionesCargadas as () => boolean;
+
+// ---------- datos que le faltan a la persona ----------
+import * as _faltantes from '../../js/faltantes.js';
+import * as _evidenciasUI from '../../js/evidencias.js';
+export interface DatoFaltante {
+    id: string; tipo: 'fecha_documento'; titulo: string; detalle: string;
+    id_visita: string; id_actividad: string; visita: Visita; sector: Sector; actividad: Actividad;
+}
+export const datosFaltantes = _faltantes.datosFaltantes as () => DatoFaltante[];
+/** Abre la ventana para capturar la fecha del documento de una evidencia ya adjunta. */
+export const pedirFechaDocumento = _evidenciasUI.pedirFechaDocumento as (
+    actividad: Actividad, opciones?: { alCambiar?: () => void; alToast?: Avisar }
+) => unknown;
+
+// ---------- avisos al educador ----------
+import * as _avisos from '../../js/avisos.js';
+export const avisosAbiertos = _avisos.avisosAbiertos as () => AvisoRevision[];
+export const avisosSinLeer = _avisos.avisosSinLeer as () => AvisoRevision[];
+/** `false` = todavía no se ha bajado nada (distinto de "cero avisos"). */
+export const hayAvisosCargados = _avisos.hayAvisosCargados as () => boolean;
+export const marcarAvisoLocal = _avisos.marcarLocal as (ids: string[], accion: 'leido' | 'resuelto') => void;
 
 export const ETIQUETAS_RESULTADO = _revisiones.ETIQUETAS_RESULTADO as Record<string, string>;
 

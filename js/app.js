@@ -6,10 +6,16 @@
  * haciendo — al agendar, la pregunta real es "¿dónde cabe esto?".
  */
 
-import { migrarSiHaceFalta, leerCatalogo, adoptarVisitasPropias } from './storage.js';
 import {
-    descargarCatalogo, catalogoEsFresco, sincronizarTodo, descargarVisitasEquipo, descargarRevisiones
+    migrarSiHaceFalta, leerCatalogo, adoptarVisitasPropias, leerVisitas, evidenciasLocales
+} from './storage.js';
+import { eventosPendientes } from './eventos.js';
+import { fechaDocumentoFaltante } from './catalogos.js';
+import {
+    descargarCatalogo, catalogoEsFresco, sincronizarTodo, descargarVisitasEquipo, descargarRevisiones,
+    progresoSubidaEvidencias, evidenciasSinArchivoLocal, descargarAvisos
 } from './sync.js';
+import { ponerAvisos, olvidarAvisos } from './avisos.js';
 import { deudaGlobal } from './estado.js';
 import {
     initVistas, refrescarVistas as refrescarCalendario, irAHoy, setModo, irADia, mostrarModulo
@@ -46,12 +52,17 @@ let appIniciada = false;
 // siguiente reintento (backoff) y un ciclo bueno lo vuelve a poner en el intervalo normal —
 // así "hay veces que no sincroniza" deja de depender de que alguien lo note y pulse el botón.
 let fallosSeguidos = 0;
+// El chip se queda en rojo mientras el último ciclo haya fallado. Antes el `finally` lo reemplazaba
+// enseguida por "N en cola", y el fallo (p. ej. una foto que no sube) pasaba sin que nadie lo viera.
+let ultimoCicloFallo = false;
 const ESPERAS_BACKOFF_MS = [15000, 30000, 60000, 120000, 300000]; // 15s .. 5min, tope
 const INTERVALO_NORMAL_MS = 60000;
 // Un ciclo que nunca resuelve (pestaña congelada a media subida, promesa que no cierra) no
 // debe dejar `sincronizando` en `true` para siempre: eso silenciaría todo intento posterior,
 // automático o manual. Pasado este margen sobre el timeout de red, se da por muerto.
-const WATCHDOG_MS = 3 * 20000; // ~3x TIMEOUT_MS de appsScript.ts
+// La subida de evidencias es la única etapa que puede tardar de verdad (tres intentos por archivo,
+// 90 s cada uno): un margen menor encimaba un ciclo nuevo sobre el que aún subía.
+const WATCHDOG_MS = 6 * 60000;
 let relojAutoSync = null;
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -81,6 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!confirm('¿Cerrar sesión en este dispositivo?')) return;
         // El perfil cacheado es de quien se va: dejarlo daría sus permisos a quien entre.
         olvidarPerfil();
+        olvidarAvisos();
         borrarCache(sesionActual()?.correo);
         cerrarSesion();
     });
@@ -135,6 +147,7 @@ function alCambiarSesion(sesion) {
 
 function mostrarGate() {
     el.gate.hidden = false;
+    el.fab.hidden = true;
     el.app.hidden = true;
     el.sinInvitacion.hidden = true;
 }
@@ -152,6 +165,7 @@ function mostrarApp() {
  */
 function mostrarSinInvitacion(sesion) {
     el.gate.hidden = true;
+    el.fab.hidden = true;
     el.app.hidden = true;
     el.sinInvitacion.hidden = false;
     el.sinInvitacionCorreo.textContent = sesion?.correo || '';
@@ -168,7 +182,8 @@ function pintarBannerSimulacion() {
     el.bannerSimulacion.hidden = !activa;
     // El corte real de escritura está en `postear` (appsScript.ts); esto es solo que el botón
     // no invite a una acción que de todos modos va a ser rechazada.
-    el.fab.hidden = activa;
+    // Sin sesión tampoco: este botón no debe verse en la pantalla de login (la app aún no existe).
+    el.fab.hidden = activa || !sesionActual();
     if (!activa) return;
 
     const detalle = detalleSimulacion();
@@ -261,6 +276,32 @@ function cargarRevisiones() {
 }
 
 /**
+ * Lo que un revisor le devolvió a ESTA persona (rechazado, requiere corrección). Se baja junto con
+ * todo lo demás, así que el aviso en tiempo real que ya dispara cada revisión nueva, el poll de
+ * 60 s y volver a primer plano lo actualizan sin cableado propio.
+ */
+function cargarAvisos() {
+    return descargarAvisos().then(({ avisos, espejo }) => {
+        if (!espejo) return;
+        const nuevos = ponerAvisos(avisos);
+        guardarCache(sesionActual()?.correo, 'avisos', avisos);
+        pintarAccesos();   // la insignia del menú
+
+        if (nuevos.length > 0) {
+            // Uno solo, aunque lleguen varios juntos: un toast por aviso taparía la pantalla.
+            const primero = nuevos[0];
+            const texto = nuevos.length === 1
+                ? `Te devolvieron: ${primero.titulo}${primero.detalle ? ` — ${primero.detalle}` : ''}`
+                : `Tienes ${nuevos.length} avisos de revisión por atender.`;
+            toast(texto, {
+                estado: 'sin-registrar',
+                accion: { texto: 'Ver avisos', fn: () => mostrarModulo('avisos') }
+            });
+        }
+    });
+}
+
+/**
  * Toda la BAJADA del espejo (visitas del equipo, revisiones, catálogo), separada de la SUBIDA.
  * Nunca lanza: cada pieza ya atrapa sus propios errores (`descargarVisitasEquipo`,
  * `descargarRevisiones` y `descargarCatalogoSiSePuede` devuelven vacío/registran en consola en
@@ -277,7 +318,7 @@ let bajadaEnVuelo = null;
  */
 function bajarDelEspejo() {
     if (bajadaEnVuelo) return bajadaEnVuelo;
-    bajadaEnVuelo = Promise.all([cargarEquipo(), cargarRevisiones(), descargarCatalogoSiSePuede()])
+    bajadaEnVuelo = Promise.all([cargarEquipo(), cargarRevisiones(), cargarAvisos(), descargarCatalogoSiSePuede()])
         .finally(() => { bajadaEnVuelo = null; });
     return bajadaEnVuelo;
 }
@@ -288,7 +329,9 @@ function bajarDelEspejo() {
  */
 async function hidratarDesdeCache() {
     const correo = sesionActual()?.correo;
-    const [visitas, rev] = await Promise.all([leerCache(correo, 'visitas'), leerCache(correo, 'revisiones')]);
+    const [visitas, rev, avisos] = await Promise.all([
+        leerCache(correo, 'visitas'), leerCache(correo, 'revisiones'), leerCache(correo, 'avisos')
+    ]);
     let algo = false;
 
     if (Array.isArray(visitas) && !hayEquipoCargado()) {
@@ -300,6 +343,8 @@ async function hidratarDesdeCache() {
         ponerRevisiones(rev.revisiones);
         algo = true;
     }
+    // Sin señal también se ve lo último que se supo: un aviso no depende de tener red para leerse.
+    if (Array.isArray(avisos)) { ponerAvisos(avisos); algo = true; }
     if (algo) { pintarAccesos(); refrescarTodo(); }
 }
 
@@ -335,7 +380,7 @@ function iniciarApp() {
 
     el.fab.addEventListener('click', () => abrirNuevaVisita());
     el.sync.addEventListener('click', () => sincronizar({ manual: true }));
-    el.deuda.addEventListener('click', () => toast('La bandeja de evidencias llega en el paso siguiente.'));
+    el.deuda.addEventListener('click', () => mostrarModulo('evidencias'));
     // Único disparador táctil de la paleta: sin esto, Ctrl+K la deja inalcanzable en el celular.
     el.buscar.addEventListener('click', () => abrirPaleta());
 
@@ -358,9 +403,16 @@ function iniciarApp() {
     // Cada guardado (visita, evidencia, check-in/out) pasa por `guardarVisitas` en
     // storage.js, que emite esto — así sube solo sin esperar al botón.
     window.addEventListener('pdt:visitas-guardadas', alGuardarVisitas);
+    // El avance de la subida de fotos se ve en el chip: sin esto solo decía "Enviando".
+    window.addEventListener('pdt:evidencia-progreso', alProgresoDeEvidencias);
+    // La bandeja de evidencias pide un ciclo manual ("Subir todo ahora") sin importar este módulo.
+    window.addEventListener('pdt:sincronizar', (e) => sincronizar({ manual: true, ...(e.detail || {}) }));
 
     refrescarTodo();
-    alCambiarConexion();
+    // Tras el primer pintado: bajar el catálogo (~1 MB), el espejo y sincronizar compiten por la red
+    // y por Apps Script justo cuando la persona espera ver su agenda. La app ya se ve con lo
+    // cacheado; esto solo la pone al día.
+    despuesDelPrimerPintado(alCambiarConexion);
     // La línea de "ahora" se queda quieta si nadie la mueve.
     setInterval(refrescarCalendario, 60000);
     reanudarAutoSync();
@@ -466,6 +518,42 @@ function actualizarDeuda() {
     const n = deudaGlobal().length;
     el.deudaN.textContent = n;
     el.deuda.hidden = n === 0;
+    if (n > 0) {
+        const { sinArchivo, porSubir } = desgloseDeEvidencias();
+        el.deuda.title = `${sinArchivo} sin archivo · ${porSubir} por subir. Toca para abrir la bandeja.`;
+    }
+}
+
+/** Corre `fn` cuando el navegador ya pintó la app, sin quitarle tiempo al primer render. */
+function despuesDelPrimerPintado(fn) {
+    requestAnimationFrame(() => setTimeout(fn, 0));
+}
+
+/**
+ * La deuda de evidencias, partida en lo que solo una persona puede saldar (falta adjuntar el
+ * archivo) y lo que ya solo espera red. Sin esto "evidencias" era un número que no se movía
+ * aunque el teléfono tuviera señal: la mayor parte nunca ha tenido archivo.
+ */
+function desgloseDeEvidencias() {
+    const deuda = deudaGlobal();
+    const sinArchivoAqui = evidenciasSinArchivoLocal();
+    const porSubir = deuda.filter(({ actividad }) =>
+        actividad.evidencia?.estado === 'local' && !sinArchivoAqui.has(actividad.id)).length;
+    return { sinArchivo: deuda.length - porSubir, porSubir };
+}
+
+/**
+ * Lo que de verdad espera red: visitas por sincronizar, fotos ya adjuntas por subir y eventos de
+ * bitácora. NO la deuda de evidencias (eso es "falta adjuntar", no una cola): confundirlas hacía
+ * que "En cola" marcara siempre lo mismo.
+ */
+function contarEnCola() {
+    const visitas = leerVisitas().filter(v => !v.sincronizado && !v.borrador).length;
+    const sinArchivoAqui = evidenciasSinArchivoLocal();
+    // Las que esperan la fecha del documento no son cola de red: son un dato que falta (van a Avisos).
+    const fotos = evidenciasLocales()
+        .filter(({ actividad }) => !sinArchivoAqui.has(actividad?.id) && !fechaDocumentoFaltante(actividad)).length;
+    return visitas + fotos + eventosPendientes().length;
 }
 
 // ---------- toasts ----------
@@ -579,10 +667,21 @@ function pintarSync(clase, texto) {
 
 function estadoSyncEnReposo() {
     if (!navigator.onLine) return pintarSync('is-off', 'Sin conexión');
+    if (ultimoCicloFallo) return pintarSync('is-error', 'Error · reintentar');
 
-    const pendientes = deudaGlobal().length;
+    const pendientes = contarEnCola();
     if (pendientes > 0) return pintarSync('is-queue', `${pendientes} en cola`);
     pintarSync('', 'Al día');
+}
+
+/** "Subiendo 2/5…" mientras hay fotos en vuelo; al terminar vuelve al estado de reposo. */
+function alProgresoDeEvidencias() {
+    const p = progresoSubidaEvidencias();
+    if (p.enCurso && p.total > 0) {
+        pintarSync('is-busy', `Subiendo ${Math.min(p.hechas + 1, p.total)}/${p.total}…`);
+    }
+    // El estado final lo pinta `sincronizar()` al cerrar el ciclo; aquí solo el avance.
+    actualizarDeuda();
 }
 
 let relojReintentoBackoff = null;
@@ -623,6 +722,7 @@ async function sincronizar({ manual = false, reintentoPorConexion = false } = {}
     sincronizando = true;
     inicioCicloSync = Date.now();
     pintarSync('is-busy', 'Enviando');
+    ultimoCicloFallo = false;
 
     try {
         const r = await sincronizarTodo();
@@ -630,6 +730,7 @@ async function sincronizar({ manual = false, reintentoPorConexion = false } = {}
 
         if (huboErrores) {
             fallosSeguidos++;
+            ultimoCicloFallo = true;
             console.error('sincronizarTodo terminó con etapas fallidas:', r.errores);
             pintarSync('is-error', 'Error');
             programarReintentoBackoff();
@@ -653,6 +754,7 @@ async function sincronizar({ manual = false, reintentoPorConexion = false } = {}
         // golpe, sesión inválida). Mismo backoff que arriba, nunca un apagado definitivo.
         console.error('Error al sincronizar:', error);
         fallosSeguidos++;
+        ultimoCicloFallo = true;
         pintarSync('is-error', 'Error');
         programarReintentoBackoff();
         if (manual || reintentoPorConexion) {

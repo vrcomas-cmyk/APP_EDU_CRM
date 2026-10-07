@@ -19,6 +19,7 @@
  * acceso no se ve: la pantalla funciona, solo que muestra de más.
  */
 
+import { compararEs } from './orden.js';
 import { leerVisitas } from './storage.js';
 import { alcance, puede } from './permisos.js';
 import {
@@ -184,7 +185,7 @@ export function opcionesDeFiltro(visitas = consultarVisitas()) {
     const conjunto = (fn) => {
         const s = new Set();
         visitas.forEach(v => fn(v, s));
-        return [...s].filter(Boolean).sort((a, b) => a.localeCompare(b, 'es'));
+        return [...s].filter(Boolean).sort(compararEs);
     };
 
     return {

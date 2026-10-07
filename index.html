@@ -51,16 +51,33 @@
     <div class="banner-entorno" id="banner-entorno" hidden>PRUEBAS — datos de prueba, no producción</div>
 
     <div class="gate" id="gate">
-        <div class="gate-caja">
+        <main class="gate-caja" aria-labelledby="gate-titulo">
             <span class="appbar-mark">PLAN DE TRABAJO</span>
-            <p class="gate-sub">Entra con tu cuenta de DEGASA para ver y registrar tus visitas.</p>
+            <h1 class="gate-titulo" id="gate-titulo">Entra a tu plan de trabajo</h1>
+            <p class="gate-sub">Usa tu cuenta de DEGASA para ver y registrar tus visitas.</p>
+
+            <ul class="gate-puntos">
+                <li><span class="gate-punto-ico"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></span>
+                    <span><strong>Agenda y visitas</strong> en un solo calendario</span></li>
+                <li><span class="gate-punto-ico"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="15" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M21 16l-5-5-8 9"/></svg></span>
+                    <span><strong>Actividades y evidencias</strong>, con o sin señal</span></li>
+                <li><span class="gate-punto-ico"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 5.2a3.2 3.2 0 0 1 0 5.6M18 14.3c1.8.8 3 2.6 3 4.7"/></svg></span>
+                    <span><strong>Equipo y revisión</strong> al día</span></li>
+            </ul>
+
             <div id="gate-boton"></div>
-        </div>
+
+            <p class="gate-nota">
+                <span class="gate-nota-ico"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></span>
+                Solo cuentas @degasa.com. Tu sesión es personal en este dispositivo.
+            </p>
+        </main>
     </div>
 
     <div class="gate" id="sin-invitacion" hidden>
         <div class="gate-caja">
             <span class="appbar-mark">PLAN DE TRABAJO</span>
+            <h1 class="gate-titulo">Todavía no tienes acceso</h1>
             <p class="gate-sub">
                 Esta cuenta no tiene invitación para entrar. Pídele a un administrador que
                 te invite y vuelve a intentarlo.

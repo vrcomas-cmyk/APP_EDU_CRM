@@ -30,7 +30,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { leerReporteActividades, puede } from '@core/puente';
+import { leerReporteActividades, puede, compararEs } from '@core/puente';
 import type { FilaReporteActividad } from '@core/tipos';
 import type { Medida } from '../../dashboard/components/Medidas';
 import { Dona } from '@shared/components/Dona';
@@ -122,12 +122,12 @@ export function ReporteActividades() {
     // Las opciones salen de TODO lo del rango de fechas, no de lo ya filtrado — igual que
     // `BarraFiltros`: si salieran del resultado, elegir un sector sería la única opción de su
     // propia lista.
-    const opcionesSector = useMemo(() => [...new Set(filas.map(f => f.sector))].filter(Boolean).sort(), [filas]);
-    const opcionesActividad = useMemo(() => [...new Set(filas.map(f => f.tipo))].filter(Boolean).sort(), [filas]);
+    const opcionesSector = useMemo(() => [...new Set(filas.map(f => f.sector))].filter(Boolean).sort(compararEs), [filas]);
+    const opcionesActividad = useMemo(() => [...new Set(filas.map(f => f.tipo))].filter(Boolean).sort(compararEs), [filas]);
     const opcionesEducador = useMemo(() => {
         const m = new Map<string, string>();
         filas.forEach(f => m.set(f.educador_correo, f.educador || f.educador_correo));
-        return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1], 'es'));
+        return [...m.entries()].sort((a, b) => compararEs(a[1], b[1]));
     }, [filas]);
 
     const cambiar = (clave: keyof Filtro, valor: string) => setFiltro(f => ({ ...f, [clave]: valor }));
@@ -339,7 +339,7 @@ function Resultado({ filas }: { filas: FilaReporteActividad[] }) {
 function TablaSectorClic({ filas, onAbrir }: {
     filas: FilaReporteActividad[]; onAbrir: (sector: string) => void;
 }) {
-    const tipos = useMemo(() => [...new Set(filas.map(f => f.tipo))].filter(Boolean).sort(), [filas]);
+    const tipos = useMemo(() => [...new Set(filas.map(f => f.tipo))].filter(Boolean).sort(compararEs), [filas]);
 
     const filasAgrupadas = useMemo(() => {
         const mapa = new Map<string, { sector: string; porTipo: Map<string, number>; total: number }>();
@@ -418,7 +418,7 @@ function ModalDesgloseSector({ sector, filas, onCerrar }: {
 function TablaClientesFiltrable({ filas, ocultarSector = false }: {
     filas: FilaReporteActividad[]; ocultarSector?: boolean;
 }) {
-    const tipos = useMemo(() => [...new Set(filas.map(f => f.tipo))].filter(Boolean).sort(), [filas]);
+    const tipos = useMemo(() => [...new Set(filas.map(f => f.tipo))].filter(Boolean).sort(compararEs), [filas]);
 
     const filasCruzadas = useMemo(() => {
         const mapa = new Map<string, { cliente: string; sector: string; porTipo: Map<string, number>; total: number }>();

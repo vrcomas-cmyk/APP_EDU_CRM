@@ -10,7 +10,7 @@
  */
 
 import { useMemo, useState } from 'react';
-import { tieneEquipo, type Avisar } from '@core/puente';
+import { tieneEquipo, type Avisar, compararEs } from '@core/puente';
 import { ChipToggle } from '@shared/components/ChipToggle';
 import { ComboFiltro } from '@shared/components/ComboFiltro';
 import { plural } from '../services/formato';
@@ -37,7 +37,7 @@ export function Revision({ onCambio, avisar }: Props) {
     // pantalla: el aislamiento real de qué se puede revisar ya lo da `consultarVisitas()`.
     const [fEducador, setFEducador] = useState('');
     const educadores = useMemo(
-        () => [...new Set(pendientes.map(p => p.educador).filter(Boolean))].sort((a, b) => a!.localeCompare(b!, 'es')) as string[],
+        () => [...new Set(pendientes.map(p => p.educador).filter(Boolean))].sort(compararEs) as string[],
         [pendientes]
     );
     const pendientesFiltrados = useMemo(

@@ -25,7 +25,7 @@ export function conCampo<K extends keyof FlujoAdmin>(
 export function resultadoNuevo(): ResultadoFlujo {
     return {
         valor: '', etiqueta: '', accion: '', tono: 'completa', estilo: 'txt',
-        exige_observaciones: false, acepta: true, cierra: true
+        exige_observaciones: false, acepta: true, cierra: true, avisa_educador: false
     };
 }
 

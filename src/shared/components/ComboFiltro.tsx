@@ -11,6 +11,8 @@
  * comparando contra algo que no existe, y `aplicarFiltro` compara por igualdad exacta.
  */
 
+import { useMemo } from 'react';
+import { ordenarEs } from '@core/puente';
 import { Combo, filtrar } from './Combo';
 
 interface Props {
@@ -21,7 +23,10 @@ interface Props {
     placeholder?: string;
 }
 
-export function ComboFiltro({ etiqueta, valor, opciones, onCambiar, placeholder }: Props) {
+export function ComboFiltro({ etiqueta, valor, opciones: opcionesSinOrden, onCambiar, placeholder }: Props) {
+    // Alfabético y con los números como números: nadie debería buscar a mano en una lista al azar.
+    const opciones = useMemo(() => ordenarEs(opcionesSinOrden), [opcionesSinOrden]);
+
     return (
         <div className="filtro filtro-combo">
             <Combo

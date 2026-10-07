@@ -11,15 +11,25 @@
  */
 
 import { nuevoId } from './storage.js';
-import { unidades, buscarMateriales } from './catalogos.js';
+import {
+    unidades, buscarMateriales, configuracionCampos, MODOS, reglasCaptura, problemaDeOrigen
+} from './catalogos.js';
 import { envolver, resaltar, cabeceraModal, marcarError, cerrarConEscape } from './campos.js';
 
 /**
  * @param host      dónde colgar el modal (el drawer, para que quede dentro de su stacking context)
- * @param sector    nombre del sector; acota el catálogo
+ * @param sector    nombre del sector —o lista de nombres, en "Subir actividad"—; acota el catálogo
+ * @param tipo      tipo de la actividad: Administración decide por tipo qué pide el material
+ *                  (cantidad, unidad, origen). Sin tipo rigen los defaults.
  * @param onAgregar recibe { id, material, cantidad, unidad, origen }
  */
-export function abrirModalMaterial({ host, sector, onAgregar, alToast = () => {} }) {
+export function abrirModalMaterial({ host, sector, tipo, onAgregar, alToast = () => {} }) {
+    const nombreSector = [].concat(sector ?? []).join(', ');
+    const config = configuracionCampos(tipo);
+    const visible = (id) => config[id] !== MODOS.OCULTO;
+    const obligatorio = (id) => config[id] === MODOS.OBLIGATORIO;
+    const rotulo = (texto, id) => (obligatorio(id) ? `${texto} *` : texto);
+
     const modal = document.createElement('div');
     modal.className = 'modal';
 
@@ -28,7 +38,7 @@ export function abrirModalMaterial({ host, sector, onAgregar, alToast = () => {}
 
     let soltarEscape = () => {};
     const cerrar = () => { modal.remove(); soltarEscape(); };
-    const head = cabeceraModal('Agregar material', sector, cerrar);
+    const head = cabeceraModal('Agregar material', nombreSector, cerrar);
 
     const body = document.createElement('div');
     body.className = 'modal-body';
@@ -85,10 +95,12 @@ export function abrirModalMaterial({ host, sector, onAgregar, alToast = () => {}
     guardar.className = 'btn btn-principal';
     guardar.textContent = 'Guardar material';
 
-    const campoCantidad = envolver('Cantidad', cantidad);
-    const campoUnidad = envolver('Unidad de medida', unidad);
-    const campoOrigen = envolver('Origen del material', origen,
-        'Folio SAP de mercancía sin cargo, o quién te lo entregó');
+    const campoCantidad = envolver(rotulo('Cantidad', 'material_cantidad'), cantidad);
+    const campoUnidad = envolver(rotulo('Unidad de medida', 'material_unidad'), unidad);
+    const reglas = reglasCaptura();
+    const campoOrigen = envolver(rotulo('Origen del material', 'material_origen'), origen,
+        'Folio SAP de mercancía sin cargo, o quién te lo entregó. '
+        + `Si es un folio: al menos ${reglas.origen_min_digitos} dígitos; si es texto: al menos ${reglas.origen_min_caracteres} caracteres.`);
 
     const pintarRes = () => {
         const encontrados = buscarMateriales(sector, inp.value);
@@ -99,8 +111,8 @@ export function abrirModalMaterial({ host, sector, onAgregar, alToast = () => {}
             const p = document.createElement('p');
             p.className = 'ayuda';
             p.textContent = inp.value.trim()
-                ? `Ningún material de ${sector} coincide.`
-                : `No hay materiales de ${sector} en el catálogo.`;
+                ? `Ningún material de ${nombreSector} coincide.`
+                : `No hay materiales de ${nombreSector} en el catálogo.`;
             res.appendChild(p);
             return;
         }
@@ -131,24 +143,48 @@ export function abrirModalMaterial({ host, sector, onAgregar, alToast = () => {}
     guardar.addEventListener('click', () => {
         if (!elegido) return alToast('Elige un material de la lista.', { estado: 'sin-registrar' });
 
-        if (!cantidad.value || Number(cantidad.value) <= 0) {
-            return marcarError(campoCantidad, 'Indica cuánto entregaste.');
+        // Lo que se pide lo decide Administración por tipo de actividad. Una cantidad escrita
+        // siempre debe ser válida, sea o no obligatoria: un "-3" no es un dato opcional.
+        if (visible('material_cantidad')) {
+            const vacia = !cantidad.value;
+            if (obligatorio('material_cantidad') && (vacia || Number(cantidad.value) <= 0)) {
+                return marcarError(campoCantidad, 'Indica cuánto entregaste.');
+            }
+            if (!vacia && Number(cantidad.value) <= 0) {
+                return marcarError(campoCantidad, 'La cantidad debe ser mayor que cero.');
+            }
         }
-        if (!unidad.value) {
+        if (visible('material_unidad') && obligatorio('material_unidad') && !unidad.value) {
             return marcarError(campoUnidad, 'Elige la unidad de medida.');
+        }
+        if (visible('material_origen') && obligatorio('material_origen') && !origen.value.trim()) {
+            return marcarError(campoOrigen, 'Indica el origen del material.');
+        }
+        // Aunque el campo sea opcional, lo que se escribe tiene que tener forma de origen: un "1"
+        // o un "NA" no es un folio ni un nombre, y después nadie puede rastrear la mercancía.
+        if (visible('material_origen')) {
+            const problema = problemaDeOrigen(origen.value, reglas);
+            if (problema) return marcarError(campoOrigen, problema);
         }
 
         onAgregar({
             id: nuevoId('m'),
+            // Cuándo se capturó (fecha de registro): no es la fecha de la visita ni del documento.
+            creado: new Date().toISOString(),
             material: elegido.material,
-            cantidad: cantidad.value,
-            unidad: unidad.value,
-            origen: origen.value.trim()
+            // Un campo oculto no se captura: nada de valores que el usuario nunca vio.
+            cantidad: visible('material_cantidad') ? cantidad.value : '',
+            unidad: visible('material_unidad') ? unidad.value : '',
+            origen: visible('material_origen') ? origen.value.trim() : ''
         });
         cerrar();
     });
 
-    detalle.append(campoCantidad, campoUnidad, campoOrigen, guardar);
+    // Los ocultos no se pintan; el botón queda siempre, también si no se pide ningún dato.
+    if (visible('material_cantidad')) detalle.append(campoCantidad);
+    if (visible('material_unidad')) detalle.append(campoUnidad);
+    if (visible('material_origen')) detalle.append(campoOrigen);
+    detalle.append(guardar);
 
     body.append(busq, detalle);
     caja.append(head, body);

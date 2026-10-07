@@ -7,7 +7,7 @@
  */
 
 import { useMemo, useState } from 'react';
-import { type Avisar } from '@core/puente';
+import { compararEs, type Avisar } from '@core/puente';
 import { ComboFiltro } from '@shared/components/ComboFiltro';
 import { fechaCorta } from '@core/puente';
 import { usePendientes } from '../hooks/usePendientes';
@@ -38,7 +38,7 @@ export function Pendientes({ avisar }: Props) {
 
     const clientes = useMemo(
         () => [...new Set(pendientes.map(p => p.cliente).filter((c): c is string => !!c))]
-            .sort((a, b) => a.localeCompare(b, 'es')),
+            .sort(compararEs),
         [pendientes]
     );
 

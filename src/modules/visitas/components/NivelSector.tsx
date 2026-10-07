@@ -8,7 +8,8 @@
  */
 
 import {
-    estadoSector, etiquetaSector, estaGuardada, requiereEvidencia, bloqueoParaActividades,
+    estadoSector, etiquetaSector, estaGuardada, requiereEvidencia, resultadoPendiente, fechaDocumentoFaltante,
+    bloqueoParaActividades,
     actividadesDeSector, hiloComentarios, AMBITOS, type Avisar
 } from '@core/puente';
 import type { Visita, Sector, Actividad } from '@core/tipos';
@@ -179,6 +180,10 @@ function FilaActividad({ actividad, numero, onAbrir }: {
                     <span className="pill st-faltan-evidencias">
                         {actividad.evidencia?.estado === 'local' ? 'Evid. en cola' : 'Falta evidencia'}
                     </span>
+                ) : fechaDocumentoFaltante(actividad) ? (
+                    <span className="pill st-sin-registrar">Falta fecha del doc.</span>
+                ) : resultadoPendiente(actividad) ? (
+                    <span className="pill st-faltan-evidencias">Falta resultado</span>
                 ) : (
                     <span className="pill st-completa">✓ Completa</span>
                 )}

@@ -23,7 +23,7 @@ export type SaludVisita = 'neutra' | 'sin-registrar' | 'faltan-evidencias' | 'co
 export type EstadoSector = 'pendiente' | 'en-proceso' | 'finalizado';
 
 /** Modo de un campo capturable, resuelto por tipo de actividad desde Administración. */
-export type ModoCampo = 'obligatorio' | 'opcional' | 'solo-lectura' | 'oculto';
+export type ModoCampo = 'obligatorio' | 'obligatorio-despues' | 'opcional' | 'solo-lectura' | 'oculto';
 
 // ---------- marcas de tiempo y lugar ----------
 
@@ -86,10 +86,18 @@ export interface Evidencia {
     url?: string;
     tipo?: string;                    // "Fotografía", "Lista de asistencia"…
     fecha_documento?: string;
+    /** Cuándo se adjuntó el archivo (fecha de REGISTRO; distinta de la del documento y la de la visita). */
+    adjuntada?: string;
+    /** Por qué falló la última subida automática (solo local; no viaja a la nube). */
+    ultimo_error?: string;
+    intentos?: number;
+    ultimo_intento?: string;
 }
 
 export interface Material {
     id: string;
+    /** Cuándo se capturó (fecha de registro). */
+    creado?: string;
     material: string;
     cantidad?: string | number;
     unidad?: string;
@@ -128,6 +136,8 @@ export interface Actividad {
 
 export interface Sector {
     id: string;
+    /** Cuándo se agregó el sector (fecha de registro). */
+    creado?: string;
     nombre: string;
     objetivo?: string;
     origen?: string[];
@@ -142,6 +152,9 @@ export interface Sector {
 
 export interface Visita {
     id: string;
+    /** Cuándo se generó el registro de la visita (fecha de CAPTURA): distinta del día de la
+     *  visita (`dia`) y de la fecha de cada documento. Nunca se reescribe. */
+    creada?: string;
     educador?: string;
     educador_correo?: string;
     /** Si no es 'cliente', el tiempo no se dedica a un cliente sino a otra cosa —trabajo
@@ -265,6 +278,34 @@ export interface BorradorCatalogosEstrategia {
  * resuelto, no solo quien lo creó, por eso `resuelto_por`/`resuelto_correo` son campos propios
  * y no se infieren de `creado_correo`.
  */
+/**
+ * Lo que un revisor le devolvió al educador (rechazado, requiere corrección…). Lo crea el servidor
+ * al guardar la revisión; el educador lo ve en "Avisos" con la observación y un acceso a la visita.
+ */
+export interface AvisoRevision {
+    id: string;
+    tipo: string;
+    flujo?: string;
+    ambito?: string;
+    id_ambito?: string;
+    id_visita?: string;
+    resultado?: string;
+    /** El veredicto, para leerse: «Requiere corrección». */
+    etiqueta?: string;
+    /** «Requiere corrección · Evidencias». */
+    titulo: string;
+    /** La observación del revisor: qué hay que resolver. */
+    detalle?: string | null;
+    cliente?: string | null;
+    hospital?: string | null;
+    dia_visita?: string | null;
+    revisor?: string | null;
+    creado_en: string;
+    leido_en?: string | null;
+    resuelto_en?: string | null;
+    resuelto_motivo?: string | null;
+}
+
 export interface Pendiente {
     id: string;
     id_visita?: string;
@@ -352,6 +393,12 @@ export type ResultadoClasico = 'aprobado' | 'rechazado' | 'correccion';
  * decidir un color, un estilo o si exige explicación.
  */
 export interface ResultadoFlujo {
+    /**
+     * Al guardar este veredicto, el educador recibe un aviso en la app con la observación del
+     * revisor. Si no se declara: avisa cuando el veredicto no acepta el trabajo (`acepta: false`) o,
+     * en flujos sin veredictos propios, cuando es «rechazado» o «requiere corrección».
+     */
+    avisa_educador?: boolean;
     /** Lo que se guarda y lo único que viaja al servidor. */
     valor: string;
     /** Participio, para el historial: «Aprobado el 3 de julio». */
@@ -439,7 +486,24 @@ export interface CampoConfigurable {
     id: string;
     etiqueta: string;
     defecto: ModoCampo;
+    /** Los modos que admite; sin esto, todos salvo "obligatorio-despues". */
+    modos?: ModoCampo[];
+    /** 'material' = campo de la ventana "Agregar material", no de la actividad. */
+    ambito?: 'material';
 }
+
+/** Un campo de visita/sector/estrategia. `fijo` = lo necesita el sistema; no se configura. */
+export interface CampoFormulario {
+    id: string;
+    etiqueta: string;
+    fijo?: boolean;
+    /** No admite "oculto": el campo es el cuerpo del formulario, solo se decide si se exige. */
+    sinOculto?: boolean;
+    defecto?: ModoCampo;
+}
+
+export type IdFormulario = 'visita' | 'sector' | 'estrategia' | 'reagendar' | 'cancelar';
+export type ConfigFormularios = Partial<Record<IdFormulario, Record<string, ModoCampo>>>;
 
 export interface TipoActividad {
     nombre: string;
@@ -469,6 +533,14 @@ export interface TemaPersonalizado {
 }
 
 /** Lo que Administración edita y sube. Es el catálogo entero, no un parche. */
+/** Reglas de captura ajustables desde Administración (no son un modo de campo). */
+export interface ReglasCaptura {
+    /** Origen del material con solo números: mínimo de dígitos. */
+    origen_min_digitos: number;
+    /** Origen del material con letras u otros caracteres: mínimo de caracteres. */
+    origen_min_caracteres: number;
+}
+
 export interface BorradorCatalogo {
     tipos_actividad: TipoActividad[];
     origenes: string[];
@@ -480,6 +552,9 @@ export interface BorradorCatalogo {
     /** Correos, no nombres: el correo es lo que la sesión verifica. */
     admins: string[];
     temas: TemaPersonalizado[];
+    /** Modo de cada campo de visita/sector/estrategia. */
+    formularios: Record<string, Record<string, ModoCampo>>;
+    reglas_captura: ReglasCaptura;
 }
 
 /** Lo que hay guardado en local. Todo opcional: puede no haber sincronizado nunca. */

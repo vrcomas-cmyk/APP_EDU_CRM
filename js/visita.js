@@ -13,6 +13,7 @@ import {
 } from './estado.js';
 import { obtenerUbicacion, describirDispositivo } from './geo.js';
 import { registrar, TIPOS } from './eventos.js';
+import { esRequeridoEn } from './catalogos.js';
 
 const ok = (datos = {}) => ({ ok: true, ...datos });
 const error = (msg) => ({ ok: false, error: msg });
@@ -110,7 +111,10 @@ export function reagendarVisita(id, { dia, hora_inicio, hora_fin, motivo }) {
     if (!visita) return error('La visita ya no existe.');
     if (estadoDe(visita) === ESTADOS.CANCELADA) return error('Esta visita está cancelada.');
     if (tieneCheckOut(visita)) return error('Una visita finalizada no se reagenda.');
-    if (!motivo || !motivo.trim()) return error('El motivo del cambio es obligatorio.');
+    // Obligatorio por defecto; Administración → Formularios → Reagendar puede volverlo opcional.
+    if (esRequeridoEn('reagendar', 'motivo') && !(motivo || '').trim()) {
+        return error('El motivo del cambio es obligatorio.');
+    }
 
     const antes = { dia: visita.dia, hora_inicio: visita.hora_inicio, hora_fin: visita.hora_fin };
     const despues = {
@@ -128,7 +132,7 @@ export function reagendarVisita(id, { dia, hora_inicio, hora_fin, motivo }) {
         id: nuevoId('r'),
         momento: new Date().toISOString(),
         usuario: visita.educador || '',
-        motivo: motivo.trim(),
+        motivo: (motivo || '').trim(),
         antes, despues
     };
 
@@ -159,6 +163,9 @@ export function cancelarVisita(id, motivo) {
     if (!visita) return error('La visita ya no existe.');
     if (estadoDe(visita) === ESTADOS.CANCELADA) return error('Ya está cancelada.');
     if (tieneCheckOut(visita)) return error('Una visita finalizada no se cancela.');
+    if (esRequeridoEn('cancelar', 'motivo') && !(motivo || '').trim()) {
+        return error('El motivo de la cancelación es obligatorio.');
+    }
 
     const actualizada = actualizarVisita(id, v => {
         v.estado = ESTADOS.CANCELADA;

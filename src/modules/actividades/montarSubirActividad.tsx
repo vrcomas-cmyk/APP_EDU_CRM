@@ -50,8 +50,8 @@ export function abrirSubirActividad({
                 avisar={alToast}
                 alCambiar={alCambiar}
                 onCerrar={cerrar}
-                abrirVentanaMaterial={(sector, onAgregar) => {
-                    abrirModalMaterial({ host, sector, alToast, onAgregar } as never);
+                abrirVentanaMaterial={(sector, onAgregar, tipo) => {
+                    abrirModalMaterial({ host, sector, tipo, alToast, onAgregar } as never);
                 }}
             />
         </StrictMode>

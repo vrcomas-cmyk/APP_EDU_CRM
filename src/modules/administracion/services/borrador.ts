@@ -8,10 +8,13 @@
 
 import {
     configuracionCampos, leerCatalogo, IDS_CAMPOS, MODOS,
-    origenes, areas, unidades, tiposEvidencia, temas
+    origenes, areas, unidades, tiposEvidencia, temas, FORMULARIOS, configuracionFormulario, CAMPOS_ACTIVIDAD,
+    reglasCaptura
 } from '@core/puente';
 import { problemasDeTema } from './color';
-import type { BorradorCatalogo, Educador, ModoCampo, TemaPersonalizado, TipoActividad } from '@core/tipos';
+import type {
+    BorradorCatalogo, Educador, IdFormulario, ModoCampo, ReglasCaptura, TemaPersonalizado, TipoActividad
+} from '@core/tipos';
 
 /** Las listas simples se editan todas igual; solo cambian el nombre y el texto de ayuda. */
 export const LISTAS = [
@@ -53,7 +56,33 @@ export function borradorDesdeCatalogo(): BorradorCatalogo {
         sectores_ocultos: [...(cat.sectores_ocultos || [])],
         educadores: (cat.educadores || []).map(e => ({ ...e })),
         admins: [...(cat.admins || [])],
-        temas: temas().map(t => ({ ...t }))
+        temas: temas().map(t => ({ ...t })),
+        // Resuelto como los campos de actividad: se ve el estado real (defaults incluidos), no
+        // una tabla vacía que parezca "sin configurar".
+        formularios: Object.fromEntries(
+            (Object.keys(FORMULARIOS) as IdFormulario[]).map(f => [f, { ...configuracionFormulario(f) }])
+        ),
+        reglas_captura: { ...reglasCaptura() }
+    };
+}
+
+/** Cambia una regla de captura (p. ej. los dígitos mínimos de un folio de origen). */
+export function conReglaCaptura(
+    b: BorradorCatalogo, clave: keyof ReglasCaptura, valor: number
+): BorradorCatalogo {
+    return { ...b, reglas_captura: { ...b.reglas_captura, [clave]: valor } };
+}
+
+/** Cambia el modo de un campo de Visita/Sector/Estrategia. */
+export function conCampoFormulario(
+    b: BorradorCatalogo, formulario: string, campoId: string, modo: ModoCampo
+): BorradorCatalogo {
+    return {
+        ...b,
+        formularios: {
+            ...b.formularios,
+            [formulario]: { ...(b.formularios?.[formulario] || {}), [campoId]: modo }
+        }
     };
 }
 
@@ -98,9 +127,18 @@ export function conCampo(t: TipoActividad, campoId: string, modo: ModoCampo): Ti
     return salida;
 }
 
+/** Pone el mismo modo a un campo en TODOS los tipos de actividad ("Aplicar a todos"). */
+export function conCampoEnTodos(b: BorradorCatalogo, campoId: string, modo: ModoCampo): BorradorCatalogo {
+    return { ...b, tipos_actividad: b.tipos_actividad.map(t => conCampo(t, campoId, modo)) };
+}
+
 export function resumenDeTipo(t: TipoActividad): string {
-    const obligatorios = IDS_CAMPOS.filter(id => t.campos?.[id] === MODOS.OBLIGATORIO).length;
-    const ocultos = IDS_CAMPOS.filter(id => t.campos?.[id] === MODOS.OCULTO).length;
+    // Los campos de la ventana de material no son "del tipo" a ojos de quien lo resume.
+    const ids = IDS_CAMPOS.filter(id => !CAMPOS_ACTIVIDAD.find(c => c.id === id)?.ambito);
+    const esOblig = (id: string) =>
+        t.campos?.[id] === MODOS.OBLIGATORIO || t.campos?.[id] === MODOS.OBLIGATORIO_DESPUES;
+    const obligatorios = ids.filter(esOblig).length;
+    const ocultos = ids.filter(id => t.campos?.[id] === MODOS.OCULTO).length;
 
     return `${obligatorios} obligatorio${obligatorios === 1 ? '' : 's'}`
         + ` · ${ocultos} oculto${ocultos === 1 ? '' : 's'}`;
@@ -175,6 +213,16 @@ export function problemasDe(b: BorradorCatalogo): string[] {
 
     if (b.tipos_actividad.length === 0) {
         problemas.push('no queda ningún tipo de actividad');
+    }
+
+    // Enteros razonables: 0 dejaría pasar cualquier cosa y 50 haría imposible capturar un folio.
+    const reglas: Array<[keyof ReglasCaptura, string]> = [
+        ['origen_min_digitos', 'los dígitos mínimos del origen'],
+        ['origen_min_caracteres', 'los caracteres mínimos del origen']
+    ];
+    for (const [clave, nombre] of reglas) {
+        const n = b.reglas_captura?.[clave];
+        if (!Number.isInteger(n) || n < 1 || n > 50) problemas.push(`${nombre} deben ser un número entre 1 y 50`);
     }
 
     if (b.temas.some(t => !t.nombre.trim())) {

@@ -311,6 +311,13 @@ function FilaVeredicto({ resultado, onCambiar, onQuitar }: {
                     activo={Boolean(resultado.cierra)}
                     onCambiar={(v) => onCambiar('cierra', v)}
                 />
+                {/* Sin valor guardado se decide solo: avisa si el veredicto NO acepta el trabajo.
+                    Se muestra ese valor efectivo para que el chip no mienta. */}
+                <ChipToggle
+                    etiqueta="Avisa al educador"
+                    activo={resultado.avisa_educador ?? resultado.acepta === false}
+                    onCambiar={(v) => onCambiar('avisa_educador', v)}
+                />
             </div>
         </div>
     );

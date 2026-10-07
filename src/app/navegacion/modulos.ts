@@ -13,11 +13,14 @@
  * una promesa rota, y además revela que el módulo existe.
  */
 
-import { puede, flujosDisponibles, conteoPendientes, hayRevisionesCargadas, tieneEquipo } from '@core/puente';
+import {
+    puede, flujosDisponibles, conteoPendientes, hayRevisionesCargadas, tieneEquipo, deudaGlobal,
+    avisosAbiertos, hayAvisosCargados, datosFaltantes
+} from '@core/puente';
 
 export type ClaveModulo =
     'calendario' | 'mi-dia' | 'estrategias' | 'pendientes' | 'dashboard' | 'revision'
-    | 'reporte-actividades' | 'historico' | 'supervision' | 'administracion';
+    | 'reporte-actividades' | 'historico' | 'supervision' | 'administracion' | 'evidencias' | 'avisos';
 
 export interface Modulo {
     clave: ClaveModulo;
@@ -68,6 +71,37 @@ export const MODULOS: Modulo[] = [
         corto: 'Pendiente',
         icono: 'pendientes',
         disponible: () => puede('pendientes', 'ver')
+    },
+    {
+        clave: 'avisos',
+        nombre: 'Avisos',
+        corto: 'Avisos',
+        icono: 'avisos',
+        // Cualquiera a quien se le pueda revisar algo: lo que un revisor le devolvió.
+        disponible: () => puede('mi_dia', 'ver'),
+        // Lo que le devolvió un revisor MÁS los datos que a la persona le faltan (la fecha de un
+        // documento). Los datos que faltan son locales y siempre se conocen; lo del revisor no:
+        // `undefined` mientras no se haya bajado nada es un indicador de carga, no un "cero" que
+        // prometa que nadie le ha devuelto nada.
+        insignia: () => {
+            const faltan = datosFaltantes().length;
+            return hayAvisosCargados() ? avisosAbiertos().length + faltan : (faltan || undefined);
+        }
+    },
+    {
+        clave: 'evidencias',
+        nombre: 'Evidencias',
+        corto: 'Evidencia',
+        icono: 'evidencias',
+        // Es trabajo propio de quien captura: cualquiera que pueda ver su día tiene evidencias.
+        disponible: () => puede('mi_dia', 'ver'),
+        insignia: () => {
+            try {
+                return deudaGlobal().length;
+            } catch {
+                return undefined;
+            }
+        }
     },
     {
         clave: 'dashboard',

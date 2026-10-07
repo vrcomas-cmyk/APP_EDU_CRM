@@ -14,6 +14,7 @@ import { NodoVanilla } from '@shared/components/NodoVanilla';
 
 import { AccionesRevision } from './AccionesRevision';
 import { ExpedienteVisita } from './ExpedienteVisita';
+import { pideOrigen, textoMaterial } from '../services/materiales';
 import { ComentariosDeVisita, HistorialRevisiones } from './LoYaDicho';
 
 interface Props {
@@ -82,6 +83,16 @@ function Contexto({ flujo, item }: { flujo: FlujoRevision; item: PendienteRevisi
                     <Dato etiqueta="Área visitada" valor={item.actividad.area_visitada} />
                     <Dato etiqueta="Contacto" valor={item.actividad.contacto?.nombre} />
                     <Dato etiqueta="Materiales" valor={String((item.actividad.materiales || []).length)} />
+                    {(item.actividad.materiales || []).length > 0 && (
+                        <div className="dato dato-ancho">
+                            <span className="dato-lbl">Detalle y origen de los materiales</span>
+                            <ul className="expediente-materiales">
+                                {(item.actividad.materiales || []).map(m => (
+                                    <li key={m.id}>{textoMaterial(m, pideOrigen(item.actividad!))}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
                 </>
             ) : (
                 <>
