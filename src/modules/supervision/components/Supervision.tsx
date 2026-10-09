@@ -16,8 +16,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
     consultarVisitas, calcularIndicadores, claveHoy, alcance, sesionActual,
     estadoDe, ESTADOS, tieneCheckIn, tieneCheckOut, permanenciaTexto,
-    etiquetaVisita, detalleEstado, saludDe
-} from '@core/puente';
+    etiquetaVisita, detalleEstado, saludDe, compararEs } from '@core/puente';
 import type { Visita } from '@core/tipos';
 import { ExpedienteVisita } from '@modules/revision/components/ExpedienteVisita';
 import { BanderasVisita } from '@shared/components/Indicadores';
@@ -52,7 +51,7 @@ export function Supervision({ version = 0 }: { version?: number }) {
                 nombre: nombreDe.get(correo) || correo,
                 sinNombre: !nombreDe.has(correo)
             }))
-            .sort((a, b) => a.nombre.localeCompare(b.nombre));
+            .sort((a, b) => compararEs(a.nombre, b.nombre));
     }, [todas]);
 
     const [elegido, setElegido] = useState<string>('');

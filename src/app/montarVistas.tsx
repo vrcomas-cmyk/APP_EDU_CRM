@@ -17,6 +17,8 @@ import { Calendario, type ControlesExternos, type MandosNavegacion } from '@modu
 import { Dashboard } from '@modules/dashboard/components/Dashboard';
 import { Estrategias } from '@modules/estrategias/components/Estrategias';
 import { Pendientes } from '@modules/pendientes/components/Pendientes';
+import { BandejaEvidencias } from '@modules/evidencias/components/BandejaEvidencias';
+import { BandejaAvisos } from '@modules/avisos/components/BandejaAvisos';
 import { MiDia } from '@modules/midia/components/MiDia';
 import { Revision } from '@modules/revision/components/Revision';
 import { Administracion } from '@modules/administracion/components/Administracion';
@@ -24,7 +26,7 @@ import { ReporteActividades } from '@modules/reporteActividades/components/Repor
 import { Historico } from '@modules/historico/components/Historico';
 import { Supervision } from '@modules/supervision/components/Supervision';
 import { LimiteDeError } from '@shared/components/LimiteDeError';
-import type { Avisar } from '@core/puente';
+import { enSimulacion, type Avisar } from '@core/puente';
 
 export interface OpcionesVistas {
     onAbrirVisita?: (id: string) => void;
@@ -85,7 +87,8 @@ function Shell() {
     // El FAB crea visitas; fuera del calendario no hay dónde agendarlas, así que desaparece
     // en vez de quedarse como un atajo hacia un módulo que no lo necesita.
     const fab = document.getElementById('fab');
-    if (fab) (fab as HTMLButtonElement).hidden = !enCalendario;
+    // En modo "ver como" tampoco: la simulación es de solo lectura y agendar sería rechazado.
+    if (fab) (fab as HTMLButtonElement).hidden = !enCalendario || enSimulacion();
 
     return (
         <>
@@ -114,6 +117,10 @@ function Shell() {
                 {activo === 'estrategias' && <Estrategias avisar={opciones.onToast} />}
 
                 {activo === 'pendientes' && <Pendientes avisar={opciones.onToast} />}
+
+                {activo === 'evidencias' && <BandejaEvidencias avisar={opciones.onToast} />}
+
+                {activo === 'avisos' && <BandejaAvisos avisar={opciones.onToast} />}
 
                 {activo === 'dashboard' && <Dashboard />}
 

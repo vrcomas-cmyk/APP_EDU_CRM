@@ -219,16 +219,66 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 
 /* ---------- pantalla de entrada ---------- */
 .gate {
-  height: 100dvh; display: grid; place-items: center; background: var(--paper); padding: 20px;
+  min-height: 100dvh; display: grid; place-items: center; background: var(--paper);
+  padding: var(--sp-5, 20px);
 }
 .gate[hidden] { display: none; }
+
+/* Una tarjeta sobre el papel: la superficie blanca se despega del fondo con borde y sombra suaves,
+   sin gradientes ni relieve. Todo sale de los tokens del tema, así vale en claro, oscuro y Apple. */
 .gate-caja {
-  display: flex; flex-direction: column; align-items: center; gap: 16px;
-  text-align: center; max-width: 320px;
+  width: 100%; max-width: 400px;
+  display: flex; flex-direction: column; align-items: stretch; gap: 14px;
+  text-align: left;
+  background: var(--surface); border: 1px solid var(--rule); border-radius: var(--r-lg);
+  box-shadow: var(--shadow); padding: 28px;
 }
-.gate-caja .appbar-mark { font-size: 13px; }
-.gate-sub { font-size: 13.5px; color: var(--muted); line-height: 1.5; }
-#gate-boton { min-height: 40px; }
+.gate-caja .appbar-mark { font-size: 12px; align-self: flex-start; }
+.gate-titulo {
+  margin: 0; font-size: var(--fs-xl, 20px); line-height: 1.25; font-weight: 650; letter-spacing: -.02em;
+  color: var(--ink);
+}
+.gate-sub { margin: 0; font-size: 13.5px; color: var(--muted); line-height: 1.5; }
+
+.gate-puntos {
+  list-style: none; margin: 4px 0 2px; padding: 14px 0; display: flex; flex-direction: column; gap: 12px;
+  border-top: 1px solid var(--rule-soft); border-bottom: 1px solid var(--rule-soft);
+}
+.gate-puntos li { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--ink-2); line-height: 1.35; }
+.gate-puntos strong { color: var(--ink); font-weight: 600; }
+.gate-punto-ico {
+  flex: none; width: 32px; height: 32px; display: grid; place-items: center;
+  border-radius: var(--r-md); background: var(--surface-2); color: var(--ink);
+}
+
+#gate-boton { display: flex; flex-direction: column; gap: 8px; min-height: 44px; }
+
+/* El botón de Google: superficie con borde, como pide la guía de marca de Google (no un botón
+   de relleno de color). Ocupa todo el ancho y mide ≥44 px para el pulgar. */
+.btn-google-entrada {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  width: 100%; min-height: 44px; padding: 10px 16px;
+  background: var(--surface); color: var(--ink);
+  border: 1px solid var(--rule); border-radius: var(--r-md);
+  font: inherit; font-size: 14px; font-weight: 600; letter-spacing: -.01em; cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease),
+              transform var(--dur-fast) var(--ease-press);
+}
+.btn-google-entrada:hover:not(:disabled) { border-color: var(--ink-2); background: var(--surface-2); }
+.btn-google-entrada:active:not(:disabled) { transform: scale(.985); }
+.btn-google-entrada:disabled { opacity: .6; cursor: progress; }
+.btn-google-logo { display: grid; place-items: center; flex: none; }
+
+.gate-nota {
+  display: flex; align-items: flex-start; gap: 6px; margin: 2px 0 0;
+  font-size: 11.5px; color: var(--muted); line-height: 1.45;
+}
+.gate-nota-ico { flex: none; display: grid; place-items: center; margin-top: 1px; }
+
+@media (max-width: 420px) {
+  .gate { padding: 12px; }
+  .gate-caja { padding: 22px 18px; border-radius: var(--r-md); }
+}
 
 /* App de prueba: mismo criterio que el banner de "ver como" de abajo — imposible de ignorar
    y de olvidar, para que nadie confunda esta app con la oficial. Vive antes que #gate y #app
@@ -319,6 +369,12 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
   transition: background-color .15s var(--ease), color .15s var(--ease);
 }
 .seg button:last-child { border-right: 0; }
+/* Ningún texto se corta, en ningún tema: el control nunca es más ancho que su contenedor (se
+   desplaza si no cabe) y cada botón conserva el ancho de su texto. Antes `overflow:hidden` recortaba
+   el último botón ("Territorios" con el estilo Apple, que agranda el relleno) sin ninguna pista. */
+.seg { max-width: 100%; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.seg::-webkit-scrollbar { display: none; }
+.seg button { white-space: nowrap; min-width: max-content; }
 .seg button:hover { color: var(--ink); }
 .seg button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
 
@@ -1130,7 +1186,7 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 
 /* El conmutador de área (Catálogos / Accesos) es más ancho a propósito: separa dos backends
    de guardado distintos, y confundirlo con una pestaña más haría creer que comparten botón. */
-.admin-area { width: 100%; max-width: 320px; margin-bottom: 10px; }
+.admin-area { width: 100%; margin-bottom: 10px; }
 .admin-area button { flex: 1; }
 
 .admin-fila {
@@ -1194,7 +1250,7 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 }
 .campo-fila:last-child { border-bottom: 0; }
 .campo-fila-lbl { flex: 1; min-width: 0; font-size: 12.5px; color: var(--ink-2); }
-.campo-fila .inp { flex: none; width: 132px; }
+.campo-fila .inp { flex: none; width: auto; min-width: 132px; max-width: min(60%, 320px); }
 
 @media (max-width: 720px) {
   .campo-fila { flex-direction: column; align-items: stretch; gap: 4px; }
@@ -1436,7 +1492,8 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 }
 
 .btn-google-entrada-error {
-  margin-top: 8px; font-size: 13px; color: var(--st-miss);
+  margin: 0; padding: 10px 12px; font-size: 13px; line-height: 1.4; color: var(--st-miss);
+  background: var(--st-miss-bg); border-radius: var(--r-sm);
 }
 
 .modal-foot {
@@ -2320,3 +2377,70 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 }
 .estrategia-opcion:hover { background: var(--surface-2); }
 .estrategia-opcion input { margin-top: 3px; flex: none; }
+
+/* Qué está pasando durante el inicio de sesión (Abriendo Google… / Verificando tu cuenta…). */
+.gate-paso {
+  margin: 0; font-size: 13px; color: var(--muted); line-height: 1.4;
+  display: flex; align-items: center; gap: 8px;
+}
+.gate-paso::before {
+  content: ''; flex: none; width: 12px; height: 12px; border-radius: 50%;
+  border: 2px solid currentColor; border-right-color: transparent;
+  animation: gate-giro .8s linear infinite;
+}
+.gate-paso[hidden] { display: none; }
+@keyframes gate-giro { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .gate-paso::before { animation: none; } }
+
+/* Bandeja de evidencias */
+.evid-progreso { display: flex; align-items: center; gap: 10px; margin: 8px 0; font-size: 13px; color: var(--muted); }
+.evid-progreso progress { flex: 1; min-width: 0; height: 8px; }
+.evid-acciones { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 8px 0 12px; }
+.evid-grupo { margin-top: 14px; }
+.evid-fila .evid-control { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+
+/* La ventana de material: `display:flex` de la clase le ganaba al atributo `hidden`, así que
+   Cantidad/Unidad/Origen y "Guardar material" se veían antes de elegir un material. */
+.mat-detalle[hidden], .mat-res[hidden] { display: none; }
+
+/* Un solo bloque que desplaza su contenido (sector + formulario de "Subir actividad"): con dos
+   `.modal-body` hermanos, cada uno con su propio scroll, se encogían el uno al otro. */
+.modal-scroll { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; }
+.modal-scroll > .modal-body { overflow: visible; flex: none; }
+
+/* Campos de una ventana aparte (p. ej. "Agregar material") dentro de la ficha de un tipo. */
+.campo-grupo { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--rule); }
+.campo-grupo.es-atenuado .campo-fila { opacity: .55; }
+
+/* Evidencia: el paso "¿de qué fecha es el documento?" al adjuntar, y la etiqueta con la fecha. */
+.evid-adjuntar { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.evid-paso-fecha { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.evid-paso-acciones { display: flex; gap: 8px; align-items: center; }
+.evid-fecha { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+.evid-fecha-falta { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+
+/* Revisión: cada material en su línea, con su origen. */
+.expediente-materiales { margin: 3px 0 0; padding-left: 16px; display: flex; flex-direction: column; gap: 2px; }
+.expediente-materiales li { font-size: 11px; color: var(--ink-2); line-height: 1.4; overflow-wrap: anywhere; }
+.revision-datos .dato-ancho { grid-column: 1 / -1; }
+
+/* Avisos de revisión: la observación del revisor es lo importante, va con peso. */
+.aviso-card { display: flex; flex-direction: column; gap: 6px; }
+.aviso-detalle { margin: 2px 0; font-size: 13.5px; line-height: 1.5; color: var(--ink); overflow-wrap: anywhere; }
+.aviso-acciones { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
+
+
+/* Fecha del documento: una VENTANA (no se puede pasar por alto) y, cuando falta, un bloque que resalta. */
+.dialogo-raiz { position: fixed; inset: 0; z-index: 56; }
+.modal-caja.es-fecha { width: min(420px, 100%); }
+.dialogo-aviso {
+  margin: 0; padding: 10px 12px; font-size: 12.5px; line-height: 1.45; color: var(--ink);
+  background: var(--st-miss-bg); border-left: 3px solid var(--st-miss); border-radius: var(--r-sm);
+}
+.evid-fecha-falta.es-alerta {
+  flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px 12px; width: 100%;
+  padding: 10px 12px; background: var(--st-miss-bg); border: 1px solid var(--st-miss); border-radius: var(--r-sm);
+}
+.evid-fecha-falta-txt { flex: 1 1 200px; min-width: 0; font-size: 12.5px; font-weight: 600; line-height: 1.4; color: var(--ink); }
+.aviso-card.es-faltante { border-left: 3px solid var(--st-miss); }
+.avisos-grupo { margin-bottom: 14px; }

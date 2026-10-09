@@ -19,6 +19,7 @@ import { CampoFecha } from '@shared/components/CampoFecha';
 import * as repo from '../repository/visitasRepo';
 import { idsEstrategiasDe, aplicarSeleccion } from '@modules/estrategias/services/vinculo';
 import { HistoricoCliente } from './HistoricoCliente';
+import { rotuloEn, esVisibleEn } from '@shared/services/campos';
 import type { Visita } from '@core/tipos';
 
 interface Props {
@@ -39,27 +40,33 @@ export function FormularioVisita({ visita, editar, avisar }: Props) {
                 <>
                     <CampoCliente visita={visita} editar={editar} />
                     <SubindiceZonaEjecutivo visita={visita} />
-                    <CampoEstrategia visita={visita} editar={editar} />
-                    <CampoHospital visita={visita} editar={editar} />
+                    {esVisibleEn('visita', 'estrategia') && (
+                        <CampoEstrategia visita={visita} editar={editar} />
+                    )}
+                    {esVisibleEn('visita', 'hospital') && (
+                        <CampoHospital visita={visita} editar={editar} />
+                    )}
                     <HistoricoCliente visita={visita} />
                 </>
             ) : (
-                <CampoMotivo visita={visita} editar={editar} />
+                esVisibleEn('visita', 'motivo') && <CampoMotivo visita={visita} editar={editar} />
             )}
 
             <CampoFechaVisita visita={visita} editar={editar} />
 
             <CampoHoras visita={visita} editar={editar} avisar={avisar} />
 
-            <label className="campo">
-                <span className="campo-lbl">Notas</span>
-                <textarea
-                    className="inp notas-area" rows={2}
-                    placeholder="Nota de planeación (no es un comentario)"
-                    value={visita.notas || ''}
-                    onChange={(e) => editar(v => { v.notas = e.target.value; })}
-                />
-            </label>
+            {esVisibleEn('visita', 'notas') && (
+                <label className="campo">
+                    <span className="campo-lbl">{rotuloEn('visita', 'notas', 'Notas')}</span>
+                    <textarea
+                        className="inp notas-area" rows={2}
+                        placeholder="Nota de planeación (no es un comentario)"
+                        value={visita.notas || ''}
+                        onChange={(e) => editar(v => { v.notas = e.target.value; })}
+                    />
+                </label>
+            )}
         </>
     );
 }
@@ -229,7 +236,7 @@ function CampoTipo({ visita, editar }: { visita: Visita; editar: Props['editar']
 function CampoMotivo({ visita, editar }: { visita: Visita; editar: Props['editar'] }) {
     return (
         <label className="campo">
-            <span className="campo-lbl">Motivo</span>
+            <span className="campo-lbl">{rotuloEn('visita', 'motivo', 'Motivo')}</span>
             <input
                 type="text"
                 className="inp"
@@ -315,7 +322,7 @@ function CampoHospital({ visita, editar }: { visita: Visita; editar: Props['edit
 
     return (
         <Combo
-            etiqueta="Hospital"
+            etiqueta={rotuloEn('visita', 'hospital', 'Hospital')}
             valor={visita.hospital || ''}
             placeholder="Escribe el hospital…"
             opciones={opciones}
@@ -439,7 +446,7 @@ export function PanelInformacion({ visita, editar }: { visita: Visita; editar?: 
             {/* Notas SÍ se puede seguir corrigiendo: es una nota de planeación, no lo que la
                 visita afirma haber hecho —a diferencia del resto de este panel, y a
                 diferencia de los Comentarios, que son un hilo inmutable. */}
-            {editar && (
+            {editar && esVisibleEn('visita', 'notas') && (
                 <label className="campo">
                     <span className="campo-lbl">Notas</span>
                     <textarea

@@ -9,7 +9,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { leerHistoricoActividades, leerHistoricoPlanTrabajo, fechaCorta } from '@core/puente';
+import { leerHistoricoActividades, leerHistoricoPlanTrabajo, fechaCorta, compararEs } from '@core/puente';
 import type { FilaHistoricoActividad, FilaHistoricoPlanTrabajo } from '@core/tipos';
 import { CampoFecha } from '@shared/components/CampoFecha';
 import { Esqueleto } from '@shared/components/Esqueleto';
@@ -113,10 +113,10 @@ function TablaActividades({ filas }: { filas: FilaHistoricoActividad[] }) {
     const opcionesEducador = useMemo(() => {
         const m = new Map<string, string>();
         filas.forEach(f => { if (f.educador_correo) m.set(f.educador_correo, f.educador_nombre || f.educador_correo); });
-        return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1], 'es'));
+        return [...m.entries()].sort((a, b) => compararEs(a[1], b[1]));
     }, [filas]);
     const opcionesResultado = useMemo(
-        () => [...new Set(filas.map(f => f.resultado))].filter((r): r is string => !!r).sort(),
+        () => [...new Set(filas.map(f => f.resultado))].filter((r): r is string => !!r).sort(compararEs),
         [filas]
     );
 
@@ -206,7 +206,7 @@ function TablaPlanTrabajo({ filas }: { filas: FilaHistoricoPlanTrabajo[] }) {
     const opcionesEducador = useMemo(() => {
         const m = new Map<string, string>();
         filas.forEach(f => { if (f.educador_correo) m.set(f.educador_correo, f.educador_nombre || f.educador_correo); });
-        return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1], 'es'));
+        return [...m.entries()].sort((a, b) => compararEs(a[1], b[1]));
     }, [filas]);
 
     const filtradas = useMemo(() => filas.filter(f =>

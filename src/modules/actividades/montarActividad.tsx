@@ -117,11 +117,12 @@ export function abrirActividad({
                     alCambiar={alCambiarYRepintar}
                     onCerrar={cerrar}
                     soloLectura={soloLectura}
-                    abrirVentanaMaterial={(sector, onAgregar) => {
+                    abrirVentanaMaterial={(sector, onAgregar, tipo) => {
                         abrirModalMaterial({
                             // Los materiales se cuelgan del MISMO host, por el mismo apilado.
                             host,
                             sector,
+                            tipo,
                             alToast,
                             onAgregar
                         } as never);

@@ -8,7 +8,7 @@
  */
 
 import { useCallback, useMemo } from 'react';
-import { zonasDelCatalogo, ejecutivoDeZona, clientesDelCatalogo } from '@core/puente';
+import { zonasDelCatalogo, ejecutivoDeZona, clientesDelCatalogo, compararEs } from '@core/puente';
 import { Combo, filtrar } from '@shared/components/Combo';
 import type { BorradorTerritorios, UsuarioAdmin } from '@core/tipos';
 import {
@@ -30,7 +30,7 @@ export function PanelTerritorios({ borrador, cambiar, educadores }: Props) {
     // zona vieja) — se sigue mostrando para poder quitarla, no desaparece en silencio.
     const todasLasZonas = useMemo(() => {
         const asignadas = borrador.titulares.map(t => t.zona);
-        return [...new Set([...zonas, ...asignadas])].sort((a, b) => a.localeCompare(b, 'es'));
+        return [...new Set([...zonas, ...asignadas])].sort(compararEs);
     }, [zonas, borrador.titulares]);
 
     const titularDe = (zona: string) => borrador.titulares.find(t => t.zona === zona)?.educador_correo || '';
@@ -38,7 +38,7 @@ export function PanelTerritorios({ borrador, cambiar, educadores }: Props) {
     // Activos primero y alfabético por nombre — es la lista de la que se elige el responsable.
     const opcionesEducador = useMemo(() => [...educadores].sort((a, b) => {
         if (a.activo !== b.activo) return a.activo ? -1 : 1;
-        return (a.nombre || a.correo).localeCompare(b.nombre || b.correo, 'es');
+        return compararEs(a.nombre || a.correo, b.nombre || b.correo);
     }), [educadores]);
 
     // El correo de un titular ya asignado puede no estar en la lista de usuarios (invitación

@@ -10,8 +10,13 @@
  */
 
 import type { Visita } from '@core/tipos';
-import { esVisitaCliente, clientesEnMisZonas } from '@core/puente';
+import { esVisitaCliente, clientesEnMisZonas, esRequeridoEn } from '@core/puente';
 
+/**
+ * Lo que se exige POR DEFECTO. Hospital, Motivo y "Al menos un sector" los puede cambiar
+ * Administración (Formularios → Visita); Educador, Cliente, Fecha y Horario no: los necesitan
+ * la agenda y los reportes.
+ */
 export const CAMPOS_REQUERIDOS = [
     'Educador', 'Cliente', 'Hospital', 'Fecha', 'Hora de inicio', 'Hora de término',
     'Al menos un sector'
@@ -51,10 +56,10 @@ export function faltaParaGuardar(visita: Visita): string[] {
                 falta.push('Cliente (elige uno del catálogo o marca "Es un prospecto")');
             }
         }
-        if (!lleno(visita.hospital)) falta.push('Hospital');
+        if (esRequeridoEn('visita', 'hospital') && !lleno(visita.hospital)) falta.push('Hospital');
     } else {
         // Nada que visitar: lo que identifica el bloque es por qué existe, no a quién.
-        if (!lleno(visita.motivo)) falta.push('Motivo');
+        if (esRequeridoEn('visita', 'motivo') && !lleno(visita.motivo)) falta.push('Motivo');
     }
 
     if (!visita.dia) falta.push('Fecha');
@@ -73,7 +78,9 @@ export function faltaParaGuardar(visita: Visita): string[] {
 
     // Solo la visita a cliente exige sector: una administrativa o de evento nace con el suyo
     // propio al guardar (ver `sellarVisita`), sin catálogo que elegir.
-    if (cliente && !(visita.sectores || []).length) falta.push('Al menos un sector');
+    if (cliente && esRequeridoEn('visita', 'sectores') && !(visita.sectores || []).length) {
+        falta.push('Al menos un sector');
+    }
 
     return falta;
 }

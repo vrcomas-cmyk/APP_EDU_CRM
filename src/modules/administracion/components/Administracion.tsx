@@ -17,6 +17,7 @@ import { useFlujos } from '../hooks/useFlujos';
 import { useTerritorios } from '../hooks/useTerritorios';
 import { useCatalogosEstrategia } from '../hooks/useCatalogosEstrategia';
 import { PanelTipos } from './PanelTipos';
+import { PanelFormularios } from './PanelFormularios';
 import { PanelSectores } from './PanelSectores';
 import { PanelListas } from './PanelListas';
 import { PanelEducadores } from './PanelEducadores';
@@ -29,6 +30,7 @@ import { Esqueleto } from '@shared/components/Esqueleto';
 
 const PESTANAS = [
     { id: 'tipos', etiqueta: 'Tipos y campos' },
+    { id: 'formularios', etiqueta: 'Formularios' },
     { id: 'sectores', etiqueta: 'Sectores' },
     { id: 'listas', etiqueta: 'Listas' },
     { id: 'educadores', etiqueta: 'Equipo' },
@@ -142,6 +144,9 @@ export function Administracion({ avisar, confirmar, onGuardado }: Props) {
                     <div className="panel-body">
                         {pestana === 'tipos' && (
                             <PanelTipos borrador={catalogos.borrador} cambiar={catalogos.cambiar} confirmar={preguntar} />
+                        )}
+                        {pestana === 'formularios' && (
+                            <PanelFormularios borrador={catalogos.borrador} cambiar={catalogos.cambiar} />
                         )}
                         {pestana === 'sectores' && (
                             <PanelSectores borrador={catalogos.borrador} cambiar={catalogos.cambiar} />

@@ -9,6 +9,50 @@
  * y devuelven el nodo; quien las llama decide qué hacer con el cambio.
  */
 
+import { fechaCorta } from './fechas.js';
+
+/**
+ * Campo de fecha que SIEMPRE se lee dd/mm/aaaa — la versión vanilla de `CampoFecha.tsx`.
+ *
+ * El `<input type="date">` nativo pinta en el orden del idioma del navegador (mm/dd/yyyy en
+ * inglés). Aquí el input real queda encima, transparente y funcional (teclado, calendario), y lo
+ * que se VE es un texto de abajo en `fechaCorta()`. El valor es siempre 'YYYY-MM-DD'.
+ */
+export function campoFechaDD(valor, onCambio) {
+    const caja = document.createElement('div');
+    caja.className = 'campo-fecha-dd';
+
+    const texto = document.createElement('span');
+    texto.className = 'inp campo-fecha-dd-texto';
+    texto.setAttribute('aria-hidden', 'true');
+
+    const real = document.createElement('input');
+    real.type = 'date';
+    real.className = 'campo-fecha-dd-real';
+    real.value = valor || '';
+    real.setAttribute('aria-label', 'Fecha del documento');
+
+    const pintar = () => {
+        texto.textContent = '';
+        if (real.value) {
+            texto.textContent = fechaCorta(real.value);
+        } else {
+            const vacio = document.createElement('span');
+            vacio.className = 'campo-fecha-dd-vacio';
+            vacio.textContent = 'dd/mm/aaaa';
+            texto.appendChild(vacio);
+        }
+    };
+
+    real.addEventListener('click', () => real.showPicker?.());
+    real.addEventListener('input', () => { pintar(); onCambio(real.value); });
+    real.addEventListener('change', () => { pintar(); onCambio(real.value); });
+
+    pintar();
+    caja.append(texto, real);
+    return caja;
+}
+
 /** Etiqueta + control + ayuda opcional. La unidad mínima de un formulario. */
 export function envolver(etiqueta, control, ayuda) {
     const campo = document.createElement('div');

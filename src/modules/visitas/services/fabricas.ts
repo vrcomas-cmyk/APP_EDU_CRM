@@ -44,8 +44,10 @@ export function nuevaVisita(
     sesion: Sesion | null,
     nuevoId: GeneradorId
 ): Visita {
+    const ahora = new Date().toISOString();
     const sectores: Sector[] = (sectorNombres || []).map(nombre => ({
         id: nuevoId('s'),
+        creado: ahora,
         nombre,
         objetivo: '',
         origen: [],
@@ -59,6 +61,9 @@ export function nuevaVisita(
 
     return {
         id: nuevoId('v'),
+        // Cuándo se generó el registro: es la fecha de captura, que no se confunde con el día de la
+        // visita ni con la fecha del documento.
+        creada: ahora,
         educador: sesion?.nombre || '',
         educador_correo: sesion?.correo || '',
         cliente,
@@ -94,8 +99,10 @@ export function duplicarVisita(
     sesion: Sesion | null,
     nuevoId: GeneradorId
 ): Visita {
+    const ahora = new Date().toISOString();
     const sectores: Sector[] = (original.sectores || []).map(s => ({
         id: nuevoId('s'),
+        creado: ahora,
         nombre: s.nombre,
         objetivo: s.objetivo || '',
         origen: [...(s.origen || [])],
@@ -105,6 +112,8 @@ export function duplicarVisita(
 
     return {
         id: nuevoId('v'),
+        // Es un registro NUEVO: su fecha de captura es hoy, no la de la original.
+        creada: ahora,
         // El educador es quien duplica, no quien hizo la original: la visita nueva es suya.
         educador: sesion?.nombre || original.educador || '',
         educador_correo: sesion?.correo || original.educador_correo || '',

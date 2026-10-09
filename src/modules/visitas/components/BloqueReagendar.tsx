@@ -14,6 +14,8 @@ import { reflejarEnCalendar } from '../services/calendarSync';
 import * as repo from '../repository/visitasRepo';
 import type { Visita } from '@core/tipos';
 import { CampoFecha } from '@shared/components/CampoFecha';
+import { rotuloEn } from '@shared/services/campos';
+import { esRequeridoEn } from '@core/puente';
 
 interface Props {
     visita: Visita;
@@ -80,12 +82,14 @@ export function BloqueReagendar({ visita, avisar, alReagendar }: Props) {
             </div>
 
             <label className="campo">
-                <span className="campo-lbl">Motivo del cambio</span>
+                <span className="campo-lbl">{rotuloEn('reagendar', 'motivo', 'Motivo del cambio')}</span>
                 <input
                     type="text" className="inp" placeholder="¿Por qué se mueve?"
                     value={motivo} onChange={(e) => setMotivo(e.target.value)}
                 />
-                <p className="ayuda">Obligatorio: queda en el historial</p>
+                <p className="ayuda">
+                    {esRequeridoEn('reagendar', 'motivo') ? 'Obligatorio: queda en el historial' : 'Opcional: queda en el historial'}
+                </p>
             </label>
 
             <button type="button" className="btn" onClick={aplicar}>Reagendar</button>

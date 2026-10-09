@@ -5,7 +5,7 @@
  * vertical. Las tres decisiones están explicadas en sus componentes.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     claveDia, claveHoy, diasDeSemana, etiquetaMes, etiquetaRangoSemana, etiquetaDiaLarga,
     inicioDe, finDe, reagendarVisita, listarCompromisos, consultarVisitas,
@@ -138,6 +138,12 @@ export function Calendario({
         return mapa;
     }, [todasVisibles]);
 
+    // El efecto de abajo LEE los nombres pero no debe reejecutarse cuando cambian: `todasVisibles`
+    // se reconstruye en cada `refrescarVistas()` (cada minuto y en cada sync), y con ello el mapa
+    // cambiaba de identidad, así que cada refresco volvía a leer Calendar y a subirlo al servidor.
+    const nombrePorCorreoRef = useRef(nombrePorCorreo);
+    nombrePorCorreoRef.current = nombrePorCorreo;
+
     // Los eventos de Calendar de OTRAS personas solo se muestran si se eligió a una en el filtro
     // de educador (y solo llegan las que están a mi cargo: el servidor recorta por jerarquía).
     // Por defecto la agenda muestra únicamente lo propio.
@@ -177,7 +183,7 @@ export function Calendario({
                 propios.forEach(agregar);
                 for (const c of delEquipo) {
                     if (c.educadorCorreo.toLowerCase() !== correoElegido) continue;
-                    const quien = nombrePorCorreo.get(c.educadorCorreo.toLowerCase()) || c.educadorCorreo;
+                    const quien = nombrePorCorreoRef.current.get(c.educadorCorreo.toLowerCase()) || c.educadorCorreo;
                     agregar({ ...c, titulo: `${quien}: ${c.titulo}` });
                 }
                 setCompromisos(mapa);
@@ -192,7 +198,7 @@ export function Calendario({
             });
 
         return () => { vivo = false; };
-    }, [claves, calendarConectado, nombrePorCorreo, correoElegido]);
+    }, [claves, calendarConectado, correoElegido]);
 
     const compromisosDe = useCallback(
         (clave: string) => compromisos.get(clave) ?? [],

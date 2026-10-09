@@ -33,6 +33,8 @@ import { ListaSectores } from './ListaSectores';
 import { CabeceraSector, CuerpoSector } from './NivelSector';
 import { BloqueReagendar, HistorialReagendas } from './BloqueReagendar';
 import { PieVisita } from './PieVisita';
+import { rotuloEn } from '@shared/services/campos';
+import { esRequeridoEn } from '@core/puente';
 import type { Visita } from '@core/tipos';
 
 export interface PropsDrawer {
@@ -211,6 +213,7 @@ export function VisitaDrawer({
             actual = editar(v => {
                 v.sectores = [{
                     id: repo.nuevoId('s'),
+                    creado: new Date().toISOString(),
                     nombre: tipoActual === 'evento' ? 'Evento' : 'Administrativo',
                     objetivo: '', origen: [], actividades: []
                 }];
@@ -487,13 +490,15 @@ export function VisitaDrawer({
     );
 }
 
-/** Reemplaza a `confirm`/`prompt`, que una PWA instalada no muestra. Motivo obligatorio. */
+/** Reemplaza a `confirm`/`prompt`, que una PWA instalada no muestra. Motivo obligatorio por defecto. */
 function ModalCancelacion({ visita, onCancelar, onConfirmar }: {
     visita: Visita;
     onCancelar: () => void;
     onConfirmar: (motivo: string) => void;
 }) {
     const [motivo, setMotivo] = useState('');
+    // Obligatorio por defecto; Administración → Formularios → Cancelar visita puede relajarlo.
+    const motivoOpcional = !esRequeridoEn('cancelar', 'motivo');
 
     useEffect(() => {
         function alEscape(e: KeyboardEvent) {
@@ -517,24 +522,26 @@ function ModalCancelacion({ visita, onCancelar, onConfirmar }: {
                 </div>
                 <div className="modal-body">
                     <label className="campo">
-                        <span className="campo-lbl">Motivo</span>
+                        <span className="campo-lbl">{rotuloEn('cancelar', 'motivo', 'Motivo')}</span>
                         <input
                             type="text" className="inp" autoFocus
                             placeholder="¿Por qué se cancela?"
                             value={motivo}
                             onChange={(e) => setMotivo(e.target.value)}
                             onKeyDown={(e) => {
-                                if (e.key === 'Enter' && motivo.trim()) onConfirmar(motivo.trim());
+                                if (e.key === 'Enter' && (motivoOpcional || motivo.trim())) onConfirmar(motivo.trim());
                             }}
                         />
-                        <p className="ayuda">Obligatorio: queda en el registro</p>
+                        <p className="ayuda">
+                            {motivoOpcional ? 'Opcional: queda en el registro' : 'Obligatorio: queda en el registro'}
+                        </p>
                     </label>
                     <div className="modal-foot">
                         <span style={{ flex: 1 }} />
                         <button type="button" className="btn-txt" onClick={onCancelar}>Volver</button>
                         <button
                             type="button" className="btn-txt peligro"
-                            disabled={!motivo.trim()}
+                            disabled={!motivoOpcional && !motivo.trim()}
                             onClick={() => onConfirmar(motivo.trim())}
                         >
                             Cancelar visita

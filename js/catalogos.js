@@ -24,12 +24,16 @@
  */
 
 import { leerCatalogo } from './storage.js';
+import { ordenarEs } from './orden.js';
 import { misZonas, misClientesExtra } from './permisos.js';
 
 // ---------- modos ----------
 
 export const MODOS = {
     OBLIGATORIO: 'obligatorio',
+    /** Obligatorio, pero NO bloquea el guardado: queda como pendiente y se salda después
+     *  (la evidencia, el resultado de un seguimiento). */
+    OBLIGATORIO_DESPUES: 'obligatorio-despues',
     OPCIONAL: 'opcional',
     SOLO_LECTURA: 'solo-lectura',
     OCULTO: 'oculto'
@@ -37,6 +41,7 @@ export const MODOS = {
 
 export const ETIQUETAS_MODO = {
     [MODOS.OBLIGATORIO]: 'Obligatorio',
+    [MODOS.OBLIGATORIO_DESPUES]: 'Obligatorio (completar después)',
     [MODOS.OPCIONAL]: 'Opcional',
     [MODOS.SOLO_LECTURA]: 'Solo lectura',
     [MODOS.OCULTO]: 'Oculto'
@@ -44,10 +49,26 @@ export const ETIQUETAS_MODO = {
 
 const MODOS_VALIDOS = Object.values(MODOS);
 
+/** Lo que admite un campo si no declara `modos`: todo salvo "obligatorio después", que solo
+ *  tiene sentido donde el dato realmente puede completarse tras guardar. */
+const MODOS_BASE = [MODOS.OBLIGATORIO, MODOS.OPCIONAL, MODOS.SOLO_LECTURA, MODOS.OCULTO];
+/** Los modos de los campos de formularios que no son la actividad. Sin solo-lectura: esos
+ *  formularios no tienen un estado "ya guardado" en el que un campo se muestre sin capturarse. */
+const MODOS_FORMULARIO = [MODOS.OBLIGATORIO, MODOS.OPCIONAL, MODOS.OCULTO];
+
+/** Los modos que el administrador puede elegir para un campo. */
+export function modosPermitidos(campo) {
+    return campo?.modos || MODOS_BASE;
+}
+
 /**
  * Los campos capturables de una actividad. Esta lista es la ÚNICA fuente de qué se puede
  * configurar: la pantalla de administración se dibuja recorriéndola, y el formulario de
  * captura también. Agregar un campo nuevo es agregar una entrada aquí.
+ *
+ * `modos`   los modos que admite (por defecto, `MODOS_BASE`).
+ * `ambito`  'material' = no es un campo de la actividad sino de la ventana "Agregar material":
+ *           la actividad no lo valida, lo consume `materiales.js`.
  */
 export const CAMPOS_ACTIVIDAD = [
     { id: 'area_visitada',     etiqueta: 'Área visitada',        defecto: MODOS.OBLIGATORIO },
@@ -55,18 +76,182 @@ export const CAMPOS_ACTIVIDAD = [
     { id: 'contacto_cargo',    etiqueta: 'Contacto · Cargo',     defecto: MODOS.OPCIONAL },
     { id: 'contacto_servicio', etiqueta: 'Contacto · Servicio',  defecto: MODOS.OPCIONAL },
     { id: 'materiales',        etiqueta: 'Materiales',           defecto: MODOS.OCULTO },
-    { id: 'evidencia',         etiqueta: 'Evidencia',            defecto: MODOS.OBLIGATORIO },
+    { id: 'material_cantidad', etiqueta: 'Material · Cantidad',  defecto: MODOS.OBLIGATORIO,
+      modos: MODOS_FORMULARIO, ambito: 'material' },
+    { id: 'material_unidad',   etiqueta: 'Material · Unidad de medida', defecto: MODOS.OBLIGATORIO,
+      modos: MODOS_FORMULARIO, ambito: 'material' },
+    { id: 'material_origen',   etiqueta: 'Material · Origen',    defecto: MODOS.OPCIONAL,
+      modos: MODOS_FORMULARIO, ambito: 'material' },
+    // La foto se sube DESPUÉS de sellar (de pie frente al cliente no se puede): por eso la
+    // evidencia no admite "obligatorio" que bloquea, solo "obligatorio después".
+    { id: 'evidencia',         etiqueta: 'Evidencia',            defecto: MODOS.OBLIGATORIO_DESPUES,
+      modos: [MODOS.OBLIGATORIO_DESPUES, MODOS.OPCIONAL, MODOS.OCULTO] },
     { id: 'tipo_evidencia',    etiqueta: 'Tipo de evidencia',    defecto: MODOS.OCULTO },
     { id: 'fecha_documento',   etiqueta: 'Fecha del documento',  defecto: MODOS.OCULTO },
     // Oculto por defecto en general: solo tiene sentido para tipos de seguimiento. "Seguimiento"
-    // lo trae obligatorio abajo (TIPOS_POR_DEFECTO); otros tipos lo dejan oculto salvo que
-    // Administración lo active a mano para alguno.
-    { id: 'resultado_seguimiento', etiqueta: 'Resultado del seguimiento', defecto: MODOS.OCULTO }
+    // lo trae "obligatorio después" abajo (TIPOS_POR_DEFECTO); otros tipos lo dejan oculto
+    // salvo que Administración lo active a mano para alguno.
+    { id: 'resultado_seguimiento', etiqueta: 'Resultado del seguimiento', defecto: MODOS.OCULTO,
+      modos: [MODOS.OBLIGATORIO, MODOS.OBLIGATORIO_DESPUES, MODOS.OPCIONAL, MODOS.SOLO_LECTURA, MODOS.OCULTO] }
 ];
 
 export const IDS_CAMPOS = CAMPOS_ACTIVIDAD.map(c => c.id);
 
 const POR_DEFECTO = Object.fromEntries(CAMPOS_ACTIVIDAD.map(c => [c.id, c.defecto]));
+const CAMPO_POR_ID = Object.fromEntries(CAMPOS_ACTIVIDAD.map(c => [c.id, c]));
+
+// ---------- formularios que no son la actividad ----------
+
+/**
+ * Visita, sector y estrategia: mismo modelo que la actividad (cada campo declara su modo),
+ * pero UNA sola configuración por formulario, no una por tipo.
+ *
+ * `fijo: true` = lo necesita el sistema (agenda, calendario, Sheets, a quién se le atribuye).
+ * Se muestra en Administración para que se vea por qué no se puede tocar, pero siempre es
+ * obligatorio. Los defaults reproducen el comportamiento de antes: desplegar esto no cambia
+ * nada hasta que alguien configure algo.
+ */
+export const FORMULARIOS = {
+    visita: {
+        etiqueta: 'Visita',
+        campos: [
+            { id: 'educador',   etiqueta: 'Educador',          fijo: true },
+            { id: 'cliente',    etiqueta: 'Cliente',           fijo: true },
+            { id: 'fecha',      etiqueta: 'Fecha',             fijo: true },
+            { id: 'horario',    etiqueta: 'Horario',           fijo: true },
+            { id: 'hospital',   etiqueta: 'Hospital',          defecto: MODOS.OBLIGATORIO },
+            { id: 'motivo',     etiqueta: 'Motivo (visita administrativa o de evento)', defecto: MODOS.OBLIGATORIO },
+            // No se puede ocultar: la lista de sectores ES el cuerpo de la visita. Lo que se
+            // decide es si exigir al menos uno para guardar.
+            { id: 'sectores',   etiqueta: 'Al menos un sector', defecto: MODOS.OBLIGATORIO, sinOculto: true },
+            { id: 'estrategia', etiqueta: 'Estrategias',       defecto: MODOS.OPCIONAL },
+            { id: 'notas',      etiqueta: 'Notas',             defecto: MODOS.OPCIONAL }
+        ]
+    },
+    // Reagendar y cancelar piden un motivo: por defecto obligatorio (es lo que deja rastro de por qué
+    // no se cumplió el plan), pero cada organización decide si lo exige. No se puede ocultar: el
+    // campo es el único lugar donde se captura.
+    reagendar: {
+        etiqueta: 'Reagendar visita',
+        campos: [
+            { id: 'fecha',   etiqueta: 'Fecha',             fijo: true },
+            { id: 'horario', etiqueta: 'Horario',           fijo: true },
+            { id: 'motivo',  etiqueta: 'Motivo del cambio', defecto: MODOS.OBLIGATORIO, sinOculto: true }
+        ]
+    },
+    cancelar: {
+        etiqueta: 'Cancelar visita',
+        campos: [
+            { id: 'motivo', etiqueta: 'Motivo de la cancelación', defecto: MODOS.OBLIGATORIO, sinOculto: true }
+        ]
+    },
+    sector: {
+        etiqueta: 'Sector',
+        campos: [
+            { id: 'objetivo',       etiqueta: 'Objetivo',               defecto: MODOS.OBLIGATORIO },
+            { id: 'origen',         etiqueta: 'Origen de la actividad', defecto: MODOS.OBLIGATORIO },
+            { id: 'solicitado_por', etiqueta: 'Solicitado por',         defecto: MODOS.OBLIGATORIO }
+        ]
+    },
+    estrategia: {
+        etiqueta: 'Estrategia',
+        campos: [
+            { id: 'cliente',        etiqueta: 'Cliente',              fijo: true },
+            { id: 'sector',         etiqueta: 'Sector',               defecto: MODOS.OPCIONAL },
+            { id: 'grupo_articulo', etiqueta: 'Grupo de artículo',    defecto: MODOS.OPCIONAL },
+            { id: 'tipo',           etiqueta: 'Estrategia (tipo)',    defecto: MODOS.OPCIONAL },
+            { id: 'etapa',          etiqueta: 'Etapa',                defecto: MODOS.OPCIONAL },
+            { id: 'proyecto',       etiqueta: 'Proyecto / objetivo',  defecto: MODOS.OPCIONAL },
+            { id: 'productos',      etiqueta: 'Productos',            defecto: MODOS.OPCIONAL },
+            { id: 'observaciones',  etiqueta: 'Observaciones',        defecto: MODOS.OPCIONAL }
+        ]
+    }
+};
+
+/** Los modos que se pueden elegir para un campo de `FORMULARIOS`. Un campo fijo no se elige. */
+export function modosDeFormulario(campo) {
+    if (campo?.fijo) return [MODOS.OBLIGATORIO];
+    return campo?.sinOculto ? MODOS_FORMULARIO.filter(m => m !== MODOS.OCULTO) : MODOS_FORMULARIO;
+}
+
+/**
+ * Configuración de un formulario: { objetivo: 'obligatorio', ... }.
+ * Dos capas: el default del campo y lo que Administración configuró. Un campo fijo ignora lo
+ * configurado; un modo que el campo no admite cae en su default.
+ */
+export function configuracionFormulario(formulario) {
+    const def = FORMULARIOS[formulario];
+    if (!def) return {};
+
+    const guardado = leerCatalogo()?.formularios?.[formulario];
+    const campos = guardado && typeof guardado === 'object' ? guardado : {};
+
+    const config = {};
+    for (const c of def.campos) {
+        if (c.fijo) { config[c.id] = MODOS.OBLIGATORIO; continue; }
+        const m = String(campos[c.id] || '').trim().toLowerCase();
+        config[c.id] = modosDeFormulario(c).includes(m) ? m : c.defecto;
+    }
+    return config;
+}
+
+export function modoEnFormulario(formulario, campoId) {
+    return configuracionFormulario(formulario)[campoId] || MODOS.OPCIONAL;
+}
+
+/** ¿Bloquea el guardado si falta? Solo `obligatorio`: lo "obligatorio después" no bloquea. */
+export function esRequeridoEn(formulario, campoId) {
+    return modoEnFormulario(formulario, campoId) === MODOS.OBLIGATORIO;
+}
+
+export function esVisibleEn(formulario, campoId) {
+    return modoEnFormulario(formulario, campoId) !== MODOS.OCULTO;
+}
+
+// ---------- reglas de captura ----------
+
+/**
+ * Reglas que Administración ajusta sin programar y que no son un "modo" de campo.
+ *
+ * El origen del material es el folio SAP de la mercancía sin cargo (o quién la entregó). En los
+ * datos de AppSheet la mayoría son números de 6 dígitos, pero también hay "NA", "Sin folio" o
+ * "PRUEBA": ese ruido es justo lo que estas reglas frenan.
+ */
+export const REGLAS_POR_DEFECTO = { origen_min_digitos: 6, origen_min_caracteres: 3 };
+
+export function reglasCaptura() {
+    const guardadas = leerCatalogo()?.reglas_captura;
+    const entero = (v, porDefecto) => {
+        const n = Number(v);
+        return Number.isInteger(n) && n >= 1 ? n : porDefecto;
+    };
+    return {
+        origen_min_digitos: entero(guardadas?.origen_min_digitos, REGLAS_POR_DEFECTO.origen_min_digitos),
+        origen_min_caracteres: entero(guardadas?.origen_min_caracteres, REGLAS_POR_DEFECTO.origen_min_caracteres)
+    };
+}
+
+/**
+ * Qué le falta a un origen escrito, o '' si está bien. No decide si es obligatorio —eso es el modo
+ * del campo—: solo que lo que se escribió tenga forma de origen.
+ *
+ *   solo números              → al menos `origen_min_digitos` dígitos (un folio)
+ *   cualquier otra cosa       → al menos `origen_min_caracteres` caracteres, sin contar espacios
+ *                               (incluye "4500-123": con símbolos ya no es un folio numérico)
+ */
+export function problemaDeOrigen(valor, reglas = reglasCaptura()) {
+    const v = String(valor ?? '').trim();
+    if (!v) return '';
+
+    if (/^\d+$/.test(v)) {
+        return v.length >= reglas.origen_min_digitos
+            ? ''
+            : `Un folio debe tener al menos ${reglas.origen_min_digitos} dígitos.`;
+    }
+    return v.replace(/\s+/g, '').length >= reglas.origen_min_caracteres
+        ? ''
+        : `Escribe al menos ${reglas.origen_min_caracteres} caracteres.`;
+}
 
 // ---------- listas ----------
 
@@ -80,8 +265,8 @@ export const TIPOS_POR_DEFECTO = [
     {
         nombre: 'Seguimiento', evidencia: false, materiales: false,
         // Igual que la evidencia: obligatorio, pero no bloquea "Guardar actividad" — se puede
-        // completar después (ver `valorDe` en actividades/validators/requisitos.ts).
-        campos: { resultado_seguimiento: MODOS.OBLIGATORIO }
+        // completar después (modo "obligatorio después").
+        campos: { resultado_seguimiento: MODOS.OBLIGATORIO_DESPUES }
     }
 ];
 
@@ -95,14 +280,16 @@ const delCatalogo = (llave, porDefecto) => {
     return Array.isArray(v) && v.length ? v : porDefecto;
 };
 
-export function tiposActividad()  { return delCatalogo('tipos_actividad', TIPOS_POR_DEFECTO); }
-export function origenes()        { return delCatalogo('origenes', ORIGENES_POR_DEFECTO); }
-export function areas()           { return delCatalogo('areas', AREAS_POR_DEFECTO); }
-export function unidades()        { return delCatalogo('unidades', UNIDADES_POR_DEFECTO); }
-export function tiposEvidencia()  { return delCatalogo('tipos_evidencia', TIPOS_EVIDENCIA_POR_DEFECTO); }
+// Todo lo que se ofrece en un menú sale en orden alfabético: nadie debería tener que recorrer una
+// lista en el orden en que se tecleó la hoja para encontrar lo que busca.
+export function tiposActividad()  { return ordenarEs(delCatalogo('tipos_actividad', TIPOS_POR_DEFECTO), t => t.nombre); }
+export function origenes()        { return ordenarEs(delCatalogo('origenes', ORIGENES_POR_DEFECTO)); }
+export function areas()           { return ordenarEs(delCatalogo('areas', AREAS_POR_DEFECTO)); }
+export function unidades()        { return ordenarEs(delCatalogo('unidades', UNIDADES_POR_DEFECTO)); }
+export function tiposEvidencia()  { return ordenarEs(delCatalogo('tipos_evidencia', TIPOS_EVIDENCIA_POR_DEFECTO)); }
 /** Temas personalizados creados desde Administración → Apariencia. Sin catálogo, ninguno —
  *  los 3 temas base (`js/tema.js`) no dependen de esto y siguen funcionando igual. */
-export function temas()           { return delCatalogo('temas', []); }
+export function temas()           { return ordenarEs(delCatalogo('temas', []), t => t.nombre); }
 
 /**
  * "1", "01", "001" son la misma zona escrita distinto según cómo la haya tecleado quien llenó
@@ -146,7 +333,7 @@ export function zonasDelCatalogo() {
     const mapa = leerCatalogo()?.clientes_zona;
     if (!mapa || typeof mapa !== 'object') return [];
     const unicas = new Set(Object.values(mapa).map(z => String(z || '').trim()).filter(Boolean));
-    return [...unicas].sort((a, b) => a.localeCompare(b, 'es'));
+    return ordenarEs(unicas);
 }
 
 /** Todos los clientes del catálogo descargado. Son ~11.5k: nunca se pintan todos de golpe. */
@@ -195,14 +382,13 @@ export function sectores() {
     const cat = leerCatalogo() || {};
     const todos = Array.isArray(cat.sectores) ? cat.sectores : [];
     const ocultos = Array.isArray(cat.sectores_ocultos) ? cat.sectores_ocultos : [];
-    if (ocultos.length === 0) return todos;
-    return todos.filter(s => !ocultos.includes(s));
+    return ordenarEs(ocultos.length === 0 ? todos : todos.filter(s => !ocultos.includes(s)));
 }
 
 /** Todos los que existen en Materiales, escondidos incluidos. Solo lo usa Administración. */
 export function sectoresDelCatalogo() {
     const v = leerCatalogo()?.sectores;
-    return Array.isArray(v) ? v : [];
+    return Array.isArray(v) ? ordenarEs(v) : [];
 }
 
 export function sectoresOcultos() {
@@ -212,10 +398,31 @@ export function sectoresOcultos() {
 
 // ---------- reglas por tipo ----------
 
-/** Normaliza un modo que venga de la hoja; lo que no se reconozca cae en el default del campo. */
-function modoValido(valor, porDefecto) {
+/**
+ * Normaliza un modo que venga de la hoja; lo que no se reconozca, o que el campo no admita,
+ * cae en el default del campo.
+ *
+ * Dos compatibilidades con lo que ya hay en las hojas:
+ *  - `obligatorio` en un campo que solo admite "obligatorio después" (la evidencia) se lee
+ *    como eso: antes "obligatorio" ya significaba "no bloquea".
+ *  - `resultado_seguimiento: obligatorio` mientras el catálogo no traiga `formularios` (nadie
+ *    ha guardado con esta versión) también: lo grabó el panel viejo con la semántica de
+ *    entonces, y leerlo literal bloquearía de golpe los seguimientos de todos.
+ */
+function modoValido(valor, porDefecto, campoId) {
     const m = String(valor || '').trim().toLowerCase();
-    return MODOS_VALIDOS.includes(m) ? m : porDefecto;
+    if (!MODOS_VALIDOS.includes(m)) return porDefecto;
+
+    const campo = CAMPO_POR_ID[campoId];
+    const permitidos = modosPermitidos(campo);
+
+    if (m === MODOS.OBLIGATORIO) {
+        const heredado = campoId === 'resultado_seguimiento' && !leerCatalogo()?.formularios;
+        if (heredado || !permitidos.includes(m)) {
+            if (permitidos.includes(MODOS.OBLIGATORIO_DESPUES)) return MODOS.OBLIGATORIO_DESPUES;
+        }
+    }
+    return permitidos.includes(m) ? m : porDefecto;
 }
 
 /**
@@ -237,7 +444,7 @@ export function configuracionCampos(tipo) {
     if (def) {
         // Capa 2: las banderas heredadas. Solo se aplican si la hoja las trae.
         if (def.evidencia === false) config.evidencia = MODOS.OCULTO;
-        if (def.evidencia === true) config.evidencia = MODOS.OBLIGATORIO;
+        if (def.evidencia === true) config.evidencia = MODOS.OBLIGATORIO_DESPUES;
         if (def.materiales === true) config.materiales = MODOS.OBLIGATORIO;
         if (def.materiales === false) config.materiales = MODOS.OCULTO;
 
@@ -245,7 +452,7 @@ export function configuracionCampos(tipo) {
         const campos = def.campos && typeof def.campos === 'object' ? def.campos : {};
         for (const id of IDS_CAMPOS) {
             if (campos[id] != null && campos[id] !== '') {
-                config[id] = modoValido(campos[id], config[id]);
+                config[id] = modoValido(campos[id], config[id], id);
             }
         }
     }
@@ -260,13 +467,15 @@ export function campoVisible(tipo, campoId) {
     return modoCampo(tipo, campoId) !== MODOS.OCULTO;
 }
 
+/** Obligatorio, bloquee o no el guardado. */
 export function campoObligatorio(tipo, campoId) {
-    return modoCampo(tipo, campoId) === MODOS.OBLIGATORIO;
+    const m = modoCampo(tipo, campoId);
+    return m === MODOS.OBLIGATORIO || m === MODOS.OBLIGATORIO_DESPUES;
 }
 
 export function campoEditable(tipo, campoId) {
     const m = modoCampo(tipo, campoId);
-    return m === MODOS.OBLIGATORIO || m === MODOS.OPCIONAL;
+    return m === MODOS.OBLIGATORIO || m === MODOS.OBLIGATORIO_DESPUES || m === MODOS.OPCIONAL;
 }
 
 /**
@@ -283,9 +492,46 @@ export function reglaDe(tipo) {
     };
 }
 
-/** Solo cuenta como deuda lo que el tipo declara OBLIGATORIO. */
+/** Solo cuenta como deuda lo que el tipo declara obligatorio. */
 export function requiereEvidencia(actividad) {
     return campoObligatorio(actividad?.tipo, 'evidencia');
+}
+
+/**
+ * ¿La "Fecha del documento" se pide al SUBIR la evidencia y no al capturar la actividad?
+ *
+ * Si la evidencia es obligatoria (se sube después de guardar), el documento que se adjunta es el
+ * que tiene esa fecha: preguntarla antes, sin tener el documento a la mano, solo invitaba a
+ * inventarla. Con la evidencia opcional u oculta no hay un momento de subida garantizado, así que
+ * la fecha se queda en el formulario de la actividad como siempre. Con la fecha oculta o de solo
+ * lectura tampoco hay nada que preguntar.
+ */
+export function fechaDocumentoEnEvidencia(tipo) {
+    if (!tipo) return false;
+    const config = configuracionCampos(tipo);
+    return config.evidencia === MODOS.OBLIGATORIO_DESPUES
+        && (config.fecha_documento === MODOS.OBLIGATORIO || config.fecha_documento === MODOS.OPCIONAL);
+}
+
+/**
+ * ¿A esta actividad le FALTA la fecha del documento?
+ *
+ * Solo cuando se pide al subir la evidencia (evidencia obligatoria), la fecha es obligatoria, ya
+ * hay un archivo adjunto (en cola o subido) y todavía no se capturó. Mientras falte, la evidencia
+ * NO se sube y se avisa a la persona: subirla sin fecha dejaría en la nube un dato obligatorio vacío.
+ */
+export function fechaDocumentoFaltante(actividad) {
+    if (!actividad || actividad.fecha_documento) return false;
+    if (!fechaDocumentoEnEvidencia(actividad.tipo)) return false;
+    if (configuracionCampos(actividad.tipo).fecha_documento !== MODOS.OBLIGATORIO) return false;
+    const estado = actividad.evidencia?.estado;
+    return estado === 'local' || estado === 'subida';
+}
+
+/** El resultado de un seguimiento que se dejó "obligatorio después" y aún no se captura. */
+export function resultadoPendiente(actividad) {
+    return modoCampo(actividad?.tipo, 'resultado_seguimiento') === MODOS.OBLIGATORIO_DESPUES
+        && !String(actividad?.resultado_seguimiento || '').trim();
 }
 
 /** Lo que el tipo exige, para poder anunciarlo ANTES de pintar los campos. */
@@ -293,7 +539,8 @@ export function camposExtra(tipo) {
     if (!tipo) return [];
     const config = configuracionCampos(tipo);
     return CAMPOS_ACTIVIDAD
-        .filter(c => config[c.id] === MODOS.OBLIGATORIO)
+        .filter(c => !c.ambito)
+        .filter(c => config[c.id] === MODOS.OBLIGATORIO || config[c.id] === MODOS.OBLIGATORIO_DESPUES)
         .map(c => c.etiqueta);
 }
 
@@ -306,10 +553,23 @@ export function camposExtra(tipo) {
  * Cada material trae { material, sector }; `material` es el campo "Material y Nombre" de la
  * hoja, que es lo único que se muestra.
  */
-export function materialesDe(sector) {
+export function materialesDe(sectores) {
     const todos = leerCatalogo()?.materiales;
     if (!Array.isArray(todos)) return [];
-    return todos.filter(m => m.sector === sector);
+
+    // Acepta un sector o varios ("Subir actividad" aplica una actividad a varios a la vez). Con
+    // varios, un mismo material puede estar en más de un sector: se ofrece una sola vez.
+    const elegidos = new Set([].concat(sectores ?? []));
+    const delosElegidos = todos.filter(m => elegidos.has(m.sector));
+    if (elegidos.size > 1) {
+        const vistos = new Set();
+        return ordenarEs(delosElegidos.filter(m => {
+            if (vistos.has(m.material)) return false;
+            vistos.add(m.material);
+            return true;
+        }), m => m.material);
+    }
+    return ordenarEs(delosElegidos, m => m.material);
 }
 
 /**
@@ -359,7 +619,7 @@ export const GRUPOS_ARTICULO_POR_DEFECTO = [
  * mismo mecanismo que ya resuelve `sectores()`.
  */
 export function gruposArticulo() {
-    return delCatalogo('grupos_articulo', GRUPOS_ARTICULO_POR_DEFECTO);
+    return ordenarEs(delCatalogo('grupos_articulo', GRUPOS_ARTICULO_POR_DEFECTO));
 }
 
 /**
@@ -375,7 +635,7 @@ export function gruposDeSector(sector) {
 
     const deEsteSector = todos.filter(m => m.sector === sector);
     const grupos = [...new Set(deEsteSector.map(m => m.grupo_articulo).filter(Boolean))];
-    return grupos.length > 0 ? grupos.sort((a, b) => a.localeCompare(b, 'es')) : gruposArticulo();
+    return grupos.length > 0 ? ordenarEs(grupos) : gruposArticulo();
 }
 
 // ---------- catálogos de Estrategia ----------
@@ -398,8 +658,10 @@ export const ETAPAS_POR_DEFECTO = [
 /** Solo los nombres, para el `<select>` de "Estrategia" al capturar. */
 export function tiposEstrategia() {
     const v = leerCatalogo()?.estrategia_tipos;
-    if (Array.isArray(v) && v.length) return v.map(t => t.nombre);
-    return TIPOS_ESTRATEGIA_POR_DEFECTO;
+    // Alfabético, no por el `orden` que fija el administrador: es un menú, y se busca por nombre.
+    // (Las ETAPAS sí conservan su orden: siguen el flujo de una estrategia.)
+    if (Array.isArray(v) && v.length) return ordenarEs(v.map(t => t.nombre));
+    return ordenarEs(TIPOS_ESTRATEGIA_POR_DEFECTO);
 }
 
 /** La ayuda de cada tipo (el "qué significa"), para mostrarla junto al select. */

@@ -26,7 +26,7 @@ export interface PropsVentana {
     alCambiar: () => void;
     onCerrar: () => void;
     /** Abre la ventana de materiales, que todavía es vanilla. */
-    abrirVentanaMaterial: (sector: string, onAgregar: (m: { id: string }) => void) => void;
+    abrirVentanaMaterial: (sector: string, onAgregar: (m: { id: string }) => void, tipo?: string) => void;
     construirEvidencia: (a: Actividad) => Node | null;
     construirComentarios: (a: Actividad, v: Visita) => Node | null;
     /** La actividad es de otra persona: se ve completa, no se registra ni se sube nada. */
@@ -213,7 +213,7 @@ export function VentanaActividad({
                             errores={errores}
                             onAgregarMaterial={() => abrirVentanaMaterial(sector.nombre, (nuevo) => {
                                 editar(a => { a.materiales = [...(a.materiales || []), nuevo as never]; });
-                            })}
+                            }, actividad.tipo)}
                             onQuitarMaterial={(id) => editar(a => {
                                 a.materiales = (a.materiales || []).filter(m => m.id !== id);
                             })}

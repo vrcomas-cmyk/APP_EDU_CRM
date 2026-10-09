@@ -64,11 +64,11 @@ export const RESULTADOS_POR_DEFECTO = [
     // No cierra: pedir corrección devuelve el elemento a la cola para volver a mirarlo.
     { valor: 'correccion', etiqueta: 'Requiere corrección', accion: '↺ Requiere corrección',
       tono: 'faltan-evidencias', estilo: 'txt', exige_observaciones: true,
-      acepta: false, cierra: false },
+      acepta: false, cierra: false, avisa_educador: true },
 
     { valor: 'rechazado', etiqueta: 'Rechazado', accion: '✕ Rechazar',
       tono: 'sin-registrar', estilo: 'peligro', exige_observaciones: true,
-      acepta: false, cierra: true }
+      acepta: false, cierra: true, avisa_educador: true }
 ];
 
 /**

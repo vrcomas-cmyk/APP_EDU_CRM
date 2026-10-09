@@ -55,6 +55,27 @@ const ICONOS: Record<ClaveIcono, { titulo: string; cuerpo: JSX.Element }> = {
             </>
         )
     },
+    // Avisos: campana — lo que te devolvieron y requiere tu atención.
+    avisos: {
+        titulo: 'Avisos',
+        cuerpo: (
+            <>
+                <path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9z" />
+                <path d="M10 20a2 2 0 0 0 4 0" />
+            </>
+        )
+    },
+    // Evidencias: foto con marco y sol — el respaldo que se sube, no la nota de Pendientes.
+    evidencias: {
+        titulo: 'Evidencias',
+        cuerpo: (
+            <>
+                <rect x="3" y="5" width="18" height="15" rx="2" />
+                <circle cx="9" cy="11" r="2" />
+                <path d="M21 16l-5-5-8 9" />
+            </>
+        )
+    },
     // Pendientes: nota con un check — lo que queda anotado y por marcar, no el veredicto
     // circular de Revisión ni el documento con barra de Actividades.
     pendientes: {

@@ -14,6 +14,7 @@ import {
     MODOS, CAMPOS_ACTIVIDAD, IDS_CAMPOS,
     configuracionCampos, modoCampo, campoVisible, campoObligatorio, campoEditable,
     reglaDe, requiereEvidencia, camposExtra,
+    modoEnFormulario, esVisibleEn, esRequeridoEn,
     tiposActividad, origenes, unidades, sectores, sectoresDelCatalogo, sectoresOcultos,
     materialesDe, buscarMateriales, hayMateriales, gruposArticulo, gruposDeSector,
     zonasDelCatalogo, clientesDelCatalogo, clientesEnMisZonas,
@@ -21,6 +22,7 @@ import {
     TIPOS_POR_DEFECTO, ORIGENES_POR_DEFECTO
 } from '../js/catalogos.js';
 import { olvidarPerfil } from '../js/permisos.js';
+import { ordenarEs, compararEs } from '../js/orden.js';
 
 const ponerCatalogo = (datos) => localStorage.setItem('datosPWA', JSON.stringify(datos));
 
@@ -43,8 +45,9 @@ beforeEach(() => {
 
 describe('listas — los defaults existen para el primer día', () => {
     test('sin catálogo se usan los valores por defecto', () => {
-        assert.deepEqual(tiposActividad(), TIPOS_POR_DEFECTO);
-        assert.deepEqual(origenes(), ORIGENES_POR_DEFECTO);
+        // Mismas opciones, en orden alfabético: lo que se ofrece en un menú sale ordenado.
+        assert.deepEqual(tiposActividad(), ordenarEs(TIPOS_POR_DEFECTO, t => t.nombre));
+        assert.deepEqual(origenes(), ordenarEs(ORIGENES_POR_DEFECTO));
     });
 
     test('en cuanto la hoja trae filas, mandan ellas', () => {
@@ -54,7 +57,7 @@ describe('listas — los defaults existen para el primer día', () => {
 
     test('una lista vacía en la hoja NO deja la app sin opciones', () => {
         ponerCatalogo({ origenes: [] });
-        assert.deepEqual(origenes(), ORIGENES_POR_DEFECTO,
+        assert.deepEqual(origenes(), ordenarEs(ORIGENES_POR_DEFECTO),
             'una hoja recién creada dejaría el formulario inservible');
     });
 
@@ -83,7 +86,7 @@ describe('sectores — se curan, no se escriben libres', () => {
 describe('configuracionCampos — resolución en tres capas', () => {
     test('capa 1: un tipo desconocido cae en los defaults, que piden evidencia', () => {
         const config = configuracionCampos('Tipo Inventado');
-        assert.equal(config.evidencia, MODOS.OBLIGATORIO,
+        assert.equal(config.evidencia, MODOS.OBLIGATORIO_DESPUES,
             'dar por buena una actividad de tipo desconocido escondería trabajo sin soporte');
     });
 
@@ -118,12 +121,81 @@ describe('configuracionCampos — resolución en tres capas', () => {
 
     test('una celda vacía no pisa: significa "no configurado"', () => {
         ponerCatalogo({ tipos_actividad: [{ nombre: 'Ronda', evidencia: true, campos: { evidencia: '' } }] });
-        assert.equal(modoCampo('Ronda', 'evidencia'), MODOS.OBLIGATORIO);
+        assert.equal(modoCampo('Ronda', 'evidencia'), MODOS.OBLIGATORIO_DESPUES);
+    });
+
+    test('la evidencia no admite un "obligatorio" que bloquee: se lee como "después"', () => {
+        ponerCatalogo({ tipos_actividad: [{ nombre: 'Ronda', campos: { evidencia: 'obligatorio' } }] });
+        assert.equal(modoCampo('Ronda', 'evidencia'), MODOS.OBLIGATORIO_DESPUES,
+            'la foto se sube tras sellar: exigirla al guardar no se podría cumplir');
+    });
+
+    test('un modo que el campo no admite cae a su default', () => {
+        ponerCatalogo({ tipos_actividad: [{ nombre: 'Ronda', campos: { area_visitada: 'obligatorio-despues' } }] });
+        assert.equal(modoCampo('Ronda', 'area_visitada'), MODOS.OBLIGATORIO);
+    });
+
+    test('resultado_seguimiento "obligatorio" heredado no bloquea hasta que alguien guarda con esta versión', () => {
+        ponerCatalogo({ tipos_actividad: [{ nombre: 'Seguimiento', campos: { resultado_seguimiento: 'obligatorio' } }] });
+        assert.equal(modoCampo('Seguimiento', 'resultado_seguimiento'), MODOS.OBLIGATORIO_DESPUES);
+
+        // Con `formularios` presente ya se guardó con la versión nueva: se lee literal.
+        ponerCatalogo({
+            tipos_actividad: [{ nombre: 'Seguimiento', campos: { resultado_seguimiento: 'obligatorio' } }],
+            formularios: { sector: { objetivo: 'opcional' } }
+        });
+        assert.equal(modoCampo('Seguimiento', 'resultado_seguimiento'), MODOS.OBLIGATORIO);
+    });
+
+    test('los campos del material tienen defaults que reproducen el comportamiento de antes', () => {
+        const c = configuracionCampos('Capacitación');
+        assert.equal(c.material_cantidad, MODOS.OBLIGATORIO);
+        assert.equal(c.material_unidad, MODOS.OBLIGATORIO);
+        assert.equal(c.material_origen, MODOS.OPCIONAL);
+    });
+
+    test('los campos del material no se anuncian como "lo que pide el tipo"', () => {
+        ponerCatalogo({ tipos_actividad: [{ nombre: 'T', campos: { material_origen: 'obligatorio' } }] });
+        assert.ok(!camposExtra('T').some(e => e.startsWith('Material')));
     });
 
     test('siempre devuelve todos los campos conocidos', () => {
         const config = configuracionCampos('Capacitación');
         assert.deepEqual(Object.keys(config).sort(), [...IDS_CAMPOS].sort());
+    });
+});
+
+describe('formularios de visita, sector y estrategia', () => {
+    test('sin configurar rigen los defaults de siempre', () => {
+        assert.equal(modoEnFormulario('sector', 'objetivo'), MODOS.OBLIGATORIO);
+        assert.equal(modoEnFormulario('visita', 'hospital'), MODOS.OBLIGATORIO);
+        assert.equal(modoEnFormulario('visita', 'notas'), MODOS.OPCIONAL);
+        assert.equal(modoEnFormulario('estrategia', 'etapa'), MODOS.OPCIONAL);
+    });
+
+    test('lo configurado manda', () => {
+        ponerCatalogo({ formularios: { sector: { objetivo: 'opcional', solicitado_por: 'oculto' } } });
+        assert.equal(modoEnFormulario('sector', 'objetivo'), MODOS.OPCIONAL);
+        assert.equal(esVisibleEn('sector', 'solicitado_por'), false);
+        assert.equal(esRequeridoEn('sector', 'origen'), true, 'lo no tocado conserva su default');
+    });
+
+    test('un campo fijo siempre es obligatorio, diga lo que diga la hoja', () => {
+        ponerCatalogo({ formularios: { visita: { fecha: 'oculto', cliente: 'opcional' } } });
+        assert.equal(modoEnFormulario('visita', 'fecha'), MODOS.OBLIGATORIO);
+        assert.equal(modoEnFormulario('visita', 'cliente'), MODOS.OBLIGATORIO);
+    });
+
+    test('los sectores de la visita no se pueden ocultar', () => {
+        ponerCatalogo({ formularios: { visita: { sectores: 'oculto' } } });
+        assert.equal(modoEnFormulario('visita', 'sectores'), MODOS.OBLIGATORIO);
+        ponerCatalogo({ formularios: { visita: { sectores: 'opcional' } } });
+        assert.equal(esRequeridoEn('visita', 'sectores'), false);
+    });
+
+    test('un modo mal escrito cae al default', () => {
+        ponerCatalogo({ formularios: { sector: { objetivo: 'oblihatorio' } } });
+        assert.equal(modoEnFormulario('sector', 'objetivo'), MODOS.OBLIGATORIO);
     });
 });
 
@@ -260,7 +332,7 @@ describe('gruposDeSector — Estrategias solo ofrece lo que ese sector trabaja',
 
     test('sin la columna grupo_articulo en ningún material, cae al catálogo completo', () => {
         ponerCatalogo({ materiales: [{ material: 'GASA SIMPLE', sector: 'GASAS' }] });
-        assert.deepEqual(gruposDeSector('GASAS'), GRUPOS_ARTICULO_POR_DEFECTO);
+        assert.deepEqual(gruposDeSector('GASAS'), ordenarEs(GRUPOS_ARTICULO_POR_DEFECTO));
     });
 });
 
@@ -316,5 +388,42 @@ describe('CAMPOS_ACTIVIDAD es la única fuente de qué se configura', () => {
 
     test('no hay ids repetidos', () => {
         assert.equal(new Set(IDS_CAMPOS).size, IDS_CAMPOS.length);
+    });
+});
+
+
+describe('orden alfabético y numérico en español', () => {
+    test('compararEs: acentos y mayúsculas no cambian el orden, los números van como números', () => {
+        assert.deepEqual(ordenarEs(['Zona', 'Área', 'abril', 'Obras']), ['abril', 'Área', 'Obras', 'Zona']);
+        assert.deepEqual(ordenarEs(['10', '2', '1']), ['1', '2', '10']);
+        assert.equal(compararEs(undefined, 'a') < 0, true, 'un valor vacío no rompe el orden');
+    });
+
+    test('las listas del catálogo salen ordenadas aunque la hoja las traiga al azar', () => {
+        ponerCatalogo({
+            origenes: ['Ventas', 'BI', 'Área X'],
+            unidades: ['Pieza', 'Caja', 'Bulto'],
+            sectores: ['SUTURAS', 'GASAS', 'GUANTES'],
+            tipos_actividad: [{ nombre: 'Seguimiento' }, { nombre: 'Capacitación' }]
+        });
+        assert.deepEqual(origenes(), ['Área X', 'BI', 'Ventas']);
+        assert.deepEqual(unidades(), ['Bulto', 'Caja', 'Pieza']);
+        assert.deepEqual(sectores(), ['GASAS', 'GUANTES', 'SUTURAS']);
+        assert.deepEqual(tiposActividad().map(t => t.nombre), ['Capacitación', 'Seguimiento']);
+    });
+
+    test('los materiales salen ordenados y, con varios sectores, sin repetir', () => {
+        ponerCatalogo({ materiales: [
+            { material: 'GUANTE M', sector: 'GUANTES' },
+            { material: 'GASA 10X10', sector: 'GASAS' },
+            { material: 'GASA 10X10', sector: 'QUIROFANO' },
+            { material: 'GASA 5X5', sector: 'GASAS' }
+        ] });
+        assert.deepEqual(materialesDe('GASAS').map(m => m.material), ['GASA 5X5', 'GASA 10X10']);
+        assert.deepEqual(
+            materialesDe(['GASAS', 'QUIROFANO', 'GUANTES']).map(m => m.material),
+            ['GASA 5X5', 'GASA 10X10', 'GUANTE M']
+        );
+        assert.equal(buscarMateriales(['GASAS', 'QUIROFANO'], 'gasa 10').length, 1);
     });
 });

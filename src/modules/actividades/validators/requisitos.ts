@@ -6,7 +6,7 @@
  * valor. Agregar un requisito nuevo es cambiar una celda de una hoja, no desplegar.
  */
 
-import { MODOS, configuracionCampos } from '@core/puente';
+import { MODOS, CAMPOS_ACTIVIDAD, configuracionCampos, fechaDocumentoEnEvidencia } from '@core/puente';
 import type { Actividad, ModoCampo } from '@core/tipos';
 
 /**
@@ -27,22 +27,14 @@ export function valorDe(actividad: Actividad, campoId: string): string {
         // Los materiales no son texto: lo que se comprueba es que haya al menos uno.
         case 'materiales':        return (actividad.materiales || []).length ? 'si' : '';
 
-        /**
-         * La evidencia obligatoria NO bloquea el guardado.
-         *
-         * Es deuda, no requisito: se salda después, cuando haya señal. Exigir la foto aquí
-         * detendría al educador de pie frente al cliente por algo que puede resolverse en el
-         * coche — y el resultado real sería que no registra la actividad.
-         */
-        case 'evidencia':         return 'si';
+        case 'resultado_seguimiento': return actividad.resultado_seguimiento || '';
 
         /**
-         * Mismo trato que la evidencia: obligatorio para "Seguimiento", pero el resultado de
-         * un seguimiento muchas veces se sabe hasta después (una llamada pendiente, una
-         * respuesta que tarda), así que tampoco bloquea "Guardar actividad". Se completa desde
-         * la actividad ya sellada — ver `ActividadSellada.tsx`.
+         * La evidencia nunca se pide durante la captura: la foto se sube DESPUÉS de sellar
+         * (ver `FormularioActividad`). Por eso solo admite "obligatorio después", que no
+         * bloquea; si algún día llegara aquí como bloqueante, no habría cómo cumplirla.
          */
-        case 'resultado_seguimiento': return 'si';
+        case 'evidencia':         return 'si';
 
         default:                  return '';
     }
@@ -82,8 +74,15 @@ export function faltantesDe(actividad: Actividad): Faltante[] {
 
     const config = configuracionCampos(actividad.tipo);
 
+    // Solo `obligatorio` bloquea. "Obligatorio después" (evidencia, resultado del seguimiento)
+    // es deuda: se salda tras guardar. Y los campos de la ventana de material los valida ella.
+    const ambitoMaterial = new Set(CAMPOS_ACTIVIDAD.filter(c => c.ambito).map(c => c.id));
+
     for (const [campoId, modo] of Object.entries(config) as Array<[string, ModoCampo]>) {
         if (modo !== MODOS.OBLIGATORIO) continue;
+        if (ambitoMaterial.has(campoId)) continue;
+        // Se pregunta al subir la evidencia, no al guardar la actividad (ver `fechaDocumentoEnEvidencia`).
+        if (campoId === 'fecha_documento' && fechaDocumentoEnEvidencia(actividad.tipo)) continue;
         if (valorDe(actividad, campoId).trim()) continue;
 
         faltantes.push({

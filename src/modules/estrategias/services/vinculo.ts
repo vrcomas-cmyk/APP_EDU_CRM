@@ -48,7 +48,7 @@ export function aplicarSeleccion(
         const nombre = sectorDe(id);
         if (nombre && !visita.sectores.some(s => s.nombre === nombre)) {
             visita.sectores.push({
-                id: nuevoId('s'), nombre, objetivo: '', origen: [], actividades: [], programado: true
+                id: nuevoId('s'), creado: new Date().toISOString(), nombre, objetivo: '', origen: [], actividades: [], programado: true
             });
         }
     }

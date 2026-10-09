@@ -31,12 +31,11 @@ export interface PropsSubirActividad {
     avisar: Avisar;
     alCambiar: () => void;
     onCerrar: () => void;
-    abrirVentanaMaterial: (sector: string, onAgregar: (m: { id: string }) => void) => void;
+    abrirVentanaMaterial: (sector: string | string[], onAgregar: (m: { id: string }) => void, tipo?: string) => void;
 }
 
-/** Sector "de mentiras" solo para que `FormularioActividad` tenga algo que mostrar en el
- *  contexto automático — todavía no se sabe a cuáles sectores reales va a aplicar. */
-const SECTOR_PLACEHOLDER: Sector = { id: '', nombre: 'Varios sectores' };
+/** Mientras no se elige ningún sector, `FormularioActividad` muestra esto en su contexto. */
+const SIN_SECTOR = 'Elige un sector arriba';
 
 export function VentanaSubirActividad({
     visitaId, avisar, alCambiar, onCerrar, abrirVentanaMaterial
@@ -70,6 +69,9 @@ export function VentanaSubirActividad({
     useEffect(() => {
         function alEscape(e: KeyboardEvent) {
             if (e.key !== 'Escape') return;
+            // Con la ventana de material encima, Escape es de ELLA: cerrar también esta se llevaba
+            // la actividad a medio llenar. (El de la ventana de material se registra después y la cierra.)
+            if (document.querySelector('.modal-caja:not(.es-actividad)')) return;
             e.stopPropagation();
             cerrar();
         }
@@ -102,6 +104,15 @@ export function VentanaSubirActividad({
 
     const totalDestinos = seleccionados.size + nuevosSectores.length;
 
+    // Los sectores YA elegidos, por nombre: de ellos salen las sugerencias de material (antes se
+    // buscaba en un sector llamado "Varios sectores" que no existe, y la lista salía siempre vacía)
+    // y el contexto que muestra el formulario.
+    const nombresElegidos = [
+        ...sectoresVisita.filter(s => seleccionados.has(s.id)).map(s => s.nombre),
+        ...nuevosSectores
+    ];
+    const sectorDeContexto: Sector = { id: '', nombre: nombresElegidos.join(', ') || SIN_SECTOR };
+
     function confirmar() {
         const faltantes: Faltante[] = faltantesDe(actividad);
         if (faltantes.length > 0) {
@@ -128,7 +139,7 @@ export function VentanaSubirActividad({
             const idsNuevos = nuevosSectores.map(nombre => {
                 const id = repo.nuevoId('s');
                 v.sectores!.push({
-                    id, nombre, objetivo: '', origen: [], programado: false, actividades: []
+                    id, creado: new Date().toISOString(), nombre, objetivo: '', origen: [], programado: false, actividades: []
                 });
                 return id;
             });
@@ -180,32 +191,44 @@ export function VentanaSubirActividad({
                     <button type="button" className="icon-btn" aria-label="Cerrar" onClick={cerrar}>✕</button>
                 </div>
 
-                <FormularioActividad
-                    visita={visita}
-                    sector={SECTOR_PLACEHOLDER}
-                    actividad={actividad}
-                    editar={editarActividad}
-                    errores={errores}
-                    onAgregarMaterial={() => abrirVentanaMaterial(SECTOR_PLACEHOLDER.nombre, (nuevo) => {
-                        editarActividad(a => { a.materiales = [...(a.materiales || []), nuevo as never]; });
-                    })}
-                    onQuitarMaterial={(id) => editarActividad(a => {
-                        a.materiales = (a.materiales || []).filter(m => m.id !== id);
-                    })}
-                />
+                {/* Un solo contenedor con scroll: el sector va PRIMERO porque de él depende qué
+                    materiales se ofrecen; dos cuerpos hermanos se encogían uno al otro. */}
+                <div className="modal-scroll">
+                    <div className="modal-body">
+                        <SeccionSectores
+                            sectoresVisita={sectoresVisita}
+                            seleccionados={seleccionados}
+                            onToggle={toggleSeleccionado}
+                            nuevosSectores={nuevosSectores}
+                            onQuitarNuevo={quitarSectorNuevo}
+                            consulta={consulta}
+                            onConsulta={setConsulta}
+                            encontrados={encontrados}
+                            catalogo={catalogo}
+                            onAgregarNuevo={agregarSectorNuevo}
+                        />
+                    </div>
 
-                <div className="modal-body">
-                    <SeccionSectores
-                        sectoresVisita={sectoresVisita}
-                        seleccionados={seleccionados}
-                        onToggle={toggleSeleccionado}
-                        nuevosSectores={nuevosSectores}
-                        onQuitarNuevo={quitarSectorNuevo}
-                        consulta={consulta}
-                        onConsulta={setConsulta}
-                        encontrados={encontrados}
-                        catalogo={catalogo}
-                        onAgregarNuevo={agregarSectorNuevo}
+                    <FormularioActividad
+                        visita={visita}
+                        sector={sectorDeContexto}
+                        actividad={actividad}
+                        editar={editarActividad}
+                        errores={errores}
+                        onAgregarMaterial={() => {
+                            // El material se busca dentro de los sectores elegidos: sin ninguno no hay
+                            // dónde buscar, y abrir la ventana vacía se leía como "no hay materiales".
+                            if (nombresElegidos.length === 0) {
+                                avisar('Elige primero el sector de la actividad.', { estado: 'sin-registrar' });
+                                return;
+                            }
+                            abrirVentanaMaterial(nombresElegidos, (nuevo) => {
+                                editarActividad(a => { a.materiales = [...(a.materiales || []), nuevo as never]; });
+                            }, actividad.tipo);
+                        }}
+                        onQuitarMaterial={(id) => editarActividad(a => {
+                            a.materiales = (a.materiales || []).filter(m => m.id !== id);
+                        })}
                     />
                 </div>
 

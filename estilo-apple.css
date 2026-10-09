@@ -456,3 +456,18 @@
 /* ---------- selector de estilo (siempre visible, con o sin el estilo activo) ---------- */
 
 .estilo-switch button { text-transform: none; letter-spacing: 0; }
+
+
+/* ---------- pantalla de entrada ---------- */
+
+:root[data-estilo="apple"] .gate-caja {
+  border: 0; border-radius: var(--r-xl);
+  box-shadow: 0 0 0 1px var(--rule-soft), 0 18px 48px -18px rgba(0, 0, 0, .28);
+}
+:root[data-estilo="apple"] .gate-titulo { font-weight: 700; letter-spacing: -.03em; }
+:root[data-estilo="apple"] .gate-punto-ico { border-radius: 10px; }
+:root[data-estilo="apple"] .btn-google-entrada {
+  border: 0; border-radius: var(--r-md);
+  box-shadow: 0 0 0 1px var(--rule), 0 1px 2px rgba(0, 0, 0, .06);
+}
+:root[data-estilo="apple"] .btn-google-entrada:hover:not(:disabled) { box-shadow: 0 0 0 1px var(--ink-2); }

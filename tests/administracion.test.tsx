@@ -60,6 +60,8 @@ const borradorSano = (extra: Partial<BorradorCatalogo> = {}): BorradorCatalogo =
     educadores: [{ nombre: 'Ana', correo: 'ana@x.com' }],
     admins: [],
     temas: [],
+    formularios: {},
+    reglas_captura: { origen_min_digitos: 6, origen_min_caracteres: 3 },
     ...extra
 });
 

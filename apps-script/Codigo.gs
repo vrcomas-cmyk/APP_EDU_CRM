@@ -171,6 +171,8 @@ const HOJA_SECTORES_OCULTOS = 'SectoresOcultos';
 // formularios de la PWA. Se guarda así —y no como JSON en una celda— para que siga siendo
 // legible y editable a mano desde la hoja, como el resto de los catálogos.
 const HOJA_CAMPOS = 'CamposActividad';
+const HOJA_CAMPOS_FORMULARIOS = 'CamposFormularios';
+const HOJA_REGLAS_CAPTURA = 'ReglasCaptura';
 
 // ---------- IDENTIDAD (Google Sign-In) ----------
 //
@@ -337,7 +339,10 @@ const ENCABEZADOS_VISITAS = [
     'sector_programado',
     // Todas las estrategias que avanza la visita, separadas por "; ". `id_estrategia` sigue con la
     // primera. Al final, como siempre: `obtenerHoja` solo tolera columnas nuevas al final.
-    'ids_estrategias'
+    'ids_estrategias',
+    // CUÁNDO se generó el registro de la visita (fecha de captura): distinta de 'fecha' (el día de
+    // la visita) y de la fecha del documento de cada actividad.
+    'visita_creada'
 ];
 
 const ENCABEZADOS_ACTIVIDADES = [
@@ -353,12 +358,17 @@ const ENCABEZADOS_ACTIVIDADES = [
     // Solo cuando "Subir Actividad" la aplicó a más de un sector: TODOS los sectores que
     // cubre (incluido el de la columna 'sector'), separados por coma — igual que 'origen'.
     // Vacío = actividad normal de un solo sector, el de la columna 'sector' de siempre.
-    'sectores_multiples'
+    'sectores_multiples',
+    // La fecha del DOCUMENTO que respalda la actividad (se pregunta al subir la evidencia) y cuándo
+    // se adjuntó el archivo. Antes la fecha del documento no llegaba a la hoja.
+    'fecha_documento', 'evidencia_adjuntada'
 ];
 
 const ENCABEZADOS_MATERIALES_CAPTURA = [
     'id_material', 'id_actividad', 'id_padre', 'id_visita', 'sector',
-    'material', 'cantidad', 'unidad', 'origen', 'actualizado'
+    'material', 'cantidad', 'unidad', 'origen', 'actualizado',
+    // Cuándo se capturó el material (fecha de registro).
+    'creado'
 ];
 
 // Un comentario es inmutable: se inserta y no se vuelve a tocar. Las columnas guardan a qué
@@ -421,6 +431,12 @@ function doGet() {
             admins: leerAdmins(db),
             materiales: leerMateriales(db),
             temas: leerTemas(db),
+            // Modo (obligatorio/opcional/oculto) de cada campo de Visita, Sector y Estrategia.
+            // `null` mientras nadie haya guardado: la PWA lo usa para saber que aún rigen los
+            // valores heredados.
+            formularios: leerCamposFormularios(db),
+            // Reglas ajustables (dígitos/caracteres mínimos del origen del material). `null` sin configurar.
+            reglas_captura: leerReglasCaptura(db),
             // Catálogos de Estrategia viven en Supabase (pdt_estrategia_tipos/pdt_etapas), no
             // en esta hoja — se administran desde Administración, pero cualquiera necesita
             // verlos para elegir "Estrategia"/"Etapa" al capturar. Solo los activos, en orden.
@@ -455,13 +471,21 @@ var ACCIONES_CON_IDENTIDAD = ['guardarVisitas', 'subirEvidencia', 'guardarEvento
 // subía. Separarlas es lo que de verdad resuelve la lentitud, más que el tamaño del payload.
 var ACCIONES_DE_LECTURA = ['leerVisitasEquipo', 'leerRevisiones', 'leerRBAC', 'leerFlujos', 'leerEstrategias', 'leerTerritorios', 'leerReporteActividades', 'leerGerenteSector', 'leerHistoricoActividades', 'leerHistoricoPlanTrabajo', 'leerCompromisosCalendarEquipo'];
 
+// Acciones que NO escriben en ninguna hoja de cálculo (solo hablan con Google o Supabase), así que
+// tampoco necesitan turnarse detrás del candado global. Antes el login (`canjearCodigoGoogle`) y
+// el token de Calendar esperaban hasta 30 s detrás de cualquier escritura de cualquier usuario:
+// por eso entrar se sentía lento y la subida de compromisos de Calendar agotaba el tiempo.
+var ACCIONES_SIN_CANDADO = ['canjearCodigoGoogle', 'calendarToken', 'cerrarSesionGoogle',
+                            'guardarCompromisosCalendar'];
+
 function doPost(e) {
     var lock = null;
     try {
         // La PWA manda Content-Type: text/plain para evitar el preflight OPTIONS,
         // que Apps Script no sabe responder. Por eso el body llega crudo aquí.
         var body = JSON.parse(e.postData.contents);
-        var esLectura = ACCIONES_DE_LECTURA.indexOf(body.action) !== -1;
+        var esLectura = ACCIONES_DE_LECTURA.indexOf(body.action) !== -1
+            || ACCIONES_SIN_CANDADO.indexOf(body.action) !== -1;
         if (!esLectura) {
             lock = LockService.getScriptLock();
             lock.waitLock(30000);
@@ -656,6 +680,22 @@ function canjearCodigoGoogle(body) {
     }
     if (!body.code) return { status: 'error', message: 'Falta el código de Google.' };
 
+    // El `code` es de UN SOLO USO. Si el navegador no recibió la respuesta (red, arranque en frío)
+    // y reintenta con el mismo código, Google respondería `invalid_grant` ("Bad Request") aunque
+    // el primer intento sí funcionó. Se guarda la respuesta unos minutos y se devuelve tal cual.
+    var cache = CacheService.getScriptCache();
+    var llaveCanje = 'canje_' + huellaSesion(String(body.code));
+    var previo = cache.get(llaveCanje);
+    if (previo) {
+        try {
+            var r = JSON.parse(previo);
+            var transcurrido = Math.floor((Date.now() - r._t) / 1000);
+            r.expira_en = Math.max(0, Number(r.expira_en || 0) - transcurrido);
+            delete r._t;
+            return r;
+        } catch (err) { /* caché ilegible: se canjea de nuevo */ }
+    }
+
     var resp;
     try {
         resp = UrlFetchApp.fetch('https://oauth2.googleapis.com/token', {
@@ -678,7 +718,9 @@ function canjearCodigoGoogle(body) {
         return { status: 'error', message: datos.error_description || datos.error || 'Google rechazó el código.' };
     }
 
-    var identidad = verificarIdentidad(datos.id_token);
+    // El id_token viene DIRECTO del endpoint de tokens de Google por HTTPS en este mismo canje:
+    // no hace falta una segunda ida a `tokeninfo` para comprobar su firma, solo sus campos.
+    var identidad = identidadDeIdTokenDeCanje(datos.id_token);
     if (!identidad.ok) return { status: 'error', message: identidad.error };
 
     var sesionToken = generarTokenSesion();
@@ -692,7 +734,7 @@ function canjearCodigoGoogle(body) {
         return { status: 'error', message: 'No se pudo guardar la conexión con Google. Intenta de nuevo.' };
     }
 
-    return {
+    var respuesta = {
         status: 'ok',
         sesion_token: sesionToken,
         correo: identidad.correo,
@@ -701,6 +743,51 @@ function canjearCodigoGoogle(body) {
         access_token: datos.access_token,
         expira_en: datos.expires_in
     };
+
+    try {
+        cache.put(llaveCanje, JSON.stringify(Object.assign({ _t: Date.now() }, respuesta)), 600);
+    } catch (err) { /* sin caché el login funciona igual; solo se pierde la idempotencia */ }
+
+    return respuesta;
+}
+
+/**
+ * Identidad a partir del id_token que Google acaba de entregar en el canje del `code`.
+ *
+ * Mismas reglas que `verificarIdentidad` (aud, correo verificado, dominio) más caducidad y emisor,
+ * pero leyendo el payload directamente: el token llegó por HTTPS desde oauth2.googleapis.com, no
+ * de un cliente, así que no hay firma que comprobar. NO usar para un id_token que venga del
+ * navegador — ese sigue pasando por `verificarIdentidad`.
+ */
+function identidadDeIdTokenDeCanje(idToken) {
+    if (!idToken) return { ok: false, error: 'Google no devolvió identidad.' };
+
+    var datos;
+    try {
+        var carga = String(idToken).split('.')[1];
+        datos = JSON.parse(Utilities.newBlob(Utilities.base64DecodeWebSafe(carga)).getDataAsString());
+    } catch (err) {
+        return { ok: false, error: 'La identidad de Google no se pudo leer.' };
+    }
+
+    if (datos.aud !== CLIENT_ID) return { ok: false, error: 'Token de otra aplicación.' };
+    if (datos.iss !== 'https://accounts.google.com' && datos.iss !== 'accounts.google.com') {
+        return { ok: false, error: 'Token de un emisor desconocido.' };
+    }
+    if (Number(datos.exp) * 1000 < Date.now()) {
+        return { ok: false, error: 'Tu sesión expiró. Vuelve a iniciar sesión.' };
+    }
+    if (String(datos.email_verified) !== 'true') {
+        return { ok: false, error: 'Tu correo no está verificado por Google.' };
+    }
+
+    var correo = String(datos.email || '').toLowerCase();
+    var dominio = correo.slice(correo.indexOf('@') + 1);
+    if (DOMINIO_PERMITIDO && dominio !== DOMINIO_PERMITIDO) {
+        return { ok: false, error: 'Solo cuentas @' + DOMINIO_PERMITIDO + ' pueden usar esta app.' };
+    }
+
+    return { ok: true, correo: correo, nombre: datos.name || correo, foto: datos.picture || '' };
 }
 
 /**
@@ -977,6 +1064,56 @@ function leerCamposActividad(db) {
     return salida;
 }
 
+/**
+ * Configuración de campos de Visita, Sector y Estrategia:
+ *   { visita: { hospital: 'obligatorio', ... }, sector: {...}, estrategia: {...} }
+ *
+ * Pestaña "CamposFormularios": formulario | campo | modo. Devuelve `null` —no `{}`— si la
+ * pestaña no existe o está vacía: la PWA distingue "nadie ha configurado" de "configurado".
+ */
+function leerCamposFormularios(db) {
+    var hoja = db.getSheetByName(HOJA_CAMPOS_FORMULARIOS);
+    if (!hoja || hoja.getLastRow() < 2) return null;
+
+    var datos = hoja.getDataRange().getValues();
+    var col = function (nombre) { return datos[0].indexOf(nombre); };
+    var iForm = col('formulario'), iCampo = col('campo'), iModo = col('modo');
+    if (iForm === -1 || iCampo === -1 || iModo === -1) return null;
+
+    var salida = {};
+    for (var i = 1; i < datos.length; i++) {
+        var form = String(datos[i][iForm]).trim();
+        var campo = String(datos[i][iCampo]).trim();
+        var modo = String(datos[i][iModo]).trim().toLowerCase();
+        if (!form || !campo || !modo) continue;
+        if (!salida[form]) salida[form] = {};
+        salida[form][campo] = modo;
+    }
+    return Object.keys(salida).length ? salida : null;
+}
+
+/**
+ * Reglas de captura: { origen_min_digitos: 6, origen_min_caracteres: 3 }.
+ * Pestaña "ReglasCaptura": clave | valor. `null` si no existe o está vacía: la PWA usa sus valores
+ * por defecto, igual que con los campos de los formularios.
+ */
+function leerReglasCaptura(db) {
+    var hoja = db.getSheetByName(HOJA_REGLAS_CAPTURA);
+    if (!hoja || hoja.getLastRow() < 2) return null;
+
+    var datos = hoja.getDataRange().getValues();
+    var iClave = datos[0].indexOf('clave'), iValor = datos[0].indexOf('valor');
+    if (iClave === -1 || iValor === -1) return null;
+
+    var salida = {};
+    for (var i = 1; i < datos.length; i++) {
+        var clave = String(datos[i][iClave]).trim();
+        var valor = Number(datos[i][iValor]);
+        if (clave && isFinite(valor)) salida[clave] = valor;
+    }
+    return Object.keys(salida).length ? salida : null;
+}
+
 /** Correos con acceso al módulo de administración. */
 function leerAdmins(db) {
     return leerColumnaUnica(db, HOJA_ADMINS, 'correo').map(function (c) {
@@ -1084,7 +1221,8 @@ function filasDeVisitas(visitas, identidad) {
                     visita.calendar_event_id || '',
                     sector.programado === true,
                     (visita.ids_estrategias && visita.ids_estrategias.length
-                        ? visita.ids_estrategias : (visita.id_estrategia ? [visita.id_estrategia] : [])).join('; ')
+                        ? visita.ids_estrategias : (visita.id_estrategia ? [visita.id_estrategia] : [])).join('; '),
+                    visita.creada || ''
                 ]
             });
 
@@ -1115,7 +1253,8 @@ function filasDeVisitas(visitas, identidad) {
                         act.creada || '', ahora,
                         sello.momento || '', sello.usuario || '', sello.dispositivo || '',
                         act.resultado_seguimiento || '',
-                        sectoresMultiples
+                        sectoresMultiples,
+                        act.fecha_documento || '', evidencia.adjuntada || ''
                     ]
                 });
 
@@ -1125,7 +1264,8 @@ function filasDeVisitas(visitas, identidad) {
                         valores: [
                             mat.id, act.id, idPadre, visita.id, sector.nombre || '',
                             mat.material || '', mat.cantidad || '', mat.unidad || '',
-                            mat.origen || '', ahora
+                            mat.origen || '', ahora,
+                            mat.creado || ''
                         ]
                     });
                 });
@@ -1924,6 +2064,26 @@ function guardarCatalogosAdmin(body, identidad) {
     }
     if (Array.isArray(body.admins)) {
         reemplazarHoja(db, HOJA_ADMINS, ['correo'], body.admins.map(function (a) { return [a]; }));
+    }
+    // Objeto { formulario: { campo: modo } }, no arreglo. Solo se reescribe si vino: un
+    // despliegue viejo de la PWA no lo manda y no debe vaciar lo configurado.
+    if (body.formularios && typeof body.formularios === 'object') {
+        var filasFormularios = [];
+        Object.keys(body.formularios).forEach(function (form) {
+            var campos = body.formularios[form] || {};
+            Object.keys(campos).forEach(function (campo) {
+                if (!campos[campo]) return;
+                filasFormularios.push([form, campo, campos[campo]]);
+            });
+        });
+        reemplazarHoja(db, HOJA_CAMPOS_FORMULARIOS, ['formulario', 'campo', 'modo'], filasFormularios);
+    }
+    // Solo si viene: un despliegue viejo de la PWA no lo manda y no debe vaciar lo configurado.
+    if (body.reglas_captura && typeof body.reglas_captura === 'object') {
+        var filasReglas = Object.keys(body.reglas_captura).map(function (clave) {
+            return [clave, body.reglas_captura[clave]];
+        });
+        reemplazarHoja(db, HOJA_REGLAS_CAPTURA, ['clave', 'valor'], filasReglas);
     }
     if (Array.isArray(body.temas)) {
         reemplazarHoja(db, HOJA_TEMAS, ['clave', 'nombre', 'modo', 'paper', 'ink'],
