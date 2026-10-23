@@ -2444,3 +2444,80 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 .evid-fecha-falta-txt { flex: 1 1 200px; min-width: 0; font-size: 12.5px; font-weight: 600; line-height: 1.4; color: var(--ink); }
 .aviso-card.es-faltante { border-left: 3px solid var(--st-miss); }
 .avisos-grupo { margin-bottom: 14px; }
+
+
+/* ---------- Estrategias: tarjetas, detalle y línea de tiempo ---------- */
+.tarjetas-clientes {
+  display: grid; gap: var(--sp-3, 12px);
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+.tarjeta-cliente {
+  display: flex; flex-direction: column; gap: 10px; padding: 14px;
+  background: var(--surface); border: 1px solid var(--rule); border-radius: var(--r-lg);
+  box-shadow: var(--shadow); cursor: pointer; text-align: left;
+  transition: border-color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+}
+.tarjeta-cliente:hover { border-color: var(--ink); }
+.tarjeta-cliente:focus-visible { outline: 2px solid var(--st-part); outline-offset: 2px; }
+.tarjeta-cliente-cab { display: flex; flex-direction: column; gap: 2px; }
+.tarjeta-cliente-cifras { display: flex; flex-wrap: wrap; gap: 6px 14px; color: var(--ink-2); font-size: 13px; }
+.tarjeta-cliente-pie { margin-top: auto; display: flex; justify-content: flex-end; }
+.ficha-cliente-nombre { font-weight: 600; color: var(--ink); }
+.chips-etapas { display: flex; flex-wrap: wrap; gap: 4px; }
+
+.modal-caja.es-detalle { width: min(860px, 100%); }
+.acciones-detalle { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ficha-sector { display: flex; flex-direction: column; gap: 8px; padding-top: 10px; border-top: 1px solid var(--rule-soft); }
+.lista-actividades { list-style: none; margin: 0; padding: 0 0 0 8px; display: flex; flex-direction: column; gap: 4px; }
+.confirmar-inline { display: inline-flex; align-items: center; gap: 6px; }
+.fila-clicable { cursor: pointer; }
+.es-archivada { opacity: .55; }
+.pill.es-archivado { text-decoration: line-through; opacity: .6; }
+.filtro-check { display: flex; align-items: center; gap: 6px; }
+.panel-avance { padding: 12px; border: 1px solid var(--rule); border-radius: var(--r-md); background: var(--surface-2); }
+
+.linea-tiempo { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.linea-tiempo-item { position: relative; display: flex; gap: 12px; padding-bottom: 14px; }
+.linea-tiempo-item:not(:last-child)::before {
+  content: ""; position: absolute; left: 5px; top: 14px; bottom: 0; width: 2px; background: var(--rule);
+}
+.linea-tiempo-punto {
+  flex: none; width: 12px; height: 12px; margin-top: 3px; border-radius: 50%;
+  background: var(--surface); border: 2px solid var(--st-plan);
+}
+.linea-tiempo-item.es-vigente .linea-tiempo-punto { background: var(--st-part); border-color: var(--st-part); }
+.linea-tiempo-txt { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+
+.seguimiento-visitas { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; background: var(--surface-2); border-radius: var(--r-md); }
+.seguimiento-visitas-items { display: flex; flex-wrap: wrap; gap: 6px 24px; }
+.seguimiento-visita { display: flex; flex-direction: column; gap: 2px; }
+.visitas-sector { display: flex; flex-direction: column; gap: 4px; }
+.tabla td.col-descripcion { min-width: 200px; max-width: 280px; white-space: normal; overflow-wrap: anywhere; line-height: 1.35; }
+.ayuda-tipo { padding: 8px 10px; background: var(--surface-2); border-radius: var(--r-sm); }
+
+/* ---- Estrategias: tarjeta por sector, visitas vinculadas con scroll, tooltip del tipo ---- */
+.tarjeta-sector { border: 1px solid var(--rule); border-radius: var(--r-md); background: var(--surface); overflow: hidden; }
+.tarjeta-sector.es-completa { border-color: var(--ink); }
+.tarjeta-sector-cab {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%;
+  padding: 10px 12px; background: var(--surface-2); border: 0; color: var(--ink); font: inherit; font-weight: 600; text-align: left;
+}
+button.tarjeta-sector-cab { cursor: pointer; }
+.sub-grupo { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; }
+.sub-grupo + .sub-grupo { border-top: 1px dashed var(--rule); }
+.cierre-estrategias { display: flex; flex-direction: column; gap: 10px; }
+
+/* 5 filas a la vista; el resto, con scroll. */
+.lista-visitas-scroll { max-height: calc(5 * 2.2rem); overflow-y: auto; }
+.visitas-sector > summary { cursor: pointer; }
+
+/* Descripción del tipo de estrategia al pasar el cursor o enfocar con teclado. */
+.chip-tooltip { position: relative; }
+.chip-tooltip[data-ayuda]:hover::after,
+.chip-tooltip[data-ayuda]:focus-visible::after {
+  content: attr(data-ayuda); position: absolute; left: 0; top: calc(100% + 6px); z-index: 30;
+  width: max-content; max-width: min(260px, 80vw); padding: 8px 10px; border-radius: var(--r-sm);
+  background: var(--ink); color: var(--paper); font-size: .78rem; font-weight: 400; line-height: 1.35;
+  white-space: normal; text-align: left; pointer-events: none; box-shadow: 0 4px 14px rgba(0, 0, 0, .25);
+}
+.linea-tiempo .pill.es-cambio { background: var(--ink); color: var(--paper); border-color: var(--ink); }

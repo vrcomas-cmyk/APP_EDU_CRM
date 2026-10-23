@@ -224,12 +224,15 @@ export interface Visita {
  * reciente de este arreglo (`etapas[etapas.length - 1]`, ya viene ordenado del servidor).
  */
 export interface EtapaHistorial {
-    etapa: string;
+    etapa?: string;
+    estatus?: string;
     momento: string;          // ISO 8601
     actor_correo?: string;
     actor_nombre?: string;
     nota?: string;
 }
+
+export type Desenlace = 'finalizado' | 'cerrado';
 
 export interface Estrategia {
     id: string;
@@ -239,13 +242,35 @@ export interface Estrategia {
     /** Recuperación / Conversión / Catalogación / Ventas / BI / Desviación / Incremento —
      *  catálogo administrable, ver `tiposEstrategia()`. */
     tipo_estrategia?: string;
+    /** Texto libre que explica la estrategia; va justo después del tipo. */
+    descripcion?: string;
     etapa?: string;
+    /** Pendiente / En curso / En revisión — ver `estatusEstrategia()`. */
+    estatus?: string;
+    /** Valor mensual proyectado en pesos; opcional. Solo un administrador lo modifica después. */
+    valor_mensual?: number;
+    /** Cómo terminó: 'finalizado' (se concretó) o 'cerrado' (no se concretó). Archiva la estrategia. */
+    desenlace?: Desenlace;
+    desenlace_comentario?: string;
+    desenlace_en?: string;
+    desenlace_por?: string;
+    /** Nota de bitácora aún no subida (p. ej. el avance dicho al terminar una visita); la lee el
+     *  servidor una sola vez y el cliente la limpia al sincronizar. */
+    nota_evento?: string;
     proyecto?: string;
     /** Materiales/productos involucrados — varios, elegidos del catálogo del sector (ver
      *  `buscarMateriales`). Antes era texto libre de uno solo; una fila vieja que aún traiga
      *  un string se envuelve en un arreglo de un elemento al leerla (`js/storage.js`). */
     productos?: string[];
     observaciones?: string;
+    /** Archivada: se oculta por defecto y se puede desarchivar. Nunca se borra. */
+    archivada?: boolean;
+    archivada_en?: string;
+    archivada_por?: string;
+    /** Productos archivados dentro de la estrategia (siguen en `productos`, se ven tachados). */
+    productos_archivados?: string[];
+    /** Nota del último avance; la lee el servidor al registrar el tránsito. */
+    nota_avance?: string;
     actualizado?: string;          // ISO 8601
     actualizado_por?: string;
     actualizado_correo?: string;

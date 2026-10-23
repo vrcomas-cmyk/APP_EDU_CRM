@@ -15,6 +15,7 @@ import {
     type Resultado, type Avisar
 } from '@core/puente';
 import type { Visita, Marca } from '@core/tipos';
+import { CierreEstrategias, hayEstrategiasQueActualizar } from './CierreEstrategias';
 
 interface Props {
     visita: Visita;
@@ -33,6 +34,7 @@ export function BloqueCheck({ visita, avisar, alTerminar, soloLectura, abrirOtra
     // Se pregunta DESPUÉS de que el checkout ya quedó registrado, nunca antes: un pendiente sin
     // resolver no debe poder bloquear ni retrasar el hecho físico de haber salido.
     const [preguntarPendiente, setPreguntarPendiente] = useState(false);
+    const [actualizarEstrategias, setActualizarEstrategias] = useState(false);
 
     // Solo importa mientras no hay check-in todavía: una vez iniciada, esta visita YA ES la
     // abierta, no tiene sentido bloquearla contra sí misma.
@@ -76,11 +78,23 @@ export function BloqueCheck({ visita, avisar, alTerminar, soloLectura, abrirOtra
         // El checkout ya se registró — de aquí en más, preguntar por un pendiente es la única
         // cosa que falta antes de cerrar. `alTerminar()` se llama al responder, no ahora.
         if (esCheckOut) {
-            setPreguntarPendiente(true);
+            // Primero el avance de las estrategias (si la visita tiene o puede tener alguna) y
+            // después el pendiente: ambos son opcionales y ninguno retrasa la salida ya registrada.
+            if (hayEstrategiasQueActualizar(visita)) setActualizarEstrategias(true);
+            else setPreguntarPendiente(true);
             return;
         }
 
         alTerminar();
+    }
+
+    if (actualizarEstrategias) {
+        return (
+            <CierreEstrategias
+                visita={visita} avisar={avisar}
+                onTerminar={() => { setActualizarEstrategias(false); setPreguntarPendiente(true); }}
+            />
+        );
     }
 
     if (preguntarPendiente) {

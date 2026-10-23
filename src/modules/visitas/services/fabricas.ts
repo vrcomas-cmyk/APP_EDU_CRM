@@ -24,6 +24,12 @@ export interface DatosNuevaVisita {
     /** Todas las estrategias que entran a la visita (ver `Visita.ids_estrategias`). */
     ids_estrategias?: string[];
     sectorNombres?: string[];
+    /** Objetivo de la visita por sector (nombre → texto), capturado al generarla desde Estrategias. */
+    objetivos?: Record<string, string>;
+    /** Origen de la actividad por sector (nombre → opciones), capturado al generarla desde Estrategias. */
+    origenes?: Record<string, string[]>;
+    /** Quién solicita la actividad por sector (nombre → texto). */
+    solicitados?: Record<string, string>;
 }
 
 /**
@@ -39,7 +45,8 @@ export interface DatosNuevaVisita {
 export function nuevaVisita(
     {
         dia = '', hora_inicio = '', hora_fin = '',
-        cliente = '', zona, ejecutivo, id_estrategia, ids_estrategias, sectorNombres
+        cliente = '', zona, ejecutivo, id_estrategia, ids_estrategias, sectorNombres, objetivos,
+        origenes, solicitados
     }: DatosNuevaVisita,
     sesion: Sesion | null,
     nuevoId: GeneradorId
@@ -49,8 +56,9 @@ export function nuevaVisita(
         id: nuevoId('s'),
         creado: ahora,
         nombre,
-        objetivo: '',
-        origen: [],
+        objetivo: objetivos?.[nombre]?.trim() || '',
+        origen: [...(origenes?.[nombre] || [])],
+        ...(solicitados?.[nombre]?.trim() ? { solicitado_por: solicitados[nombre]!.trim() } : {}),
         actividades: [],
         // Estos vienen de la agenda o de una Estrategia, no se agregaron sobre la marcha.
         programado: true

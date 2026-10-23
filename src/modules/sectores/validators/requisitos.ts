@@ -13,18 +13,42 @@ import type { Sector, Visita } from '@core/tipos';
  * `solicitado_por` a quién responderle — que es justo lo que alguien preguntará tres meses
  * después. Administración (Formularios → Sector) puede volver opcional u ocultar cualquiera.
  */
-export function faltaEnSector(sector: Partial<Sector> | null | undefined): string[] {
+export function faltaEnSector(
+    sector: Partial<Sector> | null | undefined,
+    /** Sector que viene de una Estrategia: el objetivo es obligatorio aunque Administración lo relaje. */
+    opciones: { desdeEstrategia?: boolean } = {}
+): string[] {
     const falta: string[] = [];
 
-    if (esRequeridoEn('sector', 'objetivo') && !(sector?.objetivo || '').trim()) falta.push('Objetivo');
-    if (esRequeridoEn('sector', 'origen') && !(sector?.origen || []).length) falta.push('Origen de la actividad');
-    if (esRequeridoEn('sector', 'solicitado_por') && !(sector?.solicitado_por || '').trim()) falta.push('Solicitado por');
+    // Desde una Estrategia los tres campos son obligatorios, aunque Administración los relaje.
+    const objetivoObligatorio = opciones.desdeEstrategia || esRequeridoEn('sector', 'objetivo');
+    if (objetivoObligatorio && !(sector?.objetivo || '').trim()) falta.push('Objetivo');
+    if ((opciones.desdeEstrategia || esRequeridoEn('sector', 'origen')) && !(sector?.origen || []).length) falta.push('Origen de la actividad');
+    if ((opciones.desdeEstrategia || esRequeridoEn('sector', 'solicitado_por')) && !(sector?.solicitado_por || '').trim()) falta.push('Solicitado por');
 
     return falta;
 }
 
-export function sectorCompleto(sector: Partial<Sector> | null | undefined): boolean {
-    return faltaEnSector(sector).length === 0;
+export function sectorCompleto(
+    sector: Partial<Sector> | null | undefined,
+    opciones: { desdeEstrategia?: boolean } = {}
+): boolean {
+    return faltaEnSector(sector, opciones).length === 0;
+}
+
+/** Estrategias de la visita que caen en este sector (por nombre de sector). */
+export function estrategiasDeSector<E extends { id: string; sector?: string }>(
+    visita: Pick<Visita, 'id_estrategia' | 'ids_estrategias'>,
+    estrategias: E[],
+    nombreSector: string
+): E[] {
+    const ids = new Set(visita.ids_estrategias?.length ? visita.ids_estrategias : visita.id_estrategia ? [visita.id_estrategia] : []);
+    return estrategias.filter(e => ids.has(e.id) && e.sector === nombreSector);
+}
+
+/** Grupos de artículo distintos entre varias estrategias; con 2 o más hay que redactar un objetivo por grupo. */
+export function gruposDeEstrategias(estrategias: { grupo_articulo?: string }[]): string[] {
+    return [...new Set(estrategias.map(e => e.grupo_articulo).filter((g): g is string => !!g))];
 }
 
 /**

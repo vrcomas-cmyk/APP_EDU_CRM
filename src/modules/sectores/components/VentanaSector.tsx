@@ -17,7 +17,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { sectores as catalogoSectores, origenes, leerEstrategias, type Avisar } from '@core/puente';
 
-import { faltaEnSector, sectorCompleto, podarAgregadosIncompletos, sectoresLibres } from '../validators/requisitos';
+import {
+    faltaEnSector, sectorCompleto, podarAgregadosIncompletos, sectoresLibres,
+    estrategiasDeSector, gruposDeEstrategias
+} from '../validators/requisitos';
 import { filtrarSectores } from '../services/busqueda';
 import * as repo from '@modules/visitas/repository/visitasRepo';
 import type { Sector, Visita } from '@core/tipos';
@@ -257,9 +260,12 @@ function PasoCompletar({ visita, sector, editar, avisar, onListo }: {
      * estrategia) y el objetivo de ESTA visita puntual, que puede matizarlo o ser un paso
      * intermedio distinto. Auto-llenarlo borraría esa distinción.
      */
-    const estrategiaDelSector = useMemo(() => leerEstrategias().find(e =>
-        e.cliente === visita.cliente && e.sector === sector.nombre && e.etapa !== 'Consolidado'
-    ), [visita.cliente, sector.nombre]);
+    const estrategiasVinculadas = useMemo(() => estrategiasDeSector(
+        visita, leerEstrategias().filter(e => e.cliente === visita.cliente), sector.nombre
+    ), [visita, sector.nombre]);
+    const desdeEstrategia = estrategiasVinculadas.length > 0;
+    const gruposVinculados = useMemo(() => gruposDeEstrategias(estrategiasVinculadas), [estrategiasVinculadas]);
+    const variosGrupos = gruposVinculados.length >= 2;
 
     // Ya sellado: se abre para consultarlo, no para cambiarlo.
     if (sector.guardado) {
@@ -283,22 +289,31 @@ function PasoCompletar({ visita, sector, editar, avisar, onListo }: {
         );
     }
 
-    const falta = faltaEnSector(sector);
+    const falta = faltaEnSector(sector, { desdeEstrategia });
     const listo = falta.length === 0;
 
     return (
         <div className="modal-body">
-            {esVisibleEn('sector', 'objetivo') && (
+            {(desdeEstrategia || esVisibleEn('sector', 'objetivo')) && (
                 <label className="campo">
-                    <span className="campo-lbl">{rotuloEn('sector', 'objetivo', 'Objetivo')}</span>
-                    {estrategiaDelSector && (
+                    <span className="campo-lbl">{desdeEstrategia ? 'Objetivo de la visita *' : rotuloEn('sector', 'objetivo', 'Objetivo')}</span>
+                    {estrategiasVinculadas.map(e => (
+                        <p className="ayuda" key={e.id}>
+                            Objetivo de la estrategia{e.grupo_articulo ? ` (${e.grupo_articulo})` : ''}:{' '}
+                            {e.proyecto || e.descripcion || 'sin más detalle'}
+                        </p>
+                    ))}
+                    {variosGrupos && (
                         <p className="ayuda">
-                            Estrategia en curso: {[estrategiaDelSector.grupo_articulo, estrategiaDelSector.proyecto]
-                                .filter(Boolean).join(' · ') || 'sin más detalle'}
+                            Este sector trabaja {gruposVinculados.length} grupos de artículo
+                            ({gruposVinculados.join(', ')}). Redacta el objetivo para cada artículo;
+                            puede ser el mismo para ambos.
                         </p>
                     )}
                     <input
-                        type="text" className="inp" placeholder="¿Qué se busca lograr aquí?"
+                        type="text" className="inp" placeholder={variosGrupos
+                            ? gruposVinculados.map(g => `${g}: …`).join(' / ')
+                            : '¿Qué se busca lograr aquí?'}
                         value={sector.objetivo || ''}
                         autoFocus
                         onChange={(e) => editarSector(s => { s.objetivo = e.target.value; })}
@@ -306,11 +321,11 @@ function PasoCompletar({ visita, sector, editar, avisar, onListo }: {
                 </label>
             )}
 
-            {esVisibleEn('sector', 'origen') && (
+            {(desdeEstrategia || esVisibleEn('sector', 'origen')) && (
                 <ChipsOrigen sector={sector} editarSector={editarSector} />
             )}
 
-            {esVisibleEn('sector', 'solicitado_por') && (
+            {(desdeEstrategia || esVisibleEn('sector', 'solicitado_por')) && (
                 <label className="campo">
                     <span className="campo-lbl">{rotuloEn('sector', 'solicitado_por', 'Solicitado por')}</span>
                     <input
@@ -345,7 +360,7 @@ function PasoCompletar({ visita, sector, editar, avisar, onListo }: {
                     disabled={!listo}
                     title={listo ? undefined : `Falta: ${falta.join(', ')}`}
                     onClick={() => {
-                        if (!sectorCompleto(sector)) return;   // el botón ya está deshabilitado; cinturón
+                        if (!sectorCompleto(sector, { desdeEstrategia })) return;   // el botón ya está deshabilitado; cinturón
 
                         // El SELLO lo pone Guardar visita, no este botón: mientras la visita
                         // sea borrador todo sigue corrigiéndose, y sellar aquí mentiría.

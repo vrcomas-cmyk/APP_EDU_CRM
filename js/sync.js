@@ -443,7 +443,11 @@ export async function sincronizarEstrategias() {
 
     const estrategias = leerEstrategias();
     estrategias.forEach(e => {
-        if (huellas.has(e.id) && JSON.stringify(e) === huellas.get(e.id)) e.sincronizado = true;
+        if (huellas.has(e.id) && JSON.stringify(e) === huellas.get(e.id)) {
+            e.sincronizado = true;
+            // La nota de bitácora ya la registró el servidor: no debe reenviarse en el próximo guardado.
+            delete e.nota_evento;
+        }
     });
     persistirEstrategias(estrategias);
 
@@ -468,18 +472,6 @@ export async function descargarEstrategiasEquipo() {
         console.error('No se pudieron leer las estrategias del equipo:', err);
         return { estrategias: leerEstrategias() };
     }
-}
-
-/**
- * Borra en el servidor. La app ya la quitó de `localStorage` (mejor esfuerzo, como el resto de
- * la sincronización en segundo plano); si esto falla por falta de red, la fila reaparecerá en
- * la próxima descarga del equipo — el usuario puede volver a intentar borrarla entonces.
- */
-export async function eliminarEstrategiaRemota(id) {
-    return rpc('pdt_estrategia_eliminar', {
-        p_sesion_token: sesionActual()?.sesion_token || '',
-        p_id: id
-    });
 }
 
 // ---------- pendientes ----------

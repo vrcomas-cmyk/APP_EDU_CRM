@@ -58,13 +58,17 @@ describe('visita', () => {
 
 describe('estrategia', () => {
     const base = {
-        cliente: 'Hospital X', sector: '', grupo: '', tipo: '', etapa: '',
+        cliente: 'Hospital X', sector: 'GASAS', grupo: 'Gasas', tipo: '', etapa: '',
         proyecto: '', productos: [] as string[], observaciones: ''
     };
 
-    test('por defecto solo el cliente es obligatorio', () => {
+    test('por defecto son obligatorios cliente, sector y grupo de artículo', () => {
         assert.deepEqual(faltaEnEstrategia(base), []);
         assert.deepEqual(faltaEnEstrategia({ ...base, cliente: ' ' }), ['Cliente']);
+        assert.deepEqual(
+            faltaEnEstrategia({ ...base, sector: '', grupo: '' }),
+            ['Sector', 'Grupo de artículo']
+        );
     });
 
     test('Administración puede exigir etapa y productos', () => {

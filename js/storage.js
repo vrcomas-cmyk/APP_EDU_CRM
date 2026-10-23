@@ -275,8 +275,125 @@ export function upsertEstrategia(estrategia) {
     return estrategia;
 }
 
-export function eliminarEstrategia(id) {
-    guardarEstrategias(leerEstrategias().filter(e => e.id !== id));
+// Las estrategias NO se borran: se archivan (y se pueden desarchivar). Una vez guardada, una
+// estrategia es de solo lectura: lo único que cambia es la etapa, el estatus y el archivo.
+
+function actualizarEstrategia(id, mutador) {
+    const lista = leerEstrategias();
+    const e = lista.find(x => x.id === id);
+    if (!e) return null;
+    mutador(e);
+    e.sincronizado = false;
+    guardarEstrategias(lista);
+    return e;
+}
+
+/** Archiva (o desarchiva) varias estrategias a la vez; `quien` es el nombre de quien lo hace. */
+export function archivarEstrategias(ids, archivar, quien = '') {
+    const set = new Set(ids);
+    const lista = leerEstrategias();
+    const ahora = new Date().toISOString();
+    let cambiadas = 0;
+    for (const e of lista) {
+        if (!set.has(e.id) || Boolean(e.archivada) === archivar) continue;
+        e.archivada = archivar;
+        e.archivada_en = archivar ? ahora : undefined;
+        e.archivada_por = archivar ? quien : undefined;
+        if (!archivar) {
+            // Al desarchivar la estrategia vuelve a estar vigente: ya no tiene desenlace.
+            e.desenlace = undefined;
+            e.desenlace_comentario = undefined;
+            e.desenlace_en = undefined;
+            e.desenlace_por = undefined;
+        }
+        e.actualizado = ahora;
+        e.sincronizado = false;
+        cambiadas++;
+    }
+    if (cambiadas) guardarEstrategias(lista);
+    return cambiadas;
+}
+
+/** Archiva (o desarchiva) un producto dentro de la estrategia; la estrategia sigue activa. */
+export function archivarProducto(id, producto, archivar) {
+    return actualizarEstrategia(id, (e) => {
+        const actuales = new Set(e.productos_archivados || []);
+        if (archivar) actuales.add(producto); else actuales.delete(producto);
+        e.productos_archivados = [...actuales];
+        e.actualizado = new Date().toISOString();
+    });
+}
+
+/**
+ * Registra un avance: cambia etapa y/o estatus y lo anota en la línea de tiempo local, para que
+ * se vea al instante aun sin red (el servidor devuelve la línea oficial en la siguiente descarga).
+ */
+export function moverEtapaEstatus(id, { etapa, estatus, nota = '' }, actor = {}) {
+    return actualizarEstrategia(id, (e) => {
+        const etapaNueva = etapa ?? e.etapa;
+        const estatusNuevo = estatus ?? e.estatus;
+        const cambio = etapaNueva !== e.etapa || estatusNuevo !== e.estatus;
+        // Una nota sola también es bitácora: "se habló con compras" no mueve etapa ni estatus.
+        if (!cambio && !nota.trim()) return;
+
+        e.etapa = etapaNueva || undefined;
+        e.estatus = estatusNuevo || undefined;
+        e.nota_avance = nota.trim() || undefined;
+        e.nota_evento = nota.trim() || undefined;
+        e.actualizado = new Date().toISOString();
+        e.etapas = [...(e.etapas || []), {
+            etapa: etapaNueva, estatus: estatusNuevo, momento: e.actualizado,
+            actor_correo: actor.correo, actor_nombre: actor.nombre, nota: nota.trim() || undefined
+        }];
+    });
+}
+
+/**
+ * Termina la estrategia: 'finalizado' (se concretó) o 'cerrado' (no se concretó). El comentario es
+ * obligatorio —explica cómo se logró o por qué se perdió—, queda en la bitácora y la estrategia
+ * se archiva, así que sale de las vigentes. Devuelve null si falta el comentario o el id no existe.
+ */
+export function cerrarEstrategia(id, desenlace, comentario, actor = {}) {
+    const texto = String(comentario || '').trim();
+    if (!texto || !['finalizado', 'cerrado'].includes(desenlace)) return null;
+
+    return actualizarEstrategia(id, (e) => {
+        const ahora = new Date().toISOString();
+        const rotulo = desenlace === 'finalizado' ? 'Finalizada' : 'Cerrada';
+        e.desenlace = desenlace;
+        e.desenlace_comentario = texto;
+        e.desenlace_en = ahora;
+        e.desenlace_por = actor.nombre || actor.correo || '';
+        e.archivada = true;
+        e.archivada_en = ahora;
+        e.archivada_por = actor.nombre || actor.correo || '';
+        e.nota_evento = `${rotulo}: ${texto}`;
+        e.actualizado = ahora;
+        e.etapas = [...(e.etapas || []), {
+            etapa: e.etapa, estatus: e.estatus, momento: ahora,
+            actor_correo: actor.correo, actor_nombre: actor.nombre, nota: e.nota_evento
+        }];
+    });
+}
+
+/** Cambia el valor mensual (solo lo acepta el servidor si quien sube es administrador). */
+export function cambiarValorMensual(id, valor, actor = {}) {
+    const nuevo = valor === null || valor === undefined || valor === '' ? undefined : Number(valor);
+    if (nuevo !== undefined && !Number.isFinite(nuevo)) return null;
+
+    return actualizarEstrategia(id, (e) => {
+        const antes = e.valor_mensual;
+        if (antes === nuevo) return;
+        const mxn = (n) => (n === undefined ? 'sin valor' : n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' }));
+        const ahora = new Date().toISOString();
+        e.valor_mensual = nuevo;
+        e.nota_evento = `Valor mensual: ${mxn(antes)} → ${mxn(nuevo)}`;
+        e.actualizado = ahora;
+        e.etapas = [...(e.etapas || []), {
+            etapa: e.etapa, estatus: e.estatus, momento: ahora,
+            actor_correo: actor.correo, actor_nombre: actor.nombre, nota: e.nota_evento
+        }];
+    });
 }
 
 /**

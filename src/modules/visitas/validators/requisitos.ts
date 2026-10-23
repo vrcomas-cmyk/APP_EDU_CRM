@@ -10,7 +10,8 @@
  */
 
 import type { Visita } from '@core/tipos';
-import { esVisitaCliente, clientesEnMisZonas, esRequeridoEn } from '@core/puente';
+import { esVisitaCliente, clientesEnMisZonas, esRequeridoEn, leerEstrategias } from '@core/puente';
+import { idsEstrategiasDe } from '@modules/estrategias/services/vinculo';
 
 /**
  * Lo que se exige POR DEFECTO. Hospital, Motivo y "Al menos un sector" los puede cambiar
@@ -80,6 +81,21 @@ export function faltaParaGuardar(visita: Visita): string[] {
     // propio al guardar (ver `sellarVisita`), sin catálogo que elegir.
     if (cliente && esRequeridoEn('visita', 'sectores') && !(visita.sectores || []).length) {
         falta.push('Al menos un sector');
+    }
+
+    // Una visita generada desde una Estrategia no se guarda con un sector sin objetivo: sin él
+    // no queda claro qué se iba a lograr, que es justo para lo que se creó la visita.
+    const ids = idsEstrategiasDe(visita);
+    if (cliente && ids.length) {
+        const sectoresDeEstrategia = new Set(
+            leerEstrategias().filter(e => ids.includes(e.id)).map(e => e.sector).filter(Boolean)
+        );
+        for (const s of visita.sectores || []) {
+            if (!sectoresDeEstrategia.has(s.nombre)) continue;
+            if (!lleno(s.objetivo)) falta.push(`Objetivo de la visita (${s.nombre})`);
+            if (!(s.origen || []).length) falta.push(`Origen de la actividad (${s.nombre})`);
+            if (!lleno(s.solicitado_por)) falta.push(`Solicitado por (${s.nombre})`);
+        }
     }
 
     return falta;

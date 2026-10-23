@@ -42,6 +42,13 @@ function inputClienteFiltro(): HTMLInputElement {
     return el as HTMLInputElement;
 }
 
+/** Sector y Grupo de artículo son obligatorios: los llena para que Guardar se habilite. */
+function llenarObligatorios(sector = 'GASAS', grupo = 'Gasas') {
+    const modal = within(document.querySelector('.modal-body') as HTMLElement);
+    fireEvent.change(modal.getByLabelText(/^Sector/), { target: { value: sector } });
+    fireEvent.change(modal.getByLabelText(/^Grupo de artículo/), { target: { value: grupo } });
+}
+
 beforeEach(() => {
     localStorage.clear();
     guardarCatalogo({
@@ -73,9 +80,11 @@ describe('Estrategias', () => {
         fireEvent.click(screen.getByText('+ Nueva estrategia'));
         fireEvent.change(inputClienteModal(), { target: { value: 'Hospital Los Pilares' } });
 
+        llenarObligatorios();
+
         await act(async () => { fireEvent.click(screen.getByText('Guardar')); });
 
-        assert.ok(screen.getByText('Hospital Los Pilares'));
+        assert.ok(screen.getAllByText('Hospital Los Pilares').length >= 1);
         assert.equal(leerEstrategias().length, 1);
         assert.equal((leerEstrategias()[0] as { cliente: string }).cliente, 'Hospital Los Pilares');
     });
@@ -101,38 +110,20 @@ describe('Estrategias', () => {
         assert.equal(guardar.disabled, true);
     });
 
-    test('editar una fila existente actualiza en vez de duplicar', async () => {
-        await act(async () => montar());
-        fireEvent.click(screen.getByText('+ Nueva estrategia'));
-        fireEvent.change(inputClienteModal(), { target: { value: 'Cliente Uno' } });
-        await act(async () => { fireEvent.click(screen.getByText('Guardar')); });
-
-        fireEvent.click(screen.getByText('Editar'));
-        fireEvent.change(screen.getByPlaceholderText(
-            '¿Qué se busca conseguir con este cliente aquí?'
-        ), { target: { value: 'Cerrar contrato de suturas' } });
-        await act(async () => { fireEvent.click(screen.getByText('Guardar')); });
-
-        assert.equal(leerEstrategias().length, 1, 'editar no debe crear una segunda fila');
-        assert.equal(
-            (leerEstrategias()[0] as { proyecto: string }).proyecto,
-            'Cerrar contrato de suturas'
-        );
-    });
-
     test('filtrar por cliente esconde lo que no coincide', async () => {
         await act(async () => montar());
 
         for (const nombre of ['Hospital A', 'Hospital B']) {
             fireEvent.click(screen.getByText('+ Nueva estrategia'));
             fireEvent.change(inputClienteModal(), { target: { value: nombre } });
+            llenarObligatorios();
             await act(async () => { fireEvent.click(screen.getByText('Guardar')); });
         }
 
         fireEvent.change(inputClienteFiltro(), { target: { value: 'Hospital A' } });
 
-        assert.ok(screen.getByText('Hospital A'));
-        assert.equal(screen.queryByText('Hospital B'), null);
+        assert.ok(screen.getAllByText('Hospital A').length >= 1);
+        assert.equal(screen.queryAllByText('Hospital B').length, 0);
     });
 
     test('elegir un sector en el formulario acota el grupo de artículo a ese sector', async () => {
@@ -150,7 +141,7 @@ describe('Estrategias', () => {
         fireEvent.click(screen.getByText('+ Nueva estrategia'));
         const modal = within(document.querySelector('.modal-body') as HTMLElement);
 
-        fireEvent.change(modal.getByLabelText('Sector'), { target: { value: 'GASAS' } });
+        fireEvent.change(modal.getByLabelText(/^Sector/), { target: { value: 'GASAS' } });
 
         assert.ok(modal.getByText('Cuidado de Heridas'));
         assert.ok(modal.getByText('Gasas'));
@@ -172,7 +163,8 @@ describe('Estrategias', () => {
         const modal = within(document.querySelector('.modal-body') as HTMLElement);
 
         fireEvent.change(inputClienteModal(), { target: { value: 'Cliente Uno' } });
-        fireEvent.change(modal.getByLabelText('Sector'), { target: { value: 'GASAS' } });
+        fireEvent.change(modal.getByLabelText(/^Sector/), { target: { value: 'GASAS' } });
+        fireEvent.change(modal.getByLabelText(/^Grupo de artículo/), { target: { value: 'Gasas' } });
 
         const campoProductos = modal.getByLabelText('Productos') as HTMLInputElement;
         fireEvent.change(campoProductos, { target: { value: 'gasa' } });
@@ -193,15 +185,122 @@ describe('Estrategias', () => {
         assert.deepEqual(guardada.productos, ['GASA SIMPLE 10X10', 'GASA DOBLADA 5X5']);
     });
 
-    test('eliminar quita la fila del almacén', async () => {
+    test('Sector y Grupo de artículo son obligatorios para guardar', async () => {
         await act(async () => montar());
         fireEvent.click(screen.getByText('+ Nueva estrategia'));
-        fireEvent.change(inputClienteModal(), { target: { value: 'Cliente a borrar' } });
+        fireEvent.change(inputClienteModal(), { target: { value: 'Cliente Uno' } });
+
+        assert.equal((screen.getByText('Guardar') as HTMLButtonElement).disabled, true);
+        llenarObligatorios();
+        assert.equal((screen.getByText('Guardar') as HTMLButtonElement).disabled, false);
+    });
+
+    test('con grupo elegido, Productos solo ofrece materiales de ese grupo', async () => {
+        guardarCatalogo({
+            clientes: ['Cliente Uno'], sectores: ['GASAS'], grupos_articulo: ['Gasas', 'Cuidado de Heridas'],
+            materiales: [
+                { material: 'GASA SIMPLE', sector: 'GASAS', grupo_articulo: 'Gasas' },
+                { material: 'GASA APOSITO', sector: 'GASAS', grupo_articulo: 'Cuidado de Heridas' }
+            ]
+        });
+        await act(async () => montar());
+        fireEvent.click(screen.getByText('+ Nueva estrategia'));
+        const modal = within(document.querySelector('.modal-body') as HTMLElement);
+        llenarObligatorios('GASAS', 'Gasas');
+
+        fireEvent.change(modal.getByLabelText('Productos'), { target: { value: 'gasa' } });
+        assert.ok(modal.getByRole('option', { name: 'GASA SIMPLE' }));
+        assert.equal(modal.queryByRole('option', { name: 'GASA APOSITO' }), null);
+    });
+
+    /** Crea una estrategia por la UI y abre la tarjeta del cliente y luego la estrategia. */
+    async function crearYAbrir(cliente = 'Cliente Uno') {
+        await act(async () => montar());
+        fireEvent.click(screen.getByText('+ Nueva estrategia'));
+        fireEvent.change(inputClienteModal(), { target: { value: cliente } });
+        llenarObligatorios();
+        await act(async () => { fireEvent.click(screen.getByText('Guardar')); });
+        fireEvent.click(screen.getByLabelText(`Ver el detalle de ${cliente}`));
+        fireEvent.click(screen.getByText('Gasas', { selector: 'td' }));
+    }
+
+    test('no existe forma de eliminar una estrategia', async () => {
+        await crearYAbrir();
+        assert.equal(screen.queryByText('Eliminar'), null);
+        assert.equal(leerEstrategias().length, 1);
+    });
+
+    test('una estrategia guardada es de solo lectura: solo se mueven etapa y estatus', async () => {
+        await crearYAbrir();
+        const detalle = within(screen.getByRole('dialog', { name: 'Detalle de la estrategia' }));
+
+        // Sin campos de captura editables (proyecto, sector, grupo…), solo el panel de avance.
+        assert.equal(detalle.queryByPlaceholderText('¿Qué se busca conseguir con este cliente aquí?'), null);
+        assert.equal((detalle.getByText('Registrar avance', { selector: 'button' }) as HTMLButtonElement).disabled, true);
+
+        fireEvent.change(detalle.getByLabelText('Etapa'), { target: { value: 'Presentación' } });
+        fireEvent.change(detalle.getByLabelText('Estatus'), { target: { value: 'En curso' } });
+        fireEvent.change(detalle.getByPlaceholderText('Nota del avance (opcional)'), { target: { value: 'Visita con jefe de compras' } });
+        await act(async () => { fireEvent.click(detalle.getByText('Registrar avance', { selector: 'button' })); });
+
+        const e = leerEstrategias()[0] as { etapa?: string; estatus?: string; sector?: string; etapas?: unknown[] };
+        assert.equal(e.etapa, 'Presentación');
+        assert.equal(e.estatus, 'En curso');
+        assert.equal(e.sector, 'GASAS', 'lo demás no cambia');
+        assert.equal(e.etapas?.length, 2, 'creación + avance en la línea de tiempo');
+        assert.ok(detalle.getByText('Visita con jefe de compras'));
+    });
+
+    test('Finalizar exige comentario, archiva la estrategia y "Mostrar archivadas" la devuelve', async () => {
+        await crearYAbrir();
+        const detalle = within(screen.getByRole('dialog', { name: 'Detalle de la estrategia' }));
+
+        fireEvent.click(detalle.getByText('Finalizar', { exact: false }));
+        const modalFin = within(screen.getByRole('dialog', { name: 'Finalizar estrategia' }));
+        const confirmar = modalFin.getByText('Finalizar', { selector: 'button.btn-principal' }) as HTMLButtonElement;
+        assert.equal(confirmar.disabled, true, 'sin comentario no se puede finalizar');
+
+        fireEvent.change(modalFin.getByLabelText(/¿Cómo se logró\?/), { target: { value: 'Compraron el catálogo completo' } });
+        await act(async () => { fireEvent.click(confirmar); });
+
+        const e = leerEstrategias()[0] as {
+            archivada?: boolean; desenlace?: string; desenlace_comentario?: string; etapas?: { nota?: string }[];
+        };
+        assert.equal(e.archivada, true);
+        assert.equal(e.desenlace, 'finalizado');
+        assert.equal(e.desenlace_comentario, 'Compraron el catálogo completo');
+        assert.match(e.etapas?.at(-1)?.nota ?? '', /^Finalizada: Compraron/, 'queda en la bitácora');
+        assert.equal(leerEstrategias().length, 1, 'finalizar nunca borra');
+
+        // Cierra los modales: la tarjeta ya no aparece en la lista por defecto.
+        fireEvent.click(screen.getAllByLabelText('Cerrar')[1]!);
+        fireEvent.click(screen.getAllByLabelText('Cerrar')[0]!);
+        assert.equal(screen.queryByLabelText('Ver el detalle de Cliente Uno'), null);
+
+        fireEvent.click(screen.getByLabelText('Mostrar archivadas'));
+        assert.ok(screen.getByLabelText('Ver el detalle de Cliente Uno'));
+    });
+
+    test('un producto se archiva dentro de la estrategia sin archivar la estrategia', async () => {
+        guardarCatalogo({
+            clientes: ['Cliente Uno'], sectores: ['GASAS'], grupos_articulo: ['Gasas'],
+            materiales: [{ material: 'GASA SIMPLE', sector: 'GASAS', grupo_articulo: 'Gasas' }]
+        });
+        await act(async () => montar());
+        fireEvent.click(screen.getByText('+ Nueva estrategia'));
+        const modal = within(document.querySelector('.modal-body') as HTMLElement);
+        fireEvent.change(inputClienteModal(), { target: { value: 'Cliente Uno' } });
+        llenarObligatorios();
+        fireEvent.change(modal.getByLabelText('Productos'), { target: { value: 'gasa' } });
+        fireEvent.mouseDown(modal.getByRole('option', { name: 'GASA SIMPLE' }));
         await act(async () => { fireEvent.click(screen.getByText('Guardar')); });
 
-        fireEvent.click(screen.getByText('Editar'));
-        fireEvent.click(screen.getByText('Eliminar'));
+        fireEvent.click(screen.getByLabelText('Ver el detalle de Cliente Uno'));
+        fireEvent.click(screen.getByText('Gasas', { selector: 'td' }));
+        fireEvent.click(screen.getByLabelText('Archivar GASA SIMPLE'));
 
-        assert.equal(leerEstrategias().length, 0);
+        const e = leerEstrategias()[0] as { archivada?: boolean; productos_archivados?: string[] };
+        assert.deepEqual(e.productos_archivados, ['GASA SIMPLE']);
+        assert.notEqual(e.archivada, true);
     });
 });

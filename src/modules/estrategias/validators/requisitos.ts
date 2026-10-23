@@ -1,9 +1,8 @@
 /**
  * Qué exige una estrategia para poder guardarse.
  *
- * Solo el cliente es fijo: una estrategia sin cliente no es de nadie. Lo demás lo decide
- * Administración (Formularios → Estrategia), y por defecto nada más es obligatorio — igual que
- * antes de que fuera configurable.
+ * Cliente, Sector y Grupo de artículo son fijos: sin ellos la estrategia no dice dónde ni qué
+ * se trabaja. Lo demás lo decide Administración (Formularios → Estrategia).
  */
 
 import { esRequeridoEn } from '@core/puente';
@@ -26,8 +25,8 @@ export function faltaEnEstrategia(d: DatosEstrategia): string[] {
     const falta: string[] = [];
 
     if (!lleno(d.cliente)) falta.push('Cliente');
-    if (esRequeridoEn('estrategia', 'sector') && !lleno(d.sector)) falta.push('Sector');
-    if (esRequeridoEn('estrategia', 'grupo_articulo') && !lleno(d.grupo)) falta.push('Grupo de artículo');
+    if (!lleno(d.sector)) falta.push('Sector');
+    if (!lleno(d.grupo)) falta.push('Grupo de artículo');
     if (esRequeridoEn('estrategia', 'tipo') && !lleno(d.tipo)) falta.push('Estrategia');
     if (esRequeridoEn('estrategia', 'etapa') && !lleno(d.etapa)) falta.push('Etapa');
     if (esRequeridoEn('estrategia', 'proyecto') && !lleno(d.proyecto)) falta.push('Proyecto / objetivo');

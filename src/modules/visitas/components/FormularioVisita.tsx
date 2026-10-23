@@ -17,7 +17,7 @@ import { moverInicio, cambiarFin } from '../services/horario';
 import { AvisoChoque } from './AvisoChoque';
 import { CampoFecha } from '@shared/components/CampoFecha';
 import * as repo from '../repository/visitasRepo';
-import { idsEstrategiasDe, aplicarSeleccion } from '@modules/estrategias/services/vinculo';
+import { idsEstrategiasDe, aplicarSeleccion, estrategiaVigente } from '@modules/estrategias/services/vinculo';
 import { HistoricoCliente } from './HistoricoCliente';
 import { rotuloEn, esVisibleEn } from '@shared/services/campos';
 import type { Visita } from '@core/tipos';
@@ -105,7 +105,7 @@ function SubindiceZonaEjecutivo({ visita }: { visita: Visita }) {
  */
 function CampoEstrategia({ visita, editar }: { visita: Visita; editar: Props['editar'] }) {
     const activas = useMemo(
-        () => leerEstrategias().filter(e => e.cliente === visita.cliente && e.etapa !== 'Consolidado'),
+        () => leerEstrategias().filter(e => e.cliente === visita.cliente && estrategiaVigente(e)),
         [visita.cliente]
     );
 

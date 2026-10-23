@@ -27,7 +27,7 @@ import type {
     ResultadoFlujo, RolAdmin, CapacidadAdmin, UsuarioAdmin, FlujoAdmin, Estrategia, CatalogoFicha,
     Pendiente, GerenteSector, ReporteActividades, FiltroReporteActividades,
     FilaHistoricoActividad, FilaHistoricoPlanTrabajo, TemaPersonalizado,
-    CampoFormulario, IdFormulario, ReglasCaptura, AvisoRevision
+    CampoFormulario, IdFormulario, ReglasCaptura, AvisoRevision, Desenlace
 } from './tipos';
 
 // ---------- estado (salud, ciclo de vida, tiempo) ----------
@@ -91,6 +91,10 @@ export const gruposDeSector = _catalogos.gruposDeSector as (sector?: string) => 
 export const tiposEstrategia = _catalogos.tiposEstrategia as () => string[];
 /** La ayuda ("qué significa") de un tipo de estrategia, para mostrarla junto al select. */
 export const descripcionTipoEstrategia = _catalogos.descripcionTipoEstrategia as (nombre: string) => string;
+/** Las dos formas de terminar una estrategia (Finalizar / Cerrar), con su descripción. */
+export const DESENLACES = _catalogos.DESENLACES as Record<Desenlace, {
+    etiqueta: string; participio: string; descripcion: string; pregunta: string;
+}>;
 /** Nombres de las etapas activas (Presentación, Capacitación, …) — administrable. */
 export const etapasEstrategia = _catalogos.etapasEstrategia as () => string[];
 
@@ -105,8 +109,14 @@ export interface MaterialCatalogo {
 export const materialesDe = _catalogos.materialesDe as (sector: string | string[]) => MaterialCatalogo[];
 /** Buscador fuzzy (palabras sueltas, cualquier orden) dentro de los materiales de un sector. */
 export const buscarMateriales = _catalogos.buscarMateriales as (
-    sector: string | string[], consulta: string, limite?: number
+    sector: string | string[], consulta: string, limite?: number, grupo?: string
 ) => MaterialCatalogo[];
+/** Estatus de estrategia (Pendiente, En curso, …). */
+export const estatusEstrategia = _catalogos.estatusEstrategia as () => string[];
+/** "Grupo Cliente" del cliente (hoja Clientes). Vacío si no hay dato. */
+export const grupoDeCliente = _catalogos.grupoDeCliente as (cliente: string) => string;
+/** Grupos de cliente distintos, para filtros. */
+export const gruposDeCliente = _catalogos.gruposDeCliente as () => string[];
 
 /** "1"/"01"/"001" → "001": mismo formato de 3 dígitos en toda la app. */
 export const normalizarZona = _catalogos.normalizarZona as (zona: string) => string;
@@ -541,11 +551,34 @@ export const salirSimulacion = _permisos.salirSimulacion as () => void;
 
 import {
     leerEstrategias as _leerEstrategias, upsertEstrategia as _upsertEstrategia,
-    eliminarEstrategia as _eliminarEstrategia, nuevoId as _nuevoId
+    archivarEstrategias as _archivarEstrategias, archivarProducto as _archivarProducto,
+    moverEtapaEstatus as _moverEtapaEstatus, nuevoId as _nuevoId,
+    cerrarEstrategia as _cerrarEstrategia, cambiarValorMensual as _cambiarValorMensual
 } from '../../js/storage.js';
 export const leerEstrategias = _leerEstrategias as () => Estrategia[];
 export const upsertEstrategia = _upsertEstrategia as (e: Estrategia) => Estrategia;
-export const eliminarEstrategia = _eliminarEstrategia as (id: string) => void;
+/** Las estrategias no se borran: se archivan. Devuelve cuántas cambiaron. */
+export const archivarEstrategias = _archivarEstrategias as (ids: string[], archivar: boolean, quien?: string) => number;
+export const archivarProducto = _archivarProducto as (id: string, producto: string, archivar: boolean) => Estrategia | null;
+/** Registra un avance (etapa y/o estatus) en la línea de tiempo. */
+export const moverEtapaEstatus = _moverEtapaEstatus as (
+    id: string,
+    cambio: { etapa?: string; estatus?: string; nota?: string },
+    actor?: { correo?: string; nombre?: string }
+) => Estrategia | null;
+/** Finaliza o cierra una estrategia con comentario obligatorio; la archiva. `null` si falta el comentario. */
+export const cerrarEstrategia = _cerrarEstrategia as (
+    id: string,
+    desenlace: Desenlace,
+    comentario: string,
+    actor?: { correo?: string; nombre?: string }
+) => Estrategia | null;
+/** Cambia el valor mensual; el servidor solo lo acepta de un administrador. */
+export const cambiarValorMensual = _cambiarValorMensual as (
+    id: string,
+    valor: number | null | undefined,
+    actor?: { correo?: string; nombre?: string }
+) => Estrategia | null;
 export const nuevoId = _nuevoId as (prefijo: string) => string;
 
 export const sincronizarEstrategias = _sync.sincronizarEstrategias as () => Promise<{ enviadas: number }>;
@@ -553,7 +586,6 @@ export const descargarEstrategiasEquipo = _sync.descargarEstrategiasEquipo as ()
     estrategias: Estrategia[];
 }>;
 /** Borra en el servidor (mejor esfuerzo — ver el comentario en `js/sync.js`). */
-export const eliminarEstrategiaRemota = _sync.eliminarEstrategiaRemota as (id: string) => Promise<unknown>;
 
 // ---------- pendientes ----------
 

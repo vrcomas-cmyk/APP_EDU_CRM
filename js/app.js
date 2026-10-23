@@ -440,10 +440,16 @@ function conectarRealtime() {
 }
 
 let volviendoAPrimerPlano = false;
+let ultimaVueltaAPrimerPlano = 0;
+// Cambiar de pestaña y volver varias veces seguidas no debe lanzar una ronda completa cada vez:
+// cada ronda son 4 peticiones al servidor, y el rol anónimo corta cualquiera que pase de 3 s.
+const ENFRIAMIENTO_PRIMER_PLANO_MS = 20 * 1000;
 
 /** Baja lo del equipo de inmediato y dispara la subida propia — ver comentario en el listener. */
 function volverAPrimerPlano() {
     if (volviendoAPrimerPlano) return;
+    if (Date.now() - ultimaVueltaAPrimerPlano < ENFRIAMIENTO_PRIMER_PLANO_MS) return;
+    ultimaVueltaAPrimerPlano = Date.now();
     volviendoAPrimerPlano = true;
     bajarDelEspejo().finally(() => { volviendoAPrimerPlano = false; });
     sincronizar();

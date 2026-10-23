@@ -17,6 +17,32 @@ export function idsEstrategiasDe(visita: ConEstrategias): string[] {
     return visita.id_estrategia ? [visita.id_estrategia] : [];
 }
 
+/** Vigente = no archivada. Finalizar o cerrar una estrategia la archiva, así que sale de aquí. */
+export function estrategiaVigente(e: Pick<Estrategia, 'archivada'>): boolean {
+    return !e.archivada;
+}
+
+/**
+ * Estrategias vigentes del cliente que esta visita pudo haber trabajado pero no tiene vinculadas:
+ * las de los sectores de la visita (o, si la visita aún no tiene sectores, todas las del cliente).
+ * Sirve para recordar al terminar una visita agendada desde el calendario.
+ */
+export function estrategiasPendientesPara(
+    visita: Pick<Visita, 'cliente' | 'id_estrategia' | 'ids_estrategias' | 'sectores'>,
+    estrategias: Estrategia[]
+): Estrategia[] {
+    if (!visita.cliente) return [];
+    const yaVinculadas = new Set(idsEstrategiasDe(visita));
+    const sectoresVisita = new Set((visita.sectores || []).map(s => s.nombre).filter(Boolean));
+
+    return estrategias.filter(e =>
+        estrategiaVigente(e) &&
+        e.cliente === visita.cliente &&
+        !yaVinculadas.has(e.id) &&
+        (sectoresVisita.size === 0 || (!!e.sector && sectoresVisita.has(e.sector)))
+    );
+}
+
 /** Guarda el conjunto elegido: arreglo + `id_estrategia` = la primera; vacío → se limpian ambos. */
 export function fijarEstrategias(visita: ConEstrategias, ids: string[]): void {
     const unicos = [...new Set(ids)];
@@ -133,4 +159,42 @@ export function estrategiasTrabajadas(
         if (grupos.size === 0 || grupos.has(estrategia.grupo_articulo)) trabajadas.push(estrategia.id);
     }
     return trabajadas;
+}
+
+export interface ActividadDeEstrategia {
+    actividad: Actividad;
+    visita: Visita;
+}
+
+/**
+ * Actividades GUARDADAS hechas en un cliente y sector a través de las visitas vinculadas a sus
+ * estrategias (`estrategiasDelSector`). Una actividad compartida entre varios sectores
+ * (`sectores_ids`) se cuenta una sola vez. Pura: recibe las visitas.
+ */
+export function actividadesDeSector(
+    visitas: Visita[],
+    cliente: string,
+    sector: string,
+    estrategiasDelSector: Pick<Estrategia, 'id'>[]
+): ActividadDeEstrategia[] {
+    const ids = new Set(estrategiasDelSector.map(e => e.id));
+    const salida: ActividadDeEstrategia[] = [];
+
+    for (const visita of visitas) {
+        if (visita.cliente !== cliente) continue;
+        if (!idsEstrategiasDe(visita).some(id => ids.has(id))) continue;
+
+        const propio = (visita.sectores || []).find(s => s.nombre === sector);
+        if (!propio) continue;
+
+        const vistas = new Set<string>();
+        for (const a of actividadesGuardadasDe(visita, propio)) {
+            if (vistas.has(a.id)) continue;
+            vistas.add(a.id);
+            salida.push({ actividad: a, visita });
+        }
+    }
+    return salida.sort((x, y) =>
+        (y.visita.dia || '').localeCompare(x.visita.dia || '') ||
+        (y.actividad.creada || '').localeCompare(x.actividad.creada || ''));
 }

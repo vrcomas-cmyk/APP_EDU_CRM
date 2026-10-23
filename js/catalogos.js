@@ -157,10 +157,12 @@ export const FORMULARIOS = {
         etiqueta: 'Estrategia',
         campos: [
             { id: 'cliente',        etiqueta: 'Cliente',              fijo: true },
-            { id: 'sector',         etiqueta: 'Sector',               defecto: MODOS.OPCIONAL },
-            { id: 'grupo_articulo', etiqueta: 'Grupo de artículo',    defecto: MODOS.OPCIONAL },
             { id: 'tipo',           etiqueta: 'Estrategia (tipo)',    defecto: MODOS.OPCIONAL },
+            { id: 'descripcion',    etiqueta: 'Descripción',          defecto: MODOS.OPCIONAL },
+            { id: 'sector',         etiqueta: 'Sector',               fijo: true },
+            { id: 'grupo_articulo', etiqueta: 'Grupo de artículo',    fijo: true },
             { id: 'etapa',          etiqueta: 'Etapa',                defecto: MODOS.OPCIONAL },
+            { id: 'estatus',        etiqueta: 'Estatus',              defecto: MODOS.OPCIONAL },
             { id: 'proyecto',       etiqueta: 'Proyecto / objetivo',  defecto: MODOS.OPCIONAL },
             { id: 'productos',      etiqueta: 'Productos',            defecto: MODOS.OPCIONAL },
             { id: 'observaciones',  etiqueta: 'Observaciones',        defecto: MODOS.OPCIONAL }
@@ -321,6 +323,20 @@ export function ejecutivoDeZona(zona) {
     const mapa = leerCatalogo()?.ejecutivos;
     if (!mapa || typeof mapa !== 'object' || !zona) return '';
     return String(mapa[zona] || '').trim();
+}
+
+/** "Grupo Cliente" de la hoja de Clientes (mapa `clientes_grupo`). Vacío si no hay dato. */
+export function grupoDeCliente(cliente) {
+    const mapa = leerCatalogo()?.clientes_grupo;
+    if (!mapa || typeof mapa !== 'object') return '';
+    return String(mapa[cliente] || '').trim();
+}
+
+/** Grupos de cliente distintos, para el filtro de Estrategias. */
+export function gruposDeCliente() {
+    const mapa = leerCatalogo()?.clientes_grupo;
+    if (!mapa || typeof mapa !== 'object') return [];
+    return ordenarEs(new Set(Object.values(mapa).map(g => String(g || '').trim()).filter(Boolean)));
 }
 
 /**
@@ -576,8 +592,11 @@ export function materialesDe(sectores) {
  * Buscador. Empareja por palabras sueltas y en cualquier orden: quien busca "gasa 10x10"
  * debe encontrar "GASA SIMPLE 10X10 CM", que no contiene esa cadena literal.
  */
-export function buscarMateriales(sector, consulta, limite = 40) {
-    const lista = materialesDe(sector);
+export function buscarMateriales(sector, consulta, limite = 40, grupo = '') {
+    // Con grupo, estricto: solo los materiales de ese grupo de artículo, ninguno sin grupo.
+    const lista = grupo
+        ? materialesDe(sector).filter(m => m.grupo_articulo === grupo)
+        : materialesDe(sector);
     const q = (consulta || '').trim().toLowerCase();
     if (!q) return lista.slice(0, limite);
 
@@ -651,9 +670,45 @@ export const TIPOS_ESTRATEGIA_POR_DEFECTO = [
 
 export const ETAPAS_POR_DEFECTO = [
     'Presentación', 'Capacitación', 'Evaluación', 'Solicitud Muestra', 'Equipamiento',
-    'Aceptado', 'Negociación', 'Cotización', 'Pedido', 'Venta', 'Rechazado', 'Descartado',
-    'Finalizado'
+    'Aceptado', 'Negociación', 'Cotización', 'Pedido', 'Venta', 'Rechazado', 'Descartado'
 ];
+
+export const ESTATUS_POR_DEFECTO = ['Pendiente', 'En curso', 'En revisión'];
+
+/**
+ * Cómo termina una estrategia. No son etapas: son acciones que la archivan, con comentario
+ * obligatorio. `descripcion` es lo que ve quien decide; `pregunta` es lo que se le pide explicar.
+ */
+export const DESENLACES = {
+    finalizado: {
+        etiqueta: 'Finalizar', participio: 'Finalizada',
+        descripcion: 'Se concretó satisfactoriamente: se logró el objetivo.',
+        pregunta: '¿Cómo se logró?'
+    },
+    cerrado: {
+        etiqueta: 'Cerrar', participio: 'Cerrada',
+        descripcion: 'No se concretó el negocio: no se logró el objetivo.',
+        pregunta: '¿Por qué no se concretó?'
+    }
+};
+
+/** Un catálogo ya descargado puede traer aún Finalizado/Cerrado: no se ofrecen como etapa ni estatus. */
+const esDesenlace = (n) => ['finalizado', 'cerrado'].includes(String(n).trim().toLowerCase());
+
+export function estatusEstrategia() {
+    return delCatalogo('estatus_estrategia', ESTATUS_POR_DEFECTO).filter(n => !esDesenlace(n));
+}
+
+/** Definiciones de negocio de cada tipo: apoyo cuando el catálogo descargado no trae descripción. */
+export const DESCRIPCIONES_TIPO_POR_DEFECTO = {
+    'Conversión': 'Inclusión de una línea de productos que el cliente actualmente no compra.',
+    'Catalogación': 'Aumentar el número de productos que el cliente compra de una línea.',
+    'Recuperación': 'Recuperar venta de productos que antes compraba el cliente.',
+    'Desviación': 'Recuperar volumen de consumo de un producto o línea de productos que ya compra el cliente.',
+    'Incremento': 'Aumentar el volumen de consumo de un producto o línea de productos que ya compra el cliente.',
+    'Ventas': 'Requerimiento directo realizado por el área de ventas.',
+    'BI': 'Oportunidad de negocio identificada por el área de Business Intelligence (BI).'
+};
 
 /** Solo los nombres, para el `<select>` de "Estrategia" al capturar. */
 export function tiposEstrategia() {
@@ -668,9 +723,9 @@ export function tiposEstrategia() {
 export function descripcionTipoEstrategia(nombre) {
     const v = leerCatalogo()?.estrategia_tipos;
     const fila = Array.isArray(v) ? v.find(t => t.nombre === nombre) : null;
-    return fila?.descripcion || '';
+    return fila?.descripcion || DESCRIPCIONES_TIPO_POR_DEFECTO[nombre] || '';
 }
 
 export function etapasEstrategia() {
-    return delCatalogo('etapas_estrategia', ETAPAS_POR_DEFECTO);
+    return delCatalogo('etapas_estrategia', ETAPAS_POR_DEFECTO).filter(n => !esDesenlace(n));
 }

@@ -102,6 +102,7 @@ const HOJA_CLIENTES = 'Clientes';
 const COL_CLIENTE = 'N° Cliente y Razon Social';
 // La Zona de la visita no la escribe el educador: sale de esta columna, por cliente.
 const COL_GPO_VENDEDORES = 'Gpo. vendedores';
+const COL_GRUPO_CLIENTE = 'Grupo Cliente';
 
 // El Ejecutivo (a quién le reporta la zona) sale de otra pestaña, buscando la Zona del
 // cliente en su columna "Zona" y devolviendo su columna "Ejecutivo". Dos tablas, un solo
@@ -419,6 +420,7 @@ function doGet() {
             grupos_articulo: leerGruposArticulo(db),
             clientes: leerClientes(db),
             clientes_zona: leerClientesZona(db),
+            clientes_grupo: leerClientesGrupo(db),
             ejecutivos: leerEjecutivos(db),
             // Si estas pestañas no existen todavía, van vacías y la PWA usa sus valores
             // por defecto: la app funciona desde el primer día, sin configurar nada.
@@ -441,7 +443,8 @@ function doGet() {
             // en esta hoja — se administran desde Administración, pero cualquiera necesita
             // verlos para elegir "Estrategia"/"Etapa" al capturar. Solo los activos, en orden.
             estrategia_tipos: leerCatalogoEstrategiaTipos(),
-            etapas_estrategia: leerCatalogoEtapas()
+            etapas_estrategia: leerCatalogoEtapas(),
+            estatus_estrategia: leerCatalogoEstatus()
         });
     } catch (err) {
         return json({ status: 'error', message: String(err) });
@@ -901,6 +904,28 @@ function leerClientesZona(db) {
         var cliente = String(datos[i][iCliente]).trim();
         if (cliente === '') continue;
         mapa[cliente] = String(datos[i][iZona]).trim();
+    }
+    return mapa;
+}
+
+/** Cliente → Grupo Cliente (columna "Grupo Cliente" de la hoja de Clientes). */
+function leerClientesGrupo(db) {
+    var hoja = db.getSheetByName(HOJA_CLIENTES);
+    if (!hoja) return {};
+
+    var datos = hoja.getDataRange().getValues();
+    if (datos.length < 2) return {};
+
+    var iCliente = datos[0].indexOf(COL_CLIENTE);
+    var iGrupo = datos[0].indexOf(COL_GRUPO_CLIENTE);
+    if (iCliente === -1 || iGrupo === -1) return {};
+
+    var mapa = {};
+    for (var i = 1; i < datos.length; i++) {
+        var cliente = String(datos[i][iCliente]).trim();
+        var grupo = String(datos[i][iGrupo]).trim();
+        if (cliente === '' || grupo === '') continue;
+        mapa[cliente] = grupo;
     }
     return mapa;
 }
@@ -1938,6 +1963,15 @@ function leerCatalogoEstrategiaTipos() {
 /** Solo las etapas ACTIVAS, en orden — para el selector de captura. */
 function leerCatalogoEtapas() {
     var r = supabaseRPC('pdt_etapas_admin', {});
+    if (!r) return [];
+    return r.filter(function (t) { return t.activo; })
+            .sort(function (a, b) { return a.orden - b.orden; })
+            .map(function (t) { return t.nombre; });
+}
+
+/** Estatus de estrategia ACTIVOS, en orden — para el selector de captura. */
+function leerCatalogoEstatus() {
+    var r = supabaseRPC('pdt_estrategia_estatus_lista', {});
     if (!r) return [];
     return r.filter(function (t) { return t.activo; })
             .sort(function (a, b) { return a.orden - b.orden; })
