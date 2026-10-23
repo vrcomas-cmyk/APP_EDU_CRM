@@ -570,9 +570,27 @@ export async function descargarVisitasEquipo({ desde = null, hasta = null, limit
     };
 }
 
-/** Flujos y revisiones que este usuario puede ver. Vuelve vacío si el espejo no responde. */
+/**
+ * Flujos y revisiones que este usuario puede ver. Vuelve vacío si el espejo no responde.
+ *
+ * Directo a Supabase con el token de sesión (`pdt_revisiones_leer_sesion`): pasar por Apps Script
+ * añadía ~3.5-4 s a cada ciclo de 60 s. Si la llamada directa falla —o la sesión es de las viejas
+ * de Google, sin `sesion_token`— se cae a Apps Script, que hace lo mismo por otro camino.
+ */
 export async function descargarRevisiones() {
     if (!navigator.onLine) return { flujos: [], revisiones: [], espejo: false };
+
+    const token = sesionActual()?.sesion_token;
+    if (token) {
+        const directo = await rpc('pdt_revisiones_leer_sesion', { p_sesion_token: token });
+        if (directo && typeof directo === 'object') {
+            return {
+                flujos: Array.isArray(directo.flujos) ? directo.flujos : [],
+                revisiones: Array.isArray(directo.revisiones) ? directo.revisiones : [],
+                espejo: true
+            };
+        }
+    }
 
     try {
         const r = await postear({ action: 'leerRevisiones' });

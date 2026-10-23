@@ -28,9 +28,18 @@ import { sesionActual } from './auth.js';
 
 const CLAVE = 'pdt_simulacion';
 
+// `perfilActual()` pasa por aquí en cada permiso consultado (una vez por visita al filtrar):
+// se reutiliza el objeto mientras el texto guardado no cambie.
+let crudoPrevio = null;
+let parseadoPrevio = null;
+
 function leer() {
-    try { return JSON.parse(sessionStorage.getItem(CLAVE)) || null; }
-    catch { return null; }
+    try {
+        const crudo = sessionStorage.getItem(CLAVE);
+        if (!crudo) { crudoPrevio = parseadoPrevio = null; return null; }
+        if (crudo !== crudoPrevio) { parseadoPrevio = JSON.parse(crudo) || null; crudoPrevio = crudo; }
+        return parseadoPrevio;
+    } catch { return null; }
 }
 
 function guardar(estado) {

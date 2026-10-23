@@ -229,8 +229,18 @@ function refrescarPerfil() {
         if (!appIniciada) { mostrarApp(); iniciarApp(); return; }
 
         pintarAccesos();
-        cargarEquipo();
-        cargarRevisiones();
+        repintarSiCambio(Promise.all([cargarEquipo(), cargarRevisiones()]));
+    });
+}
+
+/**
+ * Las cargas del espejo ya no repintan por su cuenta: devuelven si trajeron algo distinto y
+ * quien las agrupa repinta UNA vez. Antes cada una llamaba `refrescarTodo()` —un render completo
+ * de la app— y una sola bajada con cambios metía 2-3 seguidos.
+ */
+function repintarSiCambio(cargas) {
+    return cargas.then((resultados) => {
+        if (resultados.some(Boolean)) refrescarTodo();
     });
 }
 
@@ -252,12 +262,32 @@ function refrescarPerfil() {
  */
 function cargarEquipo() {
     return descargarVisitasEquipo().then(({ visitas, espejo }) => {
-        if (!espejo) return;      // el espejo no está configurado: se sigue con lo local
+        if (!espejo) return false;      // el espejo no está configurado: se sigue con lo local
+        // Misma respuesta que la vez anterior (lo normal en el poll de 60 s): repetir el
+        // volcado a caché, la adopción y el repintado completo solo bloquea el hilo principal.
+        // Cambiar de sesión o de simulación cambia el contenido, así que no hay riesgo de omitir
+        // lo que no es igual.
+        // `hayEquipoCargado()`: tras cerrar sesión la memoria queda vacía aunque la huella sea igual.
+        if (!huellaCambio('visitas', visitas) && hayEquipoCargado()) return false;
         ponerVisitasEquipo(visitas);
         guardarCache(sesionActual()?.correo, 'visitas', visitas);
         if (!enSimulacion()) adoptarVisitasPropias(visitas, sesionActual()?.correo);
-        refrescarTodo();
+        return true;
     });
+}
+
+const ultimaHuella = new Map();
+
+/**
+ * ¿Lo recibido es distinto de lo último que se procesó bajo esta clave? Compara el JSON
+ * completo (no solo la longitud: un cambio de estado puede conservarla). Solo se llama con
+ * datos ya descargados, así que `JSON.stringify` aquí cuesta ms, no el bloqueo que evita.
+ */
+function huellaCambio(clave, datos) {
+    const nueva = `${sesionActual()?.correo || ''}|${enSimulacion()}|${JSON.stringify(datos)}`;
+    if (ultimaHuella.get(clave) === nueva) return false;
+    ultimaHuella.set(clave, nueva);
+    return true;
 }
 
 /**
@@ -266,12 +296,13 @@ function cargarEquipo() {
  */
 function cargarRevisiones() {
     return descargarRevisiones().then(({ flujos, revisiones, espejo }) => {
-        if (!espejo) return;
+        if (!espejo) return false;
+        if (!huellaCambio('revisiones', { flujos, revisiones }) && hayRevisionesCargadas()) return false;
         ponerFlujos(flujos);
         ponerRevisiones(revisiones);
         guardarCache(sesionActual()?.correo, 'revisiones', { flujos, revisiones });
         pintarAccesos();
-        refrescarTodo();
+        return true;
     });
 }
 
@@ -282,7 +313,7 @@ function cargarRevisiones() {
  */
 function cargarAvisos() {
     return descargarAvisos().then(({ avisos, espejo }) => {
-        if (!espejo) return;
+        if (!espejo) return false;
         const nuevos = ponerAvisos(avisos);
         guardarCache(sesionActual()?.correo, 'avisos', avisos);
         pintarAccesos();   // la insignia del menú
@@ -318,8 +349,9 @@ let bajadaEnVuelo = null;
  */
 function bajarDelEspejo() {
     if (bajadaEnVuelo) return bajadaEnVuelo;
-    bajadaEnVuelo = Promise.all([cargarEquipo(), cargarRevisiones(), cargarAvisos(), descargarCatalogoSiSePuede()])
-        .finally(() => { bajadaEnVuelo = null; });
+    bajadaEnVuelo = repintarSiCambio(
+        Promise.all([cargarEquipo(), cargarRevisiones(), cargarAvisos(), descargarCatalogoSiSePuede()])
+    ).finally(() => { bajadaEnVuelo = null; });
     return bajadaEnVuelo;
 }
 
@@ -795,19 +827,20 @@ async function sincronizar({ manual = false, reintentoPorConexion = false } = {}
 const EDAD_MAXIMA_CATALOGO_MS = 30 * 60 * 1000;
 
 async function descargarCatalogoSiSePuede() {
-    if (catalogoEsFresco(EDAD_MAXIMA_CATALOGO_MS)) return;
+    if (catalogoEsFresco(EDAD_MAXIMA_CATALOGO_MS)) return false;
     try {
         await descargarCatalogo();
         pintarAccesos();   // el catálogo pudo cambiar
-        refrescarTodo();
         // Los temas personalizados viven en el catálogo (`js/catalogos.js`): si Administración
         // agregó o quitó uno desde otro dispositivo, el selector del header debe reflejarlo
         // sin esperar a un recargado. Ver `js/tema.js:initTema`.
         window.dispatchEvent(new CustomEvent('pdt:catalogo-actualizado'));
+        return true;
     } catch (err) {
         // Silencioso a propósito: el catálogo cacheado sirve, y no hay nada que el
         // educador pueda hacer al respecto en un pasillo.
         console.error('No se pudieron descargar los catálogos:', err);
+        return false;
     }
 }
 

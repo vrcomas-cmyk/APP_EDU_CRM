@@ -329,10 +329,17 @@ async function intentarCanjearCodigo(code) {
     }
 }
 
+// Se llama desde casi todo (cada RPC, cada permiso): se reutiliza el objeto mientras el texto
+// guardado no cambie. Quien llama NO debe mutar el resultado.
+let sesionCruda = null;
+let sesionParseada = null;
+
 export function sesionActual() {
     try {
         const crudo = localStorage.getItem(CLAVE_SESION);
-        return crudo ? JSON.parse(crudo) : null;
+        if (!crudo) { sesionCruda = sesionParseada = null; return null; }
+        if (crudo !== sesionCruda) { sesionParseada = JSON.parse(crudo); sesionCruda = crudo; }
+        return sesionParseada;
     } catch (err) {
         console.error('Sesión ilegible:', err);
         return null;

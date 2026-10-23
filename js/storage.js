@@ -462,10 +462,23 @@ export function fusionarPendientesEquipo(remotos) {
 
 // ---------- catálogo ----------
 
+// Último texto leído y su objeto ya parseado. El catálogo pesa ~1.3 MB y casi cada helper de
+// `catalogos.js` lo lee: sin esto, un solo repintado hacía cientos de `JSON.parse` de 1.3 MB
+// (~3 ms c/u) y bloqueaba el hilo principal 2-4 s tras cada sincronización. Se valida contra el
+// texto crudo —no con una bandera de invalidación— para que un cambio desde otra pestaña, o una
+// escritura directa, nunca devuelva datos viejos. Quien llama NO debe mutar el resultado.
+let catalogoCrudo = null;
+let catalogoParseado = null;
+
 export function leerCatalogo() {
     try {
         const crudo = localStorage.getItem(CLAVE_CATALOGO);
-        return crudo ? JSON.parse(crudo) : null;
+        if (!crudo) { catalogoCrudo = catalogoParseado = null; return null; }
+        if (crudo !== catalogoCrudo) {
+            catalogoParseado = JSON.parse(crudo);
+            catalogoCrudo = crudo;
+        }
+        return catalogoParseado;
     } catch (err) {
         console.error('No se pudo leer el catálogo:', err);
         return null;

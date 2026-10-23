@@ -158,7 +158,9 @@ export function consultarVisitas(filtro = FILTRO_VACIO) {
         }
     }
 
-    const visibles = [...porId.values()].filter(v => visiblePara(v));
+    // El alcance no cambia durante la consulta: se normaliza una sola vez, no por visita.
+    const permitidos = new Set(alcance().map(norm));
+    const visibles = [...porId.values()].filter(v => visiblePara(v, permitidos));
     return aplicarFiltro(visibles, filtro);
 }
 
@@ -170,12 +172,11 @@ export function consultarVisitas(filtro = FILTRO_VACIO) {
  * sesión— solo la ve quien pueda ver a alguien más que a sí mismo; para un educador queda
  * fuera, que es el lado seguro.
  */
-export function visiblePara(visita) {
+export function visiblePara(visita, permitidos = new Set(alcance().map(norm))) {
     const correo = norm(visita.educador_correo);
-    const permitidos = alcance().map(norm);
 
-    if (correo) return permitidos.includes(correo);
-    return permitidos.length > 1;
+    if (correo) return permitidos.has(correo);
+    return permitidos.size > 1;
 }
 
 // ---------- valores para los filtros ----------

@@ -35,7 +35,9 @@ vi.mock('../js/googleCalendar.js', () => ({
 
 import { agregarVisita, leerVisitas, guardarVisitas } from '../js/storage.js';
 import { registrar, TIPOS } from '../js/eventos.js';
-import { sincronizarTodo, sincronizarVisitas, sincronizarCalendar, descargarVisitasEquipo } from '../js/sync.js';
+import {
+    sincronizarTodo, sincronizarVisitas, sincronizarCalendar, descargarVisitasEquipo, descargarRevisiones
+} from '../js/sync.js';
 import { visita } from './ayuda/fixtures.js';
 import * as googleCalendar from '../js/googleCalendar.js';
 import { simularRol, salirSimulacion } from '../js/simulacion.js';
@@ -169,6 +171,55 @@ describe('descargarVisitasEquipo — lectura directa de Supabase', () => {
         const r = await descargarVisitasEquipo();
 
         assert.deepEqual(r, { visitas: [], espejo: false });
+    });
+});
+
+describe('descargarRevisiones — directo a Supabase, con Apps Script de respaldo', () => {
+    const conSesion = (extra = {}) => localStorage.setItem('sesion', JSON.stringify({
+        correo: 'ana@x.com', sesion_token: 'tok', ...extra
+    }));
+
+    test('con sesion_token llama a pdt_revisiones_leer_sesion y no toca Apps Script', async () => {
+        conSesion();
+        rpc.mockResolvedValue({ flujos: [{ clave: 'f' }], revisiones: [{ id: 'r1' }] });
+
+        const r = await descargarRevisiones();
+
+        assert.equal(rpc.mock.calls[0]?.[0], 'pdt_revisiones_leer_sesion');
+        assert.deepEqual(rpc.mock.calls[0]?.[1], { p_sesion_token: 'tok' });
+        assert.equal(postear.mock.calls.length, 0);
+        assert.deepEqual(r, { flujos: [{ clave: 'f' }], revisiones: [{ id: 'r1' }], espejo: true });
+    });
+
+    test('si la llamada directa falla, cae a Apps Script', async () => {
+        conSesion();
+        rpc.mockResolvedValue(null);
+        postear.mockResolvedValue({ flujos: [{ clave: 'g' }], revisiones: [], espejo: true });
+
+        const r = await descargarRevisiones();
+
+        assert.equal(postear.mock.calls[0]?.[0]?.action, 'leerRevisiones');
+        assert.deepEqual(r, { flujos: [{ clave: 'g' }], revisiones: [], espejo: true });
+    });
+
+    test('una sesión vieja sin sesion_token va directo a Apps Script', async () => {
+        conSesion({ sesion_token: undefined });
+        postear.mockResolvedValue({ flujos: [], revisiones: [], espejo: true });
+
+        await descargarRevisiones();
+
+        assert.equal(rpc.mock.calls.length, 0);
+        assert.equal(postear.mock.calls.length, 1);
+    });
+
+    test('si ambos caminos fallan, devuelve vacío sin lanzar', async () => {
+        conSesion();
+        rpc.mockResolvedValue(null);
+        postear.mockRejectedValue(new Error('sin red'));
+
+        const r = await descargarRevisiones();
+
+        assert.deepEqual(r, { flujos: [], revisiones: [], espejo: false });
     });
 });
 
