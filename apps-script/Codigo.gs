@@ -633,6 +633,12 @@ function secretoClienteGoogle() {
     return PropertiesService.getScriptProperties().getProperty(PROP_GOOGLE_CLIENT_SECRET) || '';
 }
 
+/** Caché (CacheService) que evita ir a Supabase/Google en cada acción: ver `resolverIdentidad` y `calendarToken`. */
+const LLAVE_SESION = 'ses_';
+const TTL_SESION_SEG = 300;
+const LLAVE_TOKEN_CALENDAR = 'gat_';
+const MARGEN_TOKEN_SEG = 300; // se renueva 5 min antes de que caduque el access token
+
 /** SHA-256 en hex minúscula — nunca se guarda el token de sesión en claro, solo su huella. */
 function huellaSesion(token) {
     var bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, token, Utilities.Charset.UTF_8);
@@ -656,10 +662,17 @@ function generarTokenSesion() {
  */
 function resolverIdentidad(body) {
     if (body.sesion_token) {
-        var fila = supabaseRPC('pdt_google_credenciales_por_sesion', {
-            p_sesion_hash: huellaSesion(body.sesion_token)
-        });
+        // Cada acción autenticada pasa por aquí: sin caché era un RPC (join + posibles UPDATE) por
+        // acción. Solo se cachea el éxito y por poco tiempo; `cerrarSesionGoogle` lo invalida.
+        var hash = huellaSesion(body.sesion_token);
+        var cache = CacheService.getScriptCache();
+        var correoCacheado = cache.get(LLAVE_SESION + hash);
+        if (correoCacheado) {
+            return { ok: true, correo: correoCacheado, nombre: body.nombre || correoCacheado };
+        }
+        var fila = supabaseRPC('pdt_google_credenciales_por_sesion', { p_sesion_hash: hash });
         if (fila && fila.status === 'ok') {
+            try { cache.put(LLAVE_SESION + hash, fila.correo, TTL_SESION_SEG); } catch (err) { /* sin caché sigue funcionando */ }
             return { ok: true, correo: fila.correo, nombre: body.nombre || fila.correo };
         }
         return { ok: false, error: 'Tu sesión ya no es válida. Vuelve a iniciar sesión.' };
@@ -807,6 +820,19 @@ function calendarToken(body, identidad) {
         return { status: 'error', message: 'Falta configurar ' + PROP_GOOGLE_CLIENT_SECRET + ' en el script.' };
     }
 
+    // El access_token dura ~1 h: se reutiliza por cuenta (no por dispositivo) hasta poco antes de caducar,
+    // en vez de ir a Supabase y canjear con Google en cada llamada.
+    var cache = CacheService.getScriptCache();
+    var llaveToken = LLAVE_TOKEN_CALENDAR + identidad.correo;
+    var guardado = cache.get(llaveToken);
+    if (guardado) {
+        try {
+            var t = JSON.parse(guardado);
+            var restante = Math.floor((t.vence - Date.now()) / 1000);
+            if (restante > MARGEN_TOKEN_SEG) return { status: 'ok', access_token: t.token, expira_en: restante };
+        } catch (err) { /* caché ilegible: se canjea de nuevo */ }
+    }
+
     var fila = supabaseRPC('pdt_google_credenciales_por_sesion', {
         p_sesion_hash: huellaSesion(body.sesion_token || '')
     });
@@ -828,10 +854,18 @@ function calendarToken(body, identidad) {
     var datos = JSON.parse(resp.getContentText());
     if (resp.getResponseCode() !== 200) {
         if (datos.error === 'invalid_grant') {
+            cache.remove(llaveToken);
             supabaseRPC('pdt_google_credenciales_olvidar', { p_correo: identidad.correo });
             return { status: 'error', code: 'reautenticar', message: 'Tu acceso a Google cambió. Vuelve a iniciar sesión.' };
         }
         return { status: 'error', message: datos.error_description || datos.error || 'Google no renovó el acceso.' };
+    }
+
+    var vida = Number(datos.expires_in || 0);
+    if (vida > MARGEN_TOKEN_SEG) {
+        try {
+            cache.put(llaveToken, JSON.stringify({ token: datos.access_token, vence: Date.now() + vida * 1000 }), vida - MARGEN_TOKEN_SEG);
+        } catch (err) { /* sin caché sigue funcionando; solo se pierde el ahorro */ }
     }
 
     return { status: 'ok', access_token: datos.access_token, expira_en: datos.expires_in };
@@ -847,7 +881,10 @@ function calendarToken(body, identidad) {
  */
 function cerrarSesionGoogle(body, identidad) {
     var hash = body.sesion_token ? huellaSesion(body.sesion_token) : '';
-    if (hash) supabaseRPC('pdt_sesion_olvidar', { p_sesion_hash: hash });
+    if (hash) {
+        CacheService.getScriptCache().remove(LLAVE_SESION + hash); // sin esto la sesión seguiría valiendo hasta 5 min
+        supabaseRPC('pdt_sesion_olvidar', { p_sesion_hash: hash });
+    }
     return { status: 'ok' };
 }
 
@@ -1626,9 +1663,9 @@ function instalarTriggerExport() {
     ScriptApp.getProjectTriggers().forEach(function (t) {
         if (t.getHandlerFunction() === 'exportarASheets') ScriptApp.deleteTrigger(t);
     });
-    // Cada minuto: con la cola vacía una corrida es una sola llamada a Supabase, y lo que se
-    // captura en la app aparece en Sheets en ~1 min en vez de hasta 15.
-    ScriptApp.newTrigger('exportarASheets').timeBased().everyMinutes(1).create();
+    // Cada 10 min: a 1 min el vaciado constante de las colas de export (tomar/confirmar) era una de
+    // las mayores fuentes de Disk IO en Supabase. Sheets es una copia, no necesita ser instantánea.
+    ScriptApp.newTrigger('exportarASheets').timeBased().everyMinutes(10).create();
 }
 
 /** Minutos entre check-in y check-out. null si falta cualquiera de los dos momentos. */

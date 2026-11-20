@@ -126,10 +126,15 @@ describe('la ventana de la fecha del documento', () => {
     beforeEach(() => ponerCatalogo({ evidencia: 'obligatorio-despues', fecha_documento: 'obligatorio' }));
     afterEach(() => { document.body.replaceChildren(); });
 
-    function elegirArchivo(control: HTMLElement, archivo: File) {
+    /** Elige el archivo y, como lo haría la persona, confirma su vista previa. */
+    function elegirArchivo(control: HTMLElement, archivo: File, { confirmar = true } = {}) {
         const input = control.querySelector('input[type="file"]') as HTMLInputElement;
         Object.defineProperty(input, 'files', { value: [archivo], configurable: true });
         input.dispatchEvent(new Event('change', { bubbles: true }));
+        if (!confirmar) return;
+        const usar = [...document.querySelectorAll('.dialogo-raiz button')]
+            .find(b => b.textContent === 'Usar este archivo') as HTMLButtonElement | undefined;
+        usar?.click();
     }
     const dialogo = () => document.querySelector('.dialogo-raiz') as HTMLElement | null;
     const boton = (texto: string) => [...(dialogo()?.querySelectorAll('button') || [])]
@@ -143,6 +148,21 @@ describe('la ventana de la fecha del documento', () => {
         document.body.appendChild(control);
         return { a, control, alToast, alCambiar };
     }
+
+    test('antes de adjuntar se muestra la vista previa con el nombre final y no adjunta hasta confirmar', () => {
+        const { a, control } = montar();
+        elegirArchivo(control, pdf(), { confirmar: false });
+
+        const texto = dialogo()?.textContent || '';
+        assert.match(texto, /¿Es la evidencia correcta\?/);
+        assert.match(texto, /\.pdf/, 'muestra el nombre con el que se guardará');
+        assert.equal(actividadDe(a.id).evidencia.estado, 'pendiente', 'todavía no adjunta');
+
+        // "Elegir otro" descarta sin adjuntar y sin pasar a la fecha.
+        boton('Elegir otro').click();
+        assert.equal(dialogo(), null);
+        assert.equal(actividadDe(a.id).evidencia.estado, 'pendiente');
+    });
 
     test('al elegir el archivo se ABRE una ventana (no un campo más) y no adjunta hasta tener la fecha', async () => {
         const { a, control } = montar();

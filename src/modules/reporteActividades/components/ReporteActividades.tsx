@@ -37,8 +37,11 @@ import { Dona } from '@shared/components/Dona';
 import { BarraApilada, type FilaApilada } from '@shared/components/BarraApilada';
 import { descargarReporteExcel } from '../services/exportarExcel';
 import { CampoFecha } from '@shared/components/CampoFecha';
+import { FiltroPeriodo } from '@shared/components/FiltroPeriodo';
 import { Esqueleto } from '@shared/components/Esqueleto';
 import { EstadoVacio } from '@shared/components/EstadoVacio';
+import { EstadoError } from '@shared/components/EstadoError';
+import { Icono } from '@shared/components/Icono';
 
 const HOY = () => new Date().toISOString().slice(0, 10);
 const PRIMER_DIA_MES = () => {
@@ -151,6 +154,8 @@ export function ReporteActividades() {
                 ))}
             </div>
 
+            <FiltroPeriodo desde={filtro.desde} hasta={filtro.hasta}
+                           onCambiar={(desde, hasta) => setFiltro(f => ({ ...f, desde, hasta }))} />
             <div className="filtros">
                 <label className="filtro">
                     <span className="campo-lbl">Desde</span>
@@ -199,7 +204,7 @@ export function ReporteActividades() {
             {!espejo && (
                 <p className="ayuda">El espejo no está configurado o no respondió; lo que se ve puede estar incompleto.</p>
             )}
-            {error && <p className="ayuda es-error">No se pudo cargar: {error}</p>}
+            {error && <EstadoError queCargaba="el reporte" detalle={error} />}
 
             {cargando && filas.length === 0 ? (
                 <Esqueleto />
@@ -366,11 +371,15 @@ function TablaSectorClic({ filas, onAbrir }: {
                 </thead>
                 <tbody>
                     {filasAgrupadas.map(f => (
-                        <tr key={f.sector} className="fila-clicable" tabIndex={0} role="button"
-                            aria-label={`Ver clientes de ${f.sector}`}
-                            onClick={() => onAbrir(f.sector)}
-                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onAbrir(f.sector); } }}>
-                            <td>{f.sector}</td>
+                        <tr key={f.sector} className="fila-clicable" onClick={() => onAbrir(f.sector)}>
+                            {/* El botón es lo que recibe el teclado y el lector de pantalla; el clic en el
+                                resto de la fila es una comodidad para el ratón. */}
+                            <td>
+                                <button type="button" className="btn-celda" aria-label={`Ver clientes de ${f.sector}`}
+                                        onClick={(e) => { e.stopPropagation(); onAbrir(f.sector); }}>
+                                    {f.sector}
+                                </button>
+                            </td>
                             {tipos.map(t => <td className="num mono" key={t}>{f.porTipo.get(t) || '–'}</td>)}
                             <td className="num mono"><strong>{f.total}</strong></td>
                         </tr>
@@ -397,7 +406,7 @@ function ModalDesgloseSector({ sector, filas, onCerrar }: {
                         <h3>Clientes de este sector</h3>
                         <span className="eyebrow">{sector}</span>
                     </div>
-                    <button type="button" className="icon-btn" aria-label="Cerrar" onClick={onCerrar}>✕</button>
+                    <button type="button" className="icon-btn" aria-label="Cerrar" onClick={onCerrar}><Icono clave="cerrar" tam={14} /></button>
                 </div>
                 <div className="modal-body">
                     <TablaClientesFiltrable filas={propias} ocultarSector />

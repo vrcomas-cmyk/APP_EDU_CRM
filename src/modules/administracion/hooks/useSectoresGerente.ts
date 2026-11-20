@@ -27,6 +27,7 @@ export interface EstadoSectoresGerente {
     guardando: boolean;
     guardar: () => Promise<void>;
     descartar: () => void;
+    recargar: () => Promise<void>;
     sucio: boolean;
 }
 
@@ -91,6 +92,7 @@ export function useSectoresGerente({ activo, avisar, confirmar }: Opciones): Est
 
     return {
         borrador, cambiar, cargando, error, guardando, guardar, descartar,
+        recargar: cargar,
         sucio: JSON.stringify(borrador) !== inicial
     };
 }

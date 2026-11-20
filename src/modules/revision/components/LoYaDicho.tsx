@@ -1,9 +1,9 @@
 /**
  * Lo que ya se dijo sobre este elemento: revisiones anteriores y comentarios de la visita.
  *
- * Va PLEGADO. En la bandeja lo normal es que no haya historia y, cuando la hay, es contexto
- * para el caso raro —el que ya se rechazó una vez—, no algo que haya que leer en los veinte
- * elementos de la cola. Desplegado empujaría cada tarjeta fuera de la pantalla.
+ * Va DESPLEGADO. Un comentario o una observación de revisión es justo el mensaje que alguien
+ * quiso transmitir (cambia esto, sube otra evidencia): enterrarlo en un plegable hacía que
+ * nadie lo leyera. Cada bloque sigue pudiéndose plegar con su encabezado.
  */
 
 import type { Comentario, FlujoRevision, Revision } from '@core/tipos';
@@ -11,7 +11,7 @@ import { etiquetaResultado, fechaCorta, plural, tonoResultado } from '../service
 
 function Plegable({ resumen, children }: { resumen: string; children: React.ReactNode }) {
     return (
-        <details className="historial">
+        <details className="historial" open>
             <summary>{resumen}</summary>
             {children}
         </details>
@@ -35,6 +35,11 @@ export function HistorialRevisiones(
                     <p className="historial-meta">
                         {r.revisor || r.revisor_correo || 'Sin revisor'} · {fechaCorta(r.momento)}
                     </p>
+                    {r.criterios && r.criterios.length > 0 && (
+                        <p className="historial-meta">
+                            {r.criterios.map(c => `${c.ok ? '✓' : '✗'} ${c.etiqueta || c.clave}`).join(' · ')}
+                        </p>
+                    )}
                     {r.observaciones && <p className="coment-txt">{r.observaciones}</p>}
                 </div>
             ))}

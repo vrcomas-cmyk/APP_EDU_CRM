@@ -10,7 +10,7 @@ import { useMemo, useState } from 'react';
 import {
     tieneCheckIn, tieneCheckOut, puedeIniciar, iniciarVisita, finalizarVisita,
     permanenciaTexto, duracionTexto, describirUbicacion, precisionDudosa,
-    reactivarVisita, minutosDeRetraso, esVisitaCliente, consultarVisitas, visitaAbiertaDe,
+    reactivarVisita, minutosDeRetraso, esVisitaCliente, esVisitaAdministrativa, consultarVisitas, visitaAbiertaDe,
     upsertPendiente, sincronizarPendientes, nuevoId, sesionActual, fechaHoraCorta,
     type Resultado, type Avisar
 } from '@core/puente';
@@ -87,6 +87,9 @@ export function BloqueCheck({ visita, avisar, alTerminar, soloLectura, abrirOtra
 
         alTerminar();
     }
+
+    // Tiempo administrativo: no hay llegada ni salida que registrar.
+    if (esVisitaAdministrativa(visita)) return null;
 
     if (actualizarEstrategias) {
         return (

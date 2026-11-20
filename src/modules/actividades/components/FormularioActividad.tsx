@@ -173,7 +173,6 @@ function Campo({ etiqueta, error, children }: {
 function ContextoAutomatico({ visita, sector }: { visita: Visita; sector: Sector }) {
     const filas: Array<[string, string]> = [
         ['Educador', visita.educador || '—'],
-        ['Cliente', visita.cliente || '—'],
         ['Sector', sector.nombre]
     ];
 

@@ -14,6 +14,8 @@ import type { BorradorRBAC, GerenteSector } from '@core/tipos';
 import type { EstadoSectoresGerente } from '../hooks/useSectoresGerente';
 import { ChipToggle } from '@shared/components/ChipToggle';
 import { Esqueleto } from '@shared/components/Esqueleto';
+import { BotonConfirmar } from '@shared/components/BotonConfirmar';
+import { EstadoError } from '@shared/components/EstadoError';
 
 interface Props {
     estado: EstadoSectoresGerente;
@@ -38,7 +40,7 @@ export function PanelSectoresGerente({ estado, usuarios }: Props) {
     }
 
     if (error && borrador.length === 0) {
-        return <div className="campo es-error"><p className="ayuda">No se pudo cargar: {error}</p></div>;
+        return <EstadoError queCargaba="los sectores por gerente" detalle={error} onReintentar={() => { void estado.recargar(); }} />;
     }
 
     const nombreDe = (correo: string) => usuarios.find(u => u.correo === correo)?.nombre || correo;
@@ -114,14 +116,12 @@ export function PanelSectoresGerente({ estado, usuarios }: Props) {
             </div>
 
             <div className="campo-fila" style={{ justifyContent: 'flex-end' }}>
-                <button
-                    type="button"
-                    className="btn-txt"
+                <BotonConfirmar
+                    etiqueta="Descartar"
+                    pregunta="¿Descartar los cambios sin guardar?"
                     disabled={!sucio || guardando}
-                    onClick={() => { if (window.confirm('¿Descartar los cambios sin guardar?')) descartar(); }}
-                >
-                    Descartar
-                </button>
+                    onConfirmar={descartar}
+                />
                 <button
                     type="button"
                     className="btn"

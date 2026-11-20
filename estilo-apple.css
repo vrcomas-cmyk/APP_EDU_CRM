@@ -20,8 +20,8 @@
 :root[data-estilo="apple"] {
   /* Acento de foco/selección. Es el azul de sistema de Apple; el color "de marca" del tema
      sigue mandando en estados (--st-*) — el azul aquí solo dice "esto tiene el foco". */
-  --ap-acento: #007AFF;
-  --ap-acento-halo: rgba(0, 122, 255, .20);
+  --ap-acento: var(--st-part);
+  --ap-acento-halo: color-mix(in srgb, var(--st-part) 22%, transparent);
 
   /* Formas */
   --r-sm: 9px;
@@ -149,7 +149,7 @@
   left: 5px; top: 10px; bottom: 10px; width: 3px; border-radius: 99px; background: var(--ink);
 }
 :root[data-estilo="apple"] .nav-ico { font-size: 19px; }
-:root[data-estilo="apple"] .nav-txt { font-size: 10.5px; font-weight: 500; }
+:root[data-estilo="apple"] .nav-txt { font-size: var(--fs-xs); font-weight: 500; }
 
 /* ---------- botones ---------- */
 
@@ -250,7 +250,7 @@
 :root[data-estilo="apple"] .axis { background: transparent; border-right: 1px solid var(--rule-soft); }
 :root[data-estilo="apple"] .col { border-right: 1px solid var(--rule-soft); }
 :root[data-estilo="apple"] .col .h { border-bottom: 1px solid var(--rule-soft); }
-:root[data-estilo="apple"] .col.is-today { background: rgba(0, 122, 255, .03); }
+:root[data-estilo="apple"] .col.is-today { background: color-mix(in srgb, var(--st-part) 4%, transparent); }
 
 :root[data-estilo="apple"] .ev {
   background: var(--surface);
@@ -302,7 +302,7 @@
 :root[data-estilo="apple"] .inp:focus {
   background: var(--surface);
   border-color: var(--ap-acento);
-  box-shadow: 0 0 0 3px rgba(0, 122, 255, .14);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--st-part) 16%, transparent);
 }
 
 /* ---------- drawer (hoja al estilo iOS) ---------- */
@@ -398,7 +398,7 @@
   padding: 10px 12px;
   background: var(--surface-2);
   color: var(--muted);
-  font-family: inherit; font-size: 10px; font-weight: 600; letter-spacing: .04em;
+  font-family: inherit; font-size: var(--fs-xs); font-weight: 600; letter-spacing: .04em;
 }
 :root[data-estilo="apple"] .tabla td { padding: 10px 12px; border-bottom: 1px solid var(--rule-soft); }
 :root[data-estilo="apple"] .tabla tbody tr:hover { background: var(--row-hover); }
@@ -407,7 +407,7 @@
 
 :root[data-estilo="apple"] .pill {
   border-radius: 999px; padding: 3px 8px;
-  font-family: inherit; font-size: 10px; font-weight: 600; letter-spacing: 0;
+  font-family: inherit; font-size: var(--fs-xs); font-weight: 600; letter-spacing: 0;
 }
 
 /* ---------- barras de desplazamiento (macOS) ---------- */
@@ -471,3 +471,11 @@
   box-shadow: 0 0 0 1px var(--rule), 0 1px 2px rgba(0, 0, 0, .06);
 }
 :root[data-estilo="apple"] .btn-google-entrada:hover:not(:disabled) { box-shadow: 0 0 0 1px var(--ink-2); }
+
+/* Con movimiento reducido el subtema no anima nada (el global de style.css ya lo hace, pero este
+   archivo no debe depender de que siga ahí). */
+@media (prefers-reduced-motion: reduce) {
+  :root[data-estilo="apple"] *, :root[data-estilo="apple"] *::before, :root[data-estilo="apple"] *::after {
+    transition: none !important; animation: none !important;
+  }
+}

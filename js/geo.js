@@ -84,6 +84,8 @@ export function describirUbicacion(u) {
     if (!u) return 'Sin ubicación';
     if (u.error) return u.error;
     if (u.direccion) return u.direccion;
+    // El espejo de Supabase no guarda la precisión: las visitas del equipo llegan sin ella.
+    if (u.precision_m == null || u.precision_m === '') return 'Ubicación registrada';
     return `Ubicación registrada · ±${u.precision_m} m`;
 }
 

@@ -53,6 +53,14 @@ export function esVisitaCliente(visita) {
     return !visita.tipo || visita.tipo === 'cliente';
 }
 
+/**
+ * Tiempo administrativo: no hay un lugar al que llegar ni un cliente al que probarle nada, así
+ * que ni pide check-in/check-out ni genera deuda de evidencia. Único punto de esta regla.
+ */
+export function esVisitaAdministrativa(visita) {
+    return visita?.tipo === 'administrativo';
+}
+
 const ETIQUETAS_TIPO = { administrativo: 'Administrativo', evento: 'Evento' };
 
 export function etiquetaTipoVisita(visita) {
@@ -90,7 +98,7 @@ export const SALUD = {
  */
 export function saludDe(visita) {
     if (estadoDe(visita) === ESTADOS.CANCELADA) return SALUD.CANCELADA;
-    if (!tieneCheckIn(visita)) return SALUD.NEUTRA;
+    if (!tieneCheckIn(visita) && !esVisitaAdministrativa(visita)) return SALUD.NEUTRA;
 
     // Solo lo guardado cuenta: un borrador a medio escribir no es trabajo registrado, y
     // pintar la visita de verde por él afirmaría algo que todavía no ocurrió.
@@ -109,7 +117,7 @@ export function detalleEstado(visita) {
     if (estado === ESTADOS.CANCELADA) {
         return visita.motivo_cancelacion ? `Cancelada · ${visita.motivo_cancelacion}` : 'Cancelada';
     }
-    if (!tieneCheckIn(visita)) return 'Programada';
+    if (!tieneCheckIn(visita) && !esVisitaAdministrativa(visita)) return 'Programada';
 
     const actividades = actividadesGuardadasDe(visita);
     const faltan = evidenciasPendientesDe(visita).length;
@@ -153,6 +161,7 @@ export function actividadesGuardadasDe(visita) {
  * de cosas que no se pueden cerrar se deja de mirar.
  */
 export function evidenciasPendientesDe(visita) {
+    if (esVisitaAdministrativa(visita)) return [];
     return actividadesGuardadasDe(visita)
         .filter(a => requiereEvidencia(a) && a.evidencia?.estado !== 'subida');
 }
@@ -163,7 +172,8 @@ export function evidenciasPendientesDe(visita) {
  * nadie va a conseguir la foto de una visita que no ocurrió.
  */
 export function deudaGlobal(visitas = leerVisitas()) {
-    const vivas = visitas.filter(v => estadoDe(v) !== ESTADOS.CANCELADA && tieneCheckIn(v));
+    const vivas = visitas.filter(v => estadoDe(v) !== ESTADOS.CANCELADA
+        && tieneCheckIn(v) && !esVisitaAdministrativa(v));
     return todasLasActividades(vivas)
         .filter(({ actividad }) => estaGuardada(actividad)
             && requiereEvidencia(actividad) && actividad.evidencia?.estado !== 'subida');

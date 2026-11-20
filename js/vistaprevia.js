@@ -15,18 +15,21 @@
  * señal), o de Drive si ya subió. La distinción la resuelve `urlEvidencia` en datos.js, que
  * es también el punto por el que entrará Cloudflare R2 sin tocar esta pantalla.
  *
- * ── Por qué el PDF no se rasteriza ───────────────────────────────────────────────────
+ * ── El PDF se dibuja con pdf.js ──────────────────────────────────────────────────────
  *
- * Dibujar la primera página de un PDF de verdad exige pdf.js, que son ~350 KB de JavaScript
- * y esta app no tiene build ni dependencias. Para un educador en 3G eso es más caro que el
- * problema que resuelve, así que la portada del PDF es el visor nativo del navegador dentro
- * de un <object>: mismo resultado —se ve la primera página sin descargar— sin sumar peso.
+ * Antes la portada del PDF era el visor nativo del navegador dentro de un <iframe>/<object>.
+ * Eso NO se ve en los teléfonos (Android e iOS muestran un recuadro con el nombre del archivo
+ * y un botón, o nada) ni en navegadores con el visor de PDF apagado — y la evidencia se revisa
+ * justo desde ahí. Ahora la primera página (miniatura) y todas las páginas (visor) se dibujan en
+ * un <canvas> con pdf.js (`js/pdfPrevia.js`, cargado solo cuando hay un PDF). Si pdf.js fallara,
+ * queda el iframe de antes y siempre el enlace "Abrir aparte".
  */
 
 import { leerArchivo } from './storage.js';
 import { urlEvidencia } from './datos.js';
 import { sesionActual } from './auth.js';
 import { urlDeLecturaEvidencia } from '../src/services/supabase/evidencias';
+import { miniaturaPDF, cuandoSeVea, pintarPDFEn, detectarMime } from './pdfPrevia.js';
 
 const esImagen = (mime) => String(mime || '').startsWith('image/');
 const esPDF = (mime) => String(mime || '') === 'application/pdf';
@@ -53,15 +56,29 @@ export function miniaturaEvidencia(actividad) {
     marca.textContent = '…';
     caja.appendChild(marca);
 
-    resolver(fuente).then(({ url, urlMiniatura, urlVisor, mime, revocar }) => {
+    resolver(fuente).then(({ url, urlMiniatura, urlVisor, mime, revocar, dibujaPDF }) => {
         if (!url) {
             marca.textContent = '⚠';
             marca.title = 'No se pudo cargar la evidencia';
             return;
         }
         caja.innerHTML = '';
-        caja.appendChild(cuerpoMiniatura(urlMiniatura, mime));
-        caja.addEventListener('click', () => abrirVisor(url, mime, actividad, urlVisor));
+        const cuerpo = cuerpoMiniatura(urlMiniatura, mime);
+        caja.appendChild(cuerpo);
+        caja.addEventListener('click', () => abrirVisor(url, mime, actividad, urlVisor, { dibujaPDF }));
+
+        // La portada real del PDF, solo cuando la miniatura entra en pantalla y de a pocas a la
+        // vez. Hasta entonces (o si falla) queda la etiqueta «PDF», que también abre el visor.
+        if (dibujaPDF && esPDF(mime)) {
+            cuandoSeVea(caja, () => {
+                miniaturaPDF(url).then((lienzo) => {
+                    if (!caja.isConnected) return;
+                    lienzo.className = 'evid-mini-pdf';
+                    lienzo.style.cssText = 'width:100%;height:100%;object-fit:cover;object-position:top';
+                    cuerpo.replaceWith(lienzo);
+                }).catch((err) => console.warn('No se pudo dibujar la portada del PDF:', err));
+            });
+        }
         // El objectURL vive mientras viva la miniatura; el visor crea el suyo.
         caja._revocar = revocar;
     });
@@ -92,13 +109,30 @@ function cuerpoMiniatura(url, mime) {
         const marca = document.createElement('span');
         marca.className = 'evid-mini-doc';
         marca.textContent = 'PDF';
-        return marca;
+        return conMiniaturaDeDrive(marca, url);
     }
 
     const otro = document.createElement('span');
     otro.className = 'evid-mini-doc';
     otro.textContent = 'archivo';
-    return otro;
+    return conMiniaturaDeDrive(otro, url);
+}
+
+/**
+ * Las evidencias viejas que viven en Drive no traen tipo, pero Drive sí genera una miniatura en
+ * imagen de cualquier archivo. Se intenta; si no carga (sin permiso, sin sesión de Google), se
+ * queda la etiqueta de siempre — el visor sigue abriendo el archivo de todos modos.
+ */
+function conMiniaturaDeDrive(etiqueta, url) {
+    if (!/^https:\/\/drive\.google\.com\/thumbnail/.test(String(url))) return etiqueta;
+    const img = new Image();
+    img.alt = 'Evidencia';
+    img.loading = 'lazy';
+    img.decoding = 'async';
+    const poner = () => { if (etiqueta.parentNode) etiqueta.replaceWith(img); else setTimeout(poner, 50); };
+    img.onload = poner;
+    img.src = url;
+    return etiqueta;
 }
 
 /**
@@ -113,7 +147,10 @@ async function resolver(fuente) {
         // URL firmada de Supabase Storage (vive una hora; se cachea 50 min en el servicio).
         try {
             const url = await urlDeLecturaEvidencia(sesionActual()?.sesion_token || '', fuente.id);
-            return { url, urlMiniatura: url, urlVisor: url, mime: fuente.mime, revocar: () => {} };
+            // Sin tipo conocido (la extensión no lo dijo) no se sabe cómo mostrarlo: se mira el
+            // contenido del archivo en vez de rendirse con «archivo».
+            const mime = fuente.mime || await detectarMime(url);
+            return { url, urlMiniatura: url, urlVisor: url, mime, revocar: () => {}, dibujaPDF: true };
         } catch (err) {
             console.error('No se pudo obtener la evidencia de Storage:', err);
             return { url: null };
@@ -138,7 +175,8 @@ async function resolver(fuente) {
         return {
             url, urlMiniatura: url, urlVisor: url,
             mime: blob.type || fuente.mime,
-            revocar: () => URL.revokeObjectURL(url)
+            revocar: () => URL.revokeObjectURL(url),
+            dibujaPDF: true
         };
     } catch (err) {
         console.error('No se pudo leer la evidencia local:', err);
@@ -155,7 +193,7 @@ async function resolver(fuente) {
  * original de Drive, para "Abrir aparte" — la página real de Drive, con su descarga y su
  * propio zoom, que sigue siendo mejor que cualquier cosa que se pueda ofrecer aquí dentro.
  */
-export function abrirVisor(url, mime, actividad, urlVisor = url) {
+export function abrirVisor(url, mime, actividad, urlVisor = url, { dibujaPDF = false } = {}) {
     const modal = document.createElement('div');
     modal.className = 'visor';
 
@@ -195,7 +233,7 @@ export function abrirVisor(url, mime, actividad, urlVisor = url) {
 
     const cuerpo = document.createElement('div');
     cuerpo.className = 'visor-cuerpo';
-    cuerpo.appendChild(cuerpoVisor(urlVisor, mime));
+    cuerpo.appendChild(cuerpoVisor(urlVisor, mime, dibujaPDF));
 
     caja.append(head, cuerpo);
     modal.appendChild(caja);
@@ -203,6 +241,7 @@ export function abrirVisor(url, mime, actividad, urlVisor = url) {
     const cerrar = () => {
         modal.remove();
         document.removeEventListener('keydown', alEscape);
+        cuerpo.firstElementChild?._liberar?.();
     };
     function alEscape(e) {
         if (e.key !== 'Escape') return;
@@ -218,7 +257,37 @@ export function abrirVisor(url, mime, actividad, urlVisor = url) {
     return cerrar;
 }
 
-function cuerpoVisor(url, mime) {
+/**
+ * El visor de PDF del propio navegador. Respaldo cuando pdf.js no se puede usar (Drive, que sirve
+ * una página y no el PDF, o un fallo al cargarlo). OJO: en los teléfonos suele NO mostrar nada;
+ * por eso el visor siempre ofrece también "Abrir aparte".
+ */
+function visorNativoPDF(url) {
+    // Remoto: `url` aquí es la página de visor embebible de Drive
+    // (`/file/d/ID/preview`), NO el PDF crudo — Drive la sirve para vivir dentro de un
+    // <iframe>, y un <object type="application/pdf"> fallaría porque lo que llega es
+    // HTML, no bytes de PDF. Local (`blob:`): sí son los bytes crudos del archivo, y ahí
+    // el <object> con el visor nativo del navegador es lo correcto.
+    if (String(url).startsWith('blob:')) {
+        const obj = document.createElement('object');
+        obj.data = url;
+        obj.type = 'application/pdf';
+
+        const alterno = document.createElement('p');
+        alterno.className = 'ayuda';
+        alterno.textContent = 'Este navegador no puede mostrar el PDF aquí. Usa "Abrir aparte".';
+        obj.appendChild(alterno);
+        return obj;
+    }
+
+    const marco = document.createElement('iframe');
+    marco.src = url;
+    marco.className = 'visor-pdf';
+    marco.title = 'Vista previa del PDF';
+    return marco;
+}
+
+function cuerpoVisor(url, mime, dibujaPDF = false) {
     if (esImagen(mime)) {
         const img = document.createElement('img');
         img.src = url;
@@ -235,30 +304,27 @@ function cuerpoVisor(url, mime) {
         return v;
     }
 
-    if (esPDF(mime)) {
-        // Remoto: `url` aquí es la página de visor embebible de Drive
-        // (`/file/d/ID/preview`), NO el PDF crudo — Drive la sirve para vivir dentro de un
-        // <iframe>, y un <object type="application/pdf"> fallaría porque lo que llega es
-        // HTML, no bytes de PDF. Local (`blob:`): sí son los bytes crudos del archivo, y ahí
-        // el <object> con el visor nativo del navegador es lo correcto.
-        if (String(url).startsWith('blob:')) {
-            const obj = document.createElement('object');
-            obj.data = url;
-            obj.type = 'application/pdf';
+    if (esPDF(mime) && dibujaPDF) {
+        // Archivo que la app puede leer (Storage o local): se dibuja con pdf.js, que se ve igual en
+        // escritorio y en teléfono. Mientras carga hay un aviso; si falla, el visor del navegador.
+        const contenedor = document.createElement('div');
+        contenedor.className = 'visor-pdf-dibujado';
+        contenedor.style.cssText = 'width:100%;height:100%;overflow:auto;padding:8px';
+        const cargando = document.createElement('p');
+        cargando.className = 'ayuda';
+        cargando.textContent = 'Cargando documento…';
+        contenedor.appendChild(cargando);
 
-            const alterno = document.createElement('p');
-            alterno.className = 'ayuda';
-            alterno.textContent = 'Este navegador no puede mostrar el PDF aquí. Usa "Abrir aparte".';
-            obj.appendChild(alterno);
-            return obj;
-        }
-
-        const marco = document.createElement('iframe');
-        marco.src = url;
-        marco.className = 'visor-pdf';
-        marco.title = 'Vista previa del PDF';
-        return marco;
+        pintarPDFEn(contenedor, url)
+            .then((liberar) => { contenedor._liberar = liberar; })
+            .catch((err) => {
+                console.warn('pdf.js no pudo mostrar el documento; se usa el visor del navegador:', err);
+                contenedor.replaceChildren(visorNativoPDF(url));
+            });
+        return contenedor;
     }
+
+    if (esPDF(mime)) return visorNativoPDF(url);
 
     // Las evidencias que se capturaron antes de guardar el MIME llegan desde el espejo sin
     // tipo. No por eso deben obligar a salir de la aplicación: una URL de Drive sí tiene un
@@ -274,5 +340,18 @@ function cuerpoVisor(url, mime) {
     const p = document.createElement('p');
     p.className = 'ayuda';
     p.textContent = 'No hay vista previa para este tipo de archivo.';
+
+    // Siempre queda una salida: ir al archivo mismo.
+    if (/^https?:/.test(String(url))) {
+        const enlace = document.createElement('a');
+        enlace.href = url;
+        enlace.target = '_blank';
+        enlace.rel = 'noopener';
+        enlace.className = 'btn-txt';
+        enlace.textContent = 'Abrir el archivo';
+        const caja = document.createElement('div');
+        caja.append(p, enlace);
+        return caja;
+    }
     return p;
 }

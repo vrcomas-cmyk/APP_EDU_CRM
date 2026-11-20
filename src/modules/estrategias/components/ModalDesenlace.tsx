@@ -6,6 +6,7 @@
 import { useState } from 'react';
 import { DESENLACES } from '@core/puente';
 import type { Desenlace } from '@core/tipos';
+import { Icono } from '@shared/components/Icono';
 
 export function ModalDesenlace({ desenlace, titulo, onConfirmar, onCancelar }: {
     desenlace: Desenlace;
@@ -25,7 +26,7 @@ export function ModalDesenlace({ desenlace, titulo, onConfirmar, onCancelar }: {
                         <h3>{d.etiqueta} estrategia</h3>
                         <span className="eyebrow">{titulo}</span>
                     </div>
-                    <button type="button" className="icon-btn" aria-label="Cerrar" onClick={onCancelar}>✕</button>
+                    <button type="button" className="icon-btn" aria-label="Cerrar" onClick={onCancelar}><Icono clave="cerrar" tam={14} /></button>
                 </div>
                 <div className="modal-body">
                     <p className="ayuda">{d.descripcion} La estrategia se archivará y dejará de aparecer entre las vigentes.</p>
@@ -65,7 +66,7 @@ export function BotonesDesenlace({ onElegir, clase = 'btn-txt' }: {
                     title={DESENLACES[k].descripcion}
                     onClick={(ev) => { ev.stopPropagation(); onElegir(k); }}
                 >
-                    {k === 'finalizado' ? '✓ ' : '✗ '}{DESENLACES[k].etiqueta}
+                    {k === 'finalizado' ? <Icono clave="ok" tam={13} /> : <Icono clave="no" tam={13} />} {DESENLACES[k].etiqueta}
                 </button>
             ))}
         </>

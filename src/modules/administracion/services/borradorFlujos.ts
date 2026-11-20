@@ -4,14 +4,15 @@
  * de red (`leerFlujos`), no de una caché local.
  */
 
-import type { BorradorFlujos, FlujoAdmin, ResultadoFlujo } from '@core/tipos';
+import { criteriosPorDefecto } from '@core/puente';
+import type { BorradorFlujos, CriterioRevision, FlujoAdmin, ResultadoFlujo } from '@core/tipos';
 
 export const VACIO_FLUJOS: BorradorFlujos = { flujos: [] };
 
 export function flujoNuevo(): FlujoAdmin {
     return {
         clave: '', nombre: '', descripcion: null, ambito: 'visita', permiso: '',
-        activo: true, orden: 0, resultados: null, revisiones: 0
+        activo: true, orden: 0, resultados: null, criterios: null, revisiones: 0
     };
 }
 
@@ -54,6 +55,50 @@ export function sinResultado(f: FlujoAdmin, indice: number): FlujoAdmin {
     return { ...f, resultados: f.resultados.filter((_, i) => i !== indice) };
 }
 
+/**
+ * Lo que llega del servidor, con `criterios` siempre presente: un servidor sin la migración no
+ * manda el campo, y sin normalizar el borrador diferiría de «lo del servidor» y se vería un
+ * choque con otro administrador que no existe.
+ */
+export function normalizarFlujos(flujos: FlujoAdmin[]): FlujoAdmin[] {
+    return flujos.map(f => ({ ...f, criterios: f.criterios ?? null }));
+}
+
+// ---------- criterios: qué se revisa ----------
+
+/** Una clave que no choca con las demás y no cambia aunque se renombre la etiqueta. */
+function claveDeCriterio(): string {
+    return 'c_' + Math.random().toString(36).slice(2, 8);
+}
+
+export function criterioNuevo(): CriterioRevision {
+    return { clave: claveDeCriterio(), etiqueta: '' };
+}
+
+/**
+ * Activa/desactiva los criterios propios. Al activarlos arranca con los de siempre del flujo, para
+ * poder QUITAR los que sobran o RENOMBRAR los que no encajan en vez de escribir todo desde cero.
+ * Al desactivar vuelve a «los de siempre» (null).
+ */
+export function conCriteriosPropios(f: FlujoAdmin, propios: boolean): FlujoAdmin {
+    if (!propios) return { ...f, criterios: null };
+    return { ...f, criterios: f.criterios ?? criteriosPorDefecto(f.clave) };
+}
+
+export function conCriterio(f: FlujoAdmin, indice: number, etiqueta: string): FlujoAdmin {
+    if (!f.criterios) return f;
+    return { ...f, criterios: f.criterios.map((c, i) => (i === indice ? { ...c, etiqueta } : c)) };
+}
+
+export function conNuevoCriterio(f: FlujoAdmin): FlujoAdmin {
+    return { ...f, criterios: [...(f.criterios || []), criterioNuevo()] };
+}
+
+export function sinCriterio(f: FlujoAdmin, indice: number): FlujoAdmin {
+    if (!f.criterios) return f;
+    return { ...f, criterios: f.criterios.filter((_, i) => i !== indice) };
+}
+
 /** Qué impide guardar los flujos. Devuelve TODOS los problemas, no el primero. */
 export function problemasDeFlujos(flujos: FlujoAdmin[]): string[] {
     const problemas: string[] = [];
@@ -86,6 +131,13 @@ export function problemasDeFlujos(flujos: FlujoAdmin[]): string[] {
         }
     }
 
+    for (const f of flujos) {
+        if (!f.criterios) continue;
+        if (f.criterios.some(c => !String(c.etiqueta || '').trim())) {
+            problemas.push(`el flujo "${f.clave || '(sin clave)'}" tiene un criterio sin nombre`);
+        }
+    }
+
     return problemas;
 }
 
@@ -109,7 +161,11 @@ export function flujosParaGuardar(original: FlujoAdmin[], actual: FlujoAdmin[]) 
         permiso: f.permiso.trim(),
         activo: f.activo,
         orden: f.orden,
-        resultados: f.resultados
+        resultados: f.resultados,
+        // Solo clave y etiqueta: lo que el revisor marcó (`ok`) nunca forma parte de la definición.
+        criterios: f.criterios
+            ? f.criterios.map(c => ({ clave: c.clave, etiqueta: String(c.etiqueta || '').trim() }))
+            : null
     }));
 
     return { flujos, eliminar };

@@ -18,6 +18,7 @@ import { registrar, TIPOS } from './eventos.js';
 import { configuracionCampos, fechaDocumentoEnEvidencia, fechaDocumentoFaltante, MODOS } from './catalogos.js';
 import { campoFechaDD, cabeceraModal, cerrarConEscape } from './campos.js';
 import { fechaCorta } from './fechas.js';
+import { solicitudAbiertaDe, solicitarEliminacion } from './eliminacionEvidencia.js';
 
 const LADO_MAX = 1600;
 const CALIDAD_JPEG = 0.8;
@@ -50,7 +51,7 @@ export async function adjuntarEvidencia(idActividad, archivo, { fecha_documento 
     const blob = esPDF ? archivo : await comprimirImagen(archivo);
     await guardarArchivo(idActividad, blob);
 
-    const nombre = nombreDeArchivo(archivo, esPDF);
+    const nombre = nombreParaEvidencia(idActividad, archivo);
     const visita = escribirEvidencia(idActividad, {
         estado: 'local',
         nombre,
@@ -85,6 +86,75 @@ function nombreDeArchivo(archivo, esPDF) {
     if (esPDF) return archivo.name || 'evidencia.pdf';
     const base = (archivo.name || 'evidencia').replace(/\.[^.]+$/, '');
     return `${base}.jpg`;   // se recomprimió a JPEG, la extensión debe decir la verdad
+}
+
+// ---------- nomenclatura ----------
+
+/**
+ * Nombre estándar de una evidencia de actividad:
+ *
+ *   FECHA (AAAA.MM.DD). TIPO (CAP, EVAL, PRES, TLL). NÚM CLIENTE. NOMBRE CLIENTE. SECTOR / FAMILIA.
+ *   2025.10.15. EVAL. 100657 FUCAM. ANTISÉPTICOS Y ALCOHOL.pdf
+ *
+ * Es lo que se muestra al adjuntar y lo que se guarda como `nombre` (y viaja al servidor), para
+ * que el archivo se reconozca por su nombre sin abrirlo.
+ */
+const ABREVIATURAS_TIPO = [
+    [/^capacit/, 'CAP'],
+    [/^evalu/, 'EVAL'],
+    [/^(demostr|present)/, 'PRES'],
+    [/^(taller|tll)/, 'TLL']
+];
+
+const sinAcentos = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '');
+
+/** CAP / EVAL / PRES / TLL según el tipo; para los demás, sus primeras letras (hasta 4). */
+export function abreviaturaTipo(tipo) {
+    const t = sinAcentos(tipo).toLowerCase().trim();
+    const hallada = ABREVIATURAS_TIPO.find(([re]) => re.test(t));
+    if (hallada) return hallada[1];
+    return t.replace(/[^a-z]/g, '').slice(0, 4).toUpperCase() || 'ACT';
+}
+
+/** "100657 - FUCAM" → { numero: '100657', nombre: 'FUCAM' }. Sin número, todo es nombre. */
+function partirCliente(cliente) {
+    const m = String(cliente || '').trim().match(/^(\d+)[\s\-–:.]*(.*)$/);
+    return m ? { numero: m[1], nombre: m[2].trim() } : { numero: '', nombre: String(cliente || '').trim() };
+}
+
+const limpiarParaArchivo = (t) => String(t || '').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim();
+
+export function nomenclaturaEvidencia({ visita, sector, actividad }, extension) {
+    const fecha = String(visita?.dia || actividad?.fecha_documento || '').slice(0, 10).replace(/-/g, '.')
+        || new Date().toISOString().slice(0, 10).replace(/-/g, '.');
+    const { numero, nombre } = partirCliente(visita?.cliente);
+
+    const partes = [
+        fecha,
+        abreviaturaTipo(actividad?.tipo),
+        [numero, nombre.toUpperCase()].filter(Boolean).join(' '),
+        String(sector?.nombre || '').toUpperCase()
+    ].map(limpiarParaArchivo).filter(Boolean);
+
+    return `${partes.join('. ')}.${extension}`;
+}
+
+function contextoDe(idActividad) {
+    for (const visita of leerVisitas()) {
+        for (const sector of visita.sectores || []) {
+            const actividad = (sector.actividades || []).find(a => a.id === idActividad);
+            if (actividad) return { visita, sector, actividad };
+        }
+    }
+    return null;
+}
+
+/** El nombre con el que quedará `archivo` como evidencia de esa actividad. */
+export function nombreParaEvidencia(idActividad, archivo) {
+    const esPDF = archivo?.type === 'application/pdf';
+    const contexto = contextoDe(idActividad);
+    if (!contexto) return nombreDeArchivo(archivo || {}, esPDF);
+    return nomenclaturaEvidencia(contexto, esPDF ? 'pdf' : 'jpg');
 }
 
 /**
@@ -169,6 +239,7 @@ export function controlEvidencia(actividad, { alCambiar = () => {}, alToast = ()
         ok.textContent = '☁ Subida';
         caja.appendChild(ok);
         agregarFecha();
+        caja.appendChild(controlEliminar(actividad, alCambiar, alToast));
         // Sin enlace "Ver" a Drive: quien monta este control ya pone al lado la miniatura de
         // `vistaprevia.js` (`miniaturaEvidencia`), que abre el visor DENTRO de la app —imagen,
         // PDF o video embebido, con "Abrir aparte" como opción secundaria en ese visor, no como
@@ -218,6 +289,72 @@ export function controlEvidencia(actividad, { alCambiar = () => {}, alToast = ()
 
     caja.appendChild(selectorArchivo(actividad, alCambiar, alToast));
     return caja;
+}
+
+/**
+ * Eliminar una evidencia ya subida requiere autorización del jefe a cargo: aquí solo se PIDE.
+ * Mientras hay una solicitud abierta se dice, en vez de dejar pedirla otra vez.
+ */
+function controlEliminar(actividad, alCambiar, alToast) {
+    const raiz = document.createElement('div');
+    raiz.className = 'evid-eliminar';
+
+    if (solicitudAbiertaDe(actividad.id)) {
+        const p = document.createElement('span');
+        p.className = 'pill st-faltan-evidencias';
+        p.textContent = '⏳ Eliminación solicitada · espera la autorización de tu jefe';
+        raiz.appendChild(p);
+        return raiz;
+    }
+
+    const pedir = document.createElement('button');
+    pedir.type = 'button';
+    pedir.className = 'btn-txt peligro';
+    pedir.textContent = 'Solicitar eliminación';
+    raiz.appendChild(pedir);
+
+    pedir.addEventListener('click', () => {
+        pedir.hidden = true;
+
+        const motivo = document.createElement('textarea');
+        motivo.className = 'inp hilo-area';
+        motivo.rows = 2;
+        motivo.placeholder = '¿Por qué se elimina? (lo verá tu jefe)';
+
+        const aviso = document.createElement('span');
+        aviso.className = 'pista';
+        aviso.setAttribute('role', 'alert');
+
+        const enviar = document.createElement('button');
+        enviar.type = 'button';
+        enviar.className = 'btn btn-principal';
+        enviar.textContent = 'Enviar solicitud';
+        enviar.addEventListener('click', async () => {
+            enviar.disabled = true;
+            try {
+                await solicitarEliminacion(actividad.id, motivo.value);
+                alToast('Solicitud enviada. Tu jefe debe autorizarla.', { estado: 'completa' });
+                alCambiar();
+            } catch (err) {
+                aviso.textContent = err.message || 'No se pudo enviar la solicitud.';
+                enviar.disabled = false;
+            }
+        });
+
+        const cancelar = document.createElement('button');
+        cancelar.type = 'button';
+        cancelar.className = 'btn-txt';
+        cancelar.textContent = 'Cancelar';
+        cancelar.addEventListener('click', () => {
+            motivo.remove(); aviso.remove(); enviar.remove(); cancelar.remove();
+            pedir.hidden = false;
+        });
+
+        raiz.append(motivo, aviso, enviar, cancelar);
+        motivo.focus({ preventScroll: true });
+    });
+
+    return raiz;
 }
 
 /**
@@ -355,6 +492,95 @@ function abrirDialogoFecha({ subtitulo = '', obligatoria, soloFecha = false, alE
 }
 
 /**
+ * Vista previa del archivo elegido, antes de adjuntarlo: la imagen (o el aviso de PDF) y el
+ * nombre final. "Usar este archivo" sigue; "Elegir otro" o cerrar lo descarta.
+ */
+function abrirDialogoPrevia({ archivo, nombre, alConfirmar, alCancelar }) {
+    const raiz = document.createElement('div');
+    raiz.className = 'dialogo-raiz';
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    const caja = document.createElement('div');
+    caja.className = 'modal-caja';
+    caja.setAttribute('role', 'dialog');
+    caja.setAttribute('aria-modal', 'true');
+    caja.setAttribute('aria-label', 'Vista previa de la evidencia');
+
+    let url = '';
+    let soltarEscape = () => {};
+    const cerrar = () => { soltarEscape(); if (url) URL.revokeObjectURL(url); raiz.remove(); };
+    const cancelar = () => { cerrar(); alCancelar?.(); };
+
+    const cuerpo = document.createElement('div');
+    cuerpo.className = 'modal-body';
+
+    const previa = document.createElement('div');
+    previa.className = 'evid-previa';
+    previa.style.cssText = 'display:flex;justify-content:center;margin-bottom:8px';
+    if (archivo.type === 'application/pdf') {
+        const doc = document.createElement('p');
+        doc.className = 'ayuda';
+        doc.textContent = `📄 PDF · ${(archivo.size / 1024 / 1024).toFixed(1)} MB`;
+        previa.appendChild(doc);
+    } else {
+        const sinVista = () => {
+            previa.textContent = '';
+            const aviso = document.createElement('p');
+            aviso.className = 'ayuda';
+            aviso.textContent = 'No se puede mostrar la vista previa de este formato; se adjuntará igual.';
+            previa.appendChild(aviso);
+        };
+        try {
+            url = URL.createObjectURL(archivo);
+            const img = document.createElement('img');
+            img.src = url;
+            img.alt = 'Vista previa de la evidencia';
+            img.style.cssText = 'max-width:100%;max-height:50vh;object-fit:contain;border-radius:8px';
+            // Algunos formatos (p. ej. HEIC) no se pintan en el navegador aunque sí se pueden adjuntar.
+            img.onerror = sinVista;
+            previa.appendChild(img);
+        } catch {
+            sinVista();
+        }
+    }
+
+    const ayuda = document.createElement('p');
+    ayuda.className = 'ayuda';
+    ayuda.textContent = '¿Es la evidencia correcta? Se guardará con este nombre:';
+    const nom = document.createElement('p');
+    nom.className = 'coment-txt';
+    nom.style.wordBreak = 'break-word';
+    nom.textContent = nombre;
+
+    const pie = document.createElement('div');
+    pie.className = 'modal-foot';
+    const espacio = document.createElement('span');
+    espacio.style.flex = '1';
+    const otro = document.createElement('button');
+    otro.type = 'button';
+    otro.className = 'btn-txt';
+    otro.textContent = 'Elegir otro';
+    otro.addEventListener('click', cancelar);
+    const usar = document.createElement('button');
+    usar.type = 'button';
+    usar.className = 'btn btn-principal';
+    usar.textContent = 'Usar este archivo';
+    usar.addEventListener('click', () => { cerrar(); alConfirmar(); });
+    pie.append(espacio, otro, usar);
+
+    cuerpo.append(previa, ayuda, nom, pie);
+    caja.append(cabeceraModal('Vista previa', archivo.name || '', cancelar), cuerpo);
+    modal.appendChild(caja);
+    modal.addEventListener('click', (e) => { if (e.target === modal) cancelar(); });
+    raiz.appendChild(modal);
+    soltarEscape = cerrarConEscape(modal, cancelar);
+
+    document.body.appendChild(raiz);
+    usar.focus({ preventScroll: true });
+    return { cerrar };
+}
+
+/**
  * Pide la fecha del documento de una evidencia YA adjunta (la que se dejó para después, o un archivo
  * anterior a este paso). Al capturarla, la evidencia que esperaba ya puede subirse.
  */
@@ -439,14 +665,23 @@ function selectorArchivo(actividad, alCambiar, alToast) {
         const archivo = input.files && input.files[0];
         if (!archivo) return;
 
-        if (!conFecha) { await adjuntar(archivo); return; }
+        // Primero se VE lo elegido y el nombre que va a llevar: una foto equivocada es más
+        // barata de cambiar aquí que después de subirla.
+        abrirDialogoPrevia({
+            archivo,
+            nombre: nombreParaEvidencia(actividad.id, archivo),
+            alConfirmar: async () => {
+                if (!conFecha) { await adjuntar(archivo); return; }
 
-        // El archivo ya está elegido y a la vista: es el momento de preguntar su fecha.
-        abrirDialogoFecha({
-            subtitulo: archivo.name || 'archivo',
-            obligatoria: fechaObligatoria,
-            alElegir: (fecha) => adjuntar(archivo, fecha),
-            alPosponer: () => adjuntar(archivo, undefined, true),
+                // El archivo ya está confirmado: es el momento de preguntar su fecha.
+                abrirDialogoFecha({
+                    subtitulo: archivo.name || 'archivo',
+                    obligatoria: fechaObligatoria,
+                    alElegir: (fecha) => adjuntar(archivo, fecha),
+                    alPosponer: () => adjuntar(archivo, undefined, true),
+                    alCancelar: () => { input.value = ''; }
+                });
+            },
             alCancelar: () => { input.value = ''; }
         });
     });

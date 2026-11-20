@@ -25,9 +25,10 @@ import { nuevoId } from './storage.js';
 import { sesionActual } from './auth.js';
 import { puede } from './permisos.js';
 import { consultarVisitas } from './datos.js';
-import { estadoDe, ESTADOS, tieneCheckIn, actividadesGuardadasDe } from './estado.js';
+import { estadoDe, ESTADOS, tieneCheckIn, actividadesGuardadasDe, esVisitaAdministrativa } from './estado.js';
 import { requiereEvidencia } from './catalogos.js';
 import { clave } from './entorno.js';
+import { fechaCorta } from './fechas.js';
 
 const CLAVE_PENDIENTES = clave('revisiones_pendientes');
 
@@ -85,7 +86,61 @@ export function resultadosDe(flujo) {
 
 /** Un resultado concreto de un flujo, o `null` si ese flujo no lo admite. */
 export function resultadoDe(flujo, valor) {
+    if (valor === REABIERTO.valor) return REABIERTO;
     return resultadosDe(flujo).find(r => r.valor === valor) || null;
+}
+
+/**
+ * Veredicto del sistema, común a todos los flujos: devuelve al revisor un elemento ya cerrado
+ * para volver a juzgarlo (cambiar un estatus). No vive en `resultados` del flujo porque no es una
+ * decisión sobre el trabajo sino sobre la revisión misma; no cierra, así que el elemento vuelve a
+ * la cola. Exige motivo y avisa al educador: un cambio de estatus no debe ocurrir en silencio.
+ */
+export const REABIERTO = {
+    valor: 'reabierto', etiqueta: 'Reabierto', accion: '↺ Reabrir',
+    tono: 'faltan-evidencias', estilo: 'txt', exige_observaciones: true,
+    acepta: false, cierra: false, avisa_educador: true
+};
+
+/**
+ * Qué se mira en cada flujo, para que el revisor marque ✓/✗ criterio por criterio en vez de
+ * decidir a ojo. Un flujo puede declarar los suyos (`flujo.criterios`); si no, estos.
+ */
+export const CRITERIOS_POR_FLUJO = {
+    evidencia: [
+        { clave: 'legible', etiqueta: 'Evidencia legible' },
+        { clave: 'corresponde', etiqueta: 'Corresponde a la actividad' },
+        { clave: 'nomenclatura', etiqueta: 'Nombre del archivo (nomenclatura)' }
+    ],
+    calidad_visita: [
+        { clave: 'actividad', etiqueta: 'Actividad' },
+        { clave: 'evidencia', etiqueta: 'Evidencia' },
+        { clave: 'puntualidad', etiqueta: 'Puntualidad' },
+        { clave: 'objetivo', etiqueta: 'Objetivo del sector' }
+    ],
+    retrasos: [{ clave: 'justificacion', etiqueta: 'Justificación válida' }],
+    cumplimiento: [
+        { clave: 'objetivo', etiqueta: 'Objetivo cumplido' },
+        { clave: 'registro', etiqueta: 'Actividades registradas' }
+    ],
+    documentacion: [
+        { clave: 'contacto', etiqueta: 'Contacto' },
+        { clave: 'area', etiqueta: 'Área' },
+        { clave: 'materiales', etiqueta: 'Materiales' }
+    ]
+};
+
+/** Los criterios de siempre de un flujo (los que se ofrecen mientras nadie los personalice). */
+export function criteriosPorDefecto(claveFlujo) {
+    return (CRITERIOS_POR_FLUJO[claveFlujo] || []).map(c => ({ ...c }));
+}
+
+export function criteriosDe(flujo) {
+    const def = typeof flujo === 'string' ? flujos.find(f => f.clave === flujo) : flujo;
+    // Una lista configurada manda, AUNQUE esté vacía: quitar todos los criterios es una decisión
+    // válida ("este flujo se juzga sin casillas"), distinta de "nadie los ha tocado" (null).
+    if (Array.isArray(def?.criterios)) return def.criterios;
+    return criteriosPorDefecto(def?.clave);
 }
 
 /**
@@ -230,7 +285,7 @@ function candidatosDe(flujo, visitas) {
 
         if (flujo.ambito === 'visita') {
             // Solo lo que ya pasó. Una visita programada no tiene nada que revisar todavía.
-            if (!tieneCheckIn(v)) continue;
+            if (!tieneCheckIn(v) && !esVisitaAdministrativa(v)) continue;
             if (flujo.clave === 'cumplimiento' && actividadesGuardadasDe(v).length === 0) continue;
             salida.push(elemento(flujo, v, v.id, tituloVisita(v), resumenVisita(v)));
             continue;
@@ -245,13 +300,13 @@ function candidatosDe(flujo, visitas) {
                     // Sin archivo cargado no hay nada que mirar; el pendiente de SUBIRLA es
                     // deuda del educador, no trabajo del revisor.
                     if (a.evidencia?.estado !== 'subida') continue;
-                    if (!requiereEvidencia(a)) continue;
+                    if (!requiereEvidencia(a) || esVisitaAdministrativa(v)) continue;
                 }
 
                 salida.push(elemento(
                     flujo, v, a.id,
                     `${a.tipo || 'Sin tipo'} · ${s.nombre}`,
-                    `${v.hospital || v.cliente || 'Sin hospital'} · ${v.dia || ''}`,
+                    `${v.hospital || v.cliente || 'Sin hospital'} · ${fechaCorta(v.dia)}`,
                     { actividad: a, sector: s }
                 ));
             }
@@ -274,7 +329,7 @@ function elemento(flujo, visita, idAmbito, titulo, detalle, extra = {}) {
 }
 
 function tituloVisita(v) {
-    return `${v.hospital || 'Sin hospital'} · ${v.dia || ''}`;
+    return `${v.hospital || 'Sin hospital'} · ${fechaCorta(v.dia)}`;
 }
 
 function resumenVisita(v) {
@@ -343,7 +398,7 @@ export function revisionesDeVisita(idVisita) {
  * El revisor y el momento los pone la app; el servidor además REESCRIBE el revisor con la
  * identidad verificada, así que un cliente manipulado no puede firmar por otra persona.
  */
-export function revisar({ flujo, ambito, idAmbito, idVisita, resultado, observaciones }) {
+export function revisar({ flujo, ambito, idAmbito, idVisita, resultado, observaciones, criterios = [] }) {
     const def = flujos.find(f => f.clave === flujo);
     if (!def) return { ok: false, error: 'Ese flujo de revisión no existe.' };
 
@@ -363,12 +418,26 @@ export function revisar({ flujo, ambito, idAmbito, idVisita, resultado, observac
         return { ok: false, error: 'Explica qué hay que corregir.' };
     }
 
+    // Solo se guardan los criterios que el revisor marcó (ok true/false); los que dejó sin
+    // marcar no afirman nada.
+    const marcados = (Array.isArray(criterios) ? criterios : [])
+        .filter(c => c && c.clave && typeof c.ok === 'boolean')
+        .map(({ clave, etiqueta, ok }) => ({ clave, etiqueta, ok }));
+    // Lo que NO cumple viaja también en el texto: así llega tal cual al aviso del educador sin
+    // que el servidor tenga que conocer los criterios.
+    const fallidos = marcados.filter(c => !c.ok).map(c => c.etiqueta || c.clave);
+    const textoObs = String(observaciones || '').trim();
+    const conFallos = fallidos.length
+        ? [textoObs, `No cumple: ${fallidos.join(', ')}.`].filter(Boolean).join('\n')
+        : textoObs;
+
     const sesion = sesionActual();
     const revision = {
         id: nuevoId('rv'),
         flujo, ambito, id_ambito: idAmbito, id_visita: idVisita,
         resultado,
-        observaciones: String(observaciones || '').trim(),
+        observaciones: conFallos,
+        criterios: marcados,
         revisor: sesion?.nombre || '',
         revisor_correo: sesion?.correo || '',
         momento: new Date().toISOString(),
@@ -382,6 +451,23 @@ export function revisar({ flujo, ambito, idAmbito, idVisita, resultado, observac
     guardarCola(cola);
 
     return { ok: true, revision };
+}
+
+/**
+ * Lo ya cerrado de un flujo (aprobado, rechazado…): el histórico de quién resolvió qué. Es la
+ * contraparte de `pendientesDe`; sobre estos elementos se puede `reabrir`.
+ */
+export function cerradosDe(flujo, visitas = consultarVisitas()) {
+    return candidatosDe(flujo, visitas).filter(c => !estaPendiente(flujo.clave, c.id_ambito));
+}
+
+/**
+ * Reactiva un elemento cerrado para cambiar su estatus. No borra nada: agrega un veredicto
+ * `reabierto` firmado y fechado, y el elemento vuelve a la cola. Exige el mismo permiso que
+ * revisar ese flujo y un motivo.
+ */
+export function reabrir({ flujo, ambito, idAmbito, idVisita, motivo }) {
+    return revisar({ flujo, ambito, idAmbito, idVisita, resultado: REABIERTO.valor, observaciones: motivo });
 }
 
 // ---------- cola local ----------

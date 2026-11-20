@@ -215,7 +215,8 @@ describe('qué se ofrece revisar', () => {
 
         assert.ok(texto.includes('Ana López'), 'quién lo hizo');
         assert.ok(texto.includes('Cliente Uno'), 'para quién');
-        assert.ok(texto.includes('2026-07-15'), 'cuándo');
+        assert.ok(texto.includes('15/07/2026'), 'cuándo, en dd/mm/aaaa');
+        assert.ok(!texto.includes('2026-07-15'), 'nunca en formato ISO');
         assert.ok(texto.includes('Dr. Pérez'), 'con quién');
     });
 });

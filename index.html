@@ -8,6 +8,7 @@
     <!-- Subtema de forma (data-estilo="apple"): no hace nada sin el atributo. -->
     <link rel="stylesheet" href="estilo-apple.css">
     <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <meta name="theme-color" content="#F5F8F7" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#0D1112" media="(prefers-color-scheme: dark)">
     <!-- Sin `media`: cuando hay un tema elegido a mano, este gana sobre los dos de arriba. -->
@@ -124,6 +125,12 @@
             <button type="button" id="btn-deuda" class="deuda" hidden>
                 <span class="dot st-faltan-evidencias" style="--st: var(--st-part)"></span>
                 <span id="deuda-n">0</span> evidencias
+            </button>
+
+            <!-- Borradores de visita sin guardar: se conservan y se pueden retomar o descartar. -->
+            <button type="button" id="btn-borradores" class="deuda" hidden>
+                <span class="dot" style="--st: var(--st-part)"></span>
+                <span id="borradores-n">0</span> borradores
             </button>
 
             <button type="button" id="btn-sync" class="sync">

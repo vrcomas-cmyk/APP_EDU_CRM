@@ -8,7 +8,7 @@
 
 import { obtenerVisita, actualizarVisita, nuevoId, leerVisitas } from './storage.js';
 import {
-    ESTADOS, estadoDe, tieneCheckIn, tieneCheckOut, permanenciaMinutos, esVisitaCliente,
+    ESTADOS, estadoDe, tieneCheckIn, tieneCheckOut, permanenciaMinutos, esVisitaCliente, esVisitaAdministrativa,
     visitaAbiertaDe
 } from './estado.js';
 import { obtenerUbicacion, describirDispositivo } from './geo.js';
@@ -199,7 +199,9 @@ export function reactivarVisita(id) {
 export function bloqueoParaActividades(visita) {
     if (!visita) return 'La visita ya no existe.';
     if (estadoDe(visita) === ESTADOS.CANCELADA) return 'Esta visita está cancelada.';
-    if (!tieneCheckIn(visita)) return 'Inicia la visita para registrar actividades.';
+    if (!tieneCheckIn(visita) && !esVisitaAdministrativa(visita)) {
+        return 'Inicia la visita para registrar actividades.';
+    }
     return null;
 }
 

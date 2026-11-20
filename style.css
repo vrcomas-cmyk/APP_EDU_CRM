@@ -12,7 +12,7 @@
   --surface-2:  #EDF2F0;
   --ink:        #101617;
   --ink-2:      #3D4A48;
-  --muted:      #69746F;
+  --muted:      #5C6762;
   --rule:       #DCE3E1;
   --rule-soft:  #E8EDEB;
 
@@ -76,6 +76,12 @@
   --fs-2xl: 26px;
 
   /* Velo detrás de drawers y modales, y objetivo táctil mínimo (40 px en pantallas táctiles). */
+  /* Texto de estado sobre su propio fondo claro: el color puro (`--st-done` sobre `--st-done-bg`)
+     queda en 2.3–3.9:1 en Claro y DEGASA. Se mezcla con tinta hasta pasar 4.5:1; en Oscuro el
+     color ya pasa solo, así que la mezcla vale 100 %. `--on-st` es el texto sobre un relleno
+     sólido de estado (insignias, botón "No cumple"). */
+  --st-mezcla: 55%;
+  --on-st: #FFFFFF;
   --scrim: rgba(16, 22, 23, .3);
   --tap: 40px;
 
@@ -110,6 +116,7 @@
     --rule: #232B2C; --rule-soft: #1C2324;
     --st-plan: #7E8C87; --st-miss: #E86176; --st-part: #5AA8DC; --st-done: #5CB98A;
     --st-plan-bg: #1B2223; --st-miss-bg: #2A1519; --st-part-bg: #10222D; --st-done-bg: #10241A;
+    --st-mezcla: 100%; --on-st: #0D1112;
     --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.7);
     --shadow-lg: 0 24px 60px -20px rgba(0,0,0,.8);
     --cat-1: #3987e5; --cat-2: #d95926; --cat-3: #199e70; --cat-4: #c98500;
@@ -122,6 +129,7 @@
   --rule: #232B2C; --rule-soft: #1C2324;
   --st-plan: #7E8C87; --st-miss: #E86176; --st-part: #5AA8DC; --st-done: #5CB98A;
   --st-plan-bg: #1B2223; --st-miss-bg: #2A1519; --st-part-bg: #10222D; --st-done-bg: #10241A;
+  --st-mezcla: 100%; --on-st: #0D1112;
   --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.7);
   --shadow-lg: 0 24px 60px -20px rgba(0,0,0,.8);
   --cat-1: #3987e5; --cat-2: #d95926; --cat-3: #199e70; --cat-4: #c98500;
@@ -129,10 +137,11 @@
 }
 :root[data-theme="light"] {
   --paper: #F5F8F7; --surface: #FFFFFF; --surface-2: #EDF2F0;
-  --ink: #101617; --ink-2: #3D4A48; --muted: #69746F;
+  --ink: #101617; --ink-2: #3D4A48; --muted: #5C6762;
   --rule: #DCE3E1; --rule-soft: #E8EDEB;
   --st-plan: #8A9691; --st-miss: #C81E3A; --st-part: #0B72B9; --st-done: #1F8A54;
   --st-plan-bg: #EEF2F1; --st-miss-bg: #FBEEF0; --st-part-bg: #EAF2F8; --st-done-bg: #EAF4EE;
+  --st-mezcla: 55%; --on-st: #FFFFFF;
   --shadow: 0 1px 2px rgba(16,22,23,.04), 0 8px 24px -12px rgba(16,22,23,.18);
   --shadow-lg: 0 24px 60px -20px rgba(16,22,23,.4);
 }
@@ -146,10 +155,11 @@
    ============================================================ */
 :root[data-theme="degasa"] {
   --paper: #F7F9F1; --surface: #FFFFFF; --surface-2: #EEF3E1;
-  --ink: #17301C; --ink-2: #3E5A34; --muted: #71805F;
+  --ink: #17301C; --ink-2: #3E5A34; --muted: #5A6748;
   --rule: #DDE6C9; --rule-soft: #EAF0DC;
   --st-plan: #8FA37E; --st-miss: #C81E3A; --st-part: #00458B; --st-done: #62B81F;
   --st-plan-bg: #EEF2E2; --st-miss-bg: #FBEEF0; --st-part-bg: #E5EDF6; --st-done-bg: #EEF7DF;
+  --st-mezcla: 55%; --on-st: #FFFFFF;
   --shadow: 0 1px 2px rgba(23,48,28,.05), 0 8px 24px -12px rgba(23,48,28,.22);
   --shadow-lg: 0 24px 60px -20px rgba(23,48,28,.42);
 }
@@ -181,7 +191,7 @@ h1, h2, h3, h4 { margin: 0; letter-spacing: -.02em; font-weight: 700; }
 */
 .drawer-head-txt h3, .modal-head h3 {
   display: flex; align-items: center; gap: 8px;
-  font-size: 15.5px; letter-spacing: -.01em;
+  font-size: var(--fs-lg); letter-spacing: -.01em;
 }
 .drawer-head-txt h3::before, .modal-head h3::before {
   content: ''; width: 7px; height: 7px; flex: none;
@@ -202,7 +212,7 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 
 .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 .eyebrow {
-  font-family: var(--mono); font-size: 10px; font-weight: 600;
+  font-family: var(--mono); font-size: var(--fs-xs); font-weight: 600;
   letter-spacing: .14em; text-transform: uppercase; color: var(--muted);
 }
 .sr-only {
@@ -336,6 +346,7 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 /* Botón cuadrado con ícono: `.icon-btn`, `.arrow` y `.btn-buscar` eran tres copias del mismo
    control; ahora comparten una sola regla (el rojo de hover es solo de `.peligro`). */
 .arrow, .btn-buscar, .icon-btn {
+  position: relative;
   width: 26px; height: 26px; flex: none;
   border: 1px solid var(--rule); border-radius: var(--r-sm);
   background: transparent; color: var(--ink-2);
@@ -343,10 +354,16 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
   transition: background-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease),
               border-color var(--dur-fast) var(--ease);
 }
+/* Icono dentro de un botón cuadrado, o en línea junto a texto (Cumple, Ubicación…). */
+.icon-btn { display: inline-grid; place-items: center; padding: 0; }
+:is(.btn-txt, .btn, .pill, .ayuda, .sello-ico, .pill-quitar) > .ico { vertical-align: -2px; margin-right: 2px; }
 .arrow:hover, .btn-buscar:hover, .icon-btn:hover { background: var(--surface-2); color: var(--ink); }
 .btn-buscar { font-size: 13px; }
+/* El botón se ve de 26px pero el área que responde al dedo o al clic es de 36px. */
+.arrow::after, .btn-buscar::after, .icon-btn::after { content: ""; position: absolute; inset: -5px; }
 @media (pointer: coarse) {
   .arrow, .btn-buscar, .icon-btn { width: var(--tap); height: var(--tap); }
+  .seg button, .chip { min-height: var(--tap); }
 }
 
 /* Único disparador táctil de la paleta de comandos: en el celular Ctrl+K no existe, y sin
@@ -363,7 +380,7 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
    había resuelto para `.fab`; aquí faltaba. */
 .seg[hidden] { display: none; }
 .seg button {
-  font-family: var(--mono); font-size: 10.5px; letter-spacing: .09em; text-transform: uppercase;
+  font-family: var(--mono); font-size: var(--fs-xs); letter-spacing: .09em; text-transform: uppercase;
   padding: 5px 11px; border: 0; border-right: 1px solid var(--rule);
   background: transparent; color: var(--muted); cursor: pointer;
   transition: background-color .15s var(--ease), color .15s var(--ease);
@@ -412,7 +429,7 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 
 .sync {
   display: inline-flex; align-items: center; gap: 6px; flex: none;
-  font-family: var(--mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
+  font-family: var(--mono); font-size: var(--fs-xs); letter-spacing: .08em; text-transform: uppercase;
   color: var(--muted); border: 1px solid var(--rule); border-radius: 999px; padding: 3px 9px;
   background: transparent; cursor: pointer;
 }
@@ -428,7 +445,7 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
   display: inline-flex; align-items: center; gap: 5px; flex: none;
   border: 1px solid var(--rule); border-radius: 999px; padding: 3px 9px;
   background: transparent; cursor: pointer; color: var(--st-part);
-  font-family: var(--mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
+  font-family: var(--mono); font-size: var(--fs-xs); letter-spacing: .08em; text-transform: uppercase;
 }
 .deuda:hover { background: var(--st-part-bg); }
 .deuda[hidden] { display: none; }
@@ -468,7 +485,7 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 .fab:hover { transform: translateY(-1px); }
 .fab:active { transform: translateY(0); }
 .fab kbd {
-  font-family: var(--mono); font-size: 9px; opacity: .55;
+  font-family: var(--mono); font-size: var(--fs-xs); opacity: .55;
   border: 1px solid currentColor; border-radius: 3px; padding: 0 3px;
 }
 
@@ -513,7 +530,7 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
   width: 15px; height: 15px; border-radius: 50%; flex: none;
   display: inline-flex; align-items: center; justify-content: center;
   background: var(--persona); color: var(--persona-texto, #101617);
-  font-family: var(--mono); font-size: 8.5px; font-weight: 700; line-height: 1;
+  font-family: var(--mono); font-size: var(--fs-xs); font-weight: 700; line-height: 1;
   box-shadow: 0 0 0 1px var(--paper);
 }
 /* Donde no cabe el avatar (celda de mes, ya apretada a una línea de 10px) el punto de color
@@ -529,18 +546,21 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 .mes-ev.es-de-persona { box-shadow: inset 2px 0 0 var(--persona); padding-left: 3px; }
 
 .pill {
-  font-family: var(--mono); font-size: 9px; letter-spacing: .07em; text-transform: uppercase;
+  font-family: var(--mono); font-size: var(--fs-xs); letter-spacing: .07em; text-transform: uppercase;
   padding: 1px 5px; border-radius: 4px; white-space: nowrap;
-  background: var(--st-bg); color: var(--st);
+  background: var(--st-bg); color: color-mix(in srgb, var(--st) var(--st-mezcla), var(--ink));
 }
 .pill.neutro { background: var(--surface-2); color: var(--muted); }
 
 /* Chip removible: un producto ya elegido en Estrategias, con su propia "x" para quitarlo sin
    tener que borrar texto — coherente con `.chips` (ChipToggle) pero esto no es un toggle. */
 .pill-quitar {
-  all: unset; margin-left: 4px; cursor: pointer; font-size: 8px; vertical-align: middle;
+  margin-left: 4px; padding: 0; border: 0; background: none; color: inherit;
+  cursor: pointer; font-size: 11px; line-height: 1; vertical-align: middle;
+  min-width: 24px; min-height: 24px; display: inline-grid; place-items: center;
+  border-radius: var(--r-sm);
 }
-.pill-quitar:hover { opacity: .6; }
+.pill-quitar:hover { background: var(--ap-tinte-2, var(--row-hover)); }
 
 /* ============================================================
    CALENDARIO
@@ -573,14 +593,14 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 .grid-head > div:first-child { border-right: 1px solid var(--rule); }
 .grid-head .is-today { background: var(--surface-2); }
 
-.dow { font-family: var(--mono); font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.dow { font-family: var(--mono); font-size: var(--fs-xs); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
 .dnum { font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
 .is-today .dow, .is-today .dnum { color: var(--ink); }
 
 .axis { border-right: 1px solid var(--rule); background: var(--paper); }
 .axis .t {
   height: var(--hour-h); position: relative;
-  font-family: var(--mono); font-size: 9.5px; color: var(--muted);
+  font-family: var(--mono); font-size: var(--fs-xs); color: var(--muted);
   text-align: right; padding-right: 7px;
 }
 .axis .t span { position: relative; top: -6px; }
@@ -639,7 +659,7 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 */
 .ev.es-equipo { background: var(--surface-2); }
 .ev-educador {
-  font-family: var(--mono); font-size: 9px; letter-spacing: .04em; color: var(--muted);
+  font-family: var(--mono); font-size: var(--fs-xs); letter-spacing: .04em; color: var(--muted);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
 }
 .ev-educador::before { content: '◦ '; }
@@ -650,7 +670,7 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 .ev.compacta .ev-hosp, .ev.compacta .ev-flags { display: none; }
 
 .ev-time {
-  font-family: var(--mono); font-size: 9.5px; color: var(--muted);
+  font-family: var(--mono); font-size: var(--fs-xs); color: var(--muted);
   font-variant-numeric: tabular-nums; flex: none;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   display: inline-flex; align-items: center; gap: 3px;
@@ -664,7 +684,7 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
   font-weight: 600; line-height: 1.25; letter-spacing: -.01em;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
 }
-.ev-hosp { font-size: 10.5px; color: var(--muted); line-height: 1.25; }
+.ev-hosp { font-size: var(--fs-xs); color: var(--muted); line-height: 1.25; }
 .ev-flags { margin-top: auto; display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
 /* Con 4+ columnas encimadas, el hospital y las banderas de estado dejan de caber sin
    partirse —se sacrifican primero, porque el título y la hora ya identifican la tarjeta por
@@ -672,7 +692,7 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 .ev.es-apretado .ev-hosp, .ev.es-apretado .ev-flags { display: none; }
 .ev-sectores { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 3px; }
 .ev-sectores span {
-  font-family: var(--mono); font-size: 8.5px; letter-spacing: .06em;
+  font-family: var(--mono); font-size: var(--fs-xs); letter-spacing: .06em;
   border: 1px solid var(--rule); border-radius: 3px; padding: 0 4px; color: var(--muted);
 }
 .dia .ev { padding: 7px 10px; }
@@ -708,14 +728,14 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 }
 .nowline .now-badge {
   position: absolute; right: 3px; top: -8px;
-  font-family: var(--mono); font-size: 9px; font-variant-numeric: tabular-nums;
+  font-family: var(--mono); font-size: var(--fs-xs); font-variant-numeric: tabular-nums;
   background: var(--ink); color: var(--paper); padding: 1px 4px; border-radius: 3px;
 }
 
 /* --- vista Mes --- */
 .mes { display: grid; grid-template-columns: repeat(7, 1fr); min-width: 640px; }
 .mes-h {
-  font-family: var(--mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase;
+  font-family: var(--mono); font-size: var(--fs-xs); letter-spacing: .12em; text-transform: uppercase;
   color: var(--muted); padding: 7px 8px; border-bottom: 1px solid var(--ink);
   position: sticky; top: 0; background: var(--surface); z-index: 3;
 }
@@ -735,23 +755,23 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 .mes-cell.finde, .mes-cell.otro-mes { background: var(--surface-2); }
 .mes-cell.otro-mes .mes-n { opacity: .4; }
 .mes-n {
-  font-family: var(--mono); font-size: 10px; font-variant-numeric: tabular-nums;
+  font-family: var(--mono); font-size: var(--fs-xs); font-variant-numeric: tabular-nums;
   width: 18px; height: 18px; display: grid; place-items: center; border-radius: 50%;
   color: var(--ink-2); flex: none;
 }
 .mes-cell.is-today .mes-n { background: var(--ink); color: var(--paper); }
 .mes-ev {
-  display: flex; align-items: center; gap: 4px; font-size: 10px;
+  display: flex; align-items: center; gap: 4px; font-size: var(--fs-xs);
   white-space: nowrap; overflow: hidden; background: none; border: 0; padding: 0;
   cursor: pointer; color: inherit; font-family: inherit; width: 100%;
 }
-.mes-ev .t { font-family: var(--mono); font-size: 9px; color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
+.mes-ev .t { font-family: var(--mono); font-size: var(--fs-xs); color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
 .mes-ev .c { overflow: hidden; text-overflow: ellipsis; }
 /* Del equipo, no propia: la celda es demasiado angosta para el nombre (ver Día/Semana), así
    que aquí se distingue en cursiva — sutil, pero legible sin robarle espacio al cliente. El
    nombre completo vive en el `title` para quien pase el cursor o mantenga el toque. */
 .mes-ev.es-equipo .c { font-style: italic; color: var(--ink-2); }
-.mes-more { font-family: var(--mono); font-size: 9px; color: var(--muted); padding-left: 10px; margin-top: auto; }
+.mes-more { font-family: var(--mono); font-size: var(--fs-xs); color: var(--muted); padding-left: 10px; margin-top: auto; }
 
 /* --- agenda móvil --- */
 .wkstrip {
@@ -763,7 +783,7 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
   background: none; border: 0; padding: 7px 0 8px; cursor: pointer;
   display: flex; flex-direction: column; align-items: center; gap: 3px;
 }
-.wkstrip .d { font-family: var(--mono); font-size: 9px; color: var(--muted); letter-spacing: .08em; }
+.wkstrip .d { font-family: var(--mono); font-size: var(--fs-xs); color: var(--muted); letter-spacing: .08em; }
 .wkstrip .n {
   font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--ink);
   width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%;
@@ -777,9 +797,9 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
   display: flex; justify-content: space-between; align-items: baseline;
   padding: 9px 14px 6px; border-bottom: 1px solid var(--rule);
 }
-.agenda-day .lbl { font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; }
+.agenda-day .lbl { font-family: var(--mono); font-size: var(--fs-xs); letter-spacing: .12em; text-transform: uppercase; }
 .agenda-day.es-hoy .lbl { color: var(--ink); }
-.agenda-day .cnt { font-family: var(--mono); font-size: 10px; color: var(--muted); }
+.agenda-day .cnt { font-family: var(--mono); font-size: var(--fs-xs); color: var(--muted); }
 .agenda-list { padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
 
 .arow {
@@ -789,7 +809,7 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
   cursor: pointer; text-align: left; font-family: inherit; color: inherit;
 }
 .arow:active { background: var(--surface-2); }
-.arow-time { font-family: var(--mono); font-size: 10.5px; font-variant-numeric: tabular-nums; line-height: 1.45; }
+.arow-time { font-family: var(--mono); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; line-height: 1.45; }
 .arow-time .end { color: var(--muted); }
 .arow-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .arow-client {
@@ -861,7 +881,7 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 
 .saving {
   display: inline-flex; align-items: center; gap: 6px;
-  font-family: var(--mono); font-size: 9.5px; letter-spacing: .08em;
+  font-family: var(--mono); font-size: var(--fs-xs); letter-spacing: .08em;
   text-transform: uppercase; color: var(--muted);
 }
 .saving .led {
@@ -904,13 +924,13 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
   margin-top: -6px; font-size: 11.5px; color: var(--ink-2); line-height: 1.4;
 }
 .subindice-zona .subindice-lbl {
-  font-family: var(--mono); font-size: 8.5px; letter-spacing: .11em;
+  font-family: var(--mono); font-size: var(--fs-xs); letter-spacing: .11em;
   text-transform: uppercase; color: var(--muted);
 }
 .subindice-zona .subindice-sep { color: var(--muted); }
 
 .historico-zona {
-  font-family: var(--mono); font-size: 10px; letter-spacing: .04em; color: var(--muted);
+  font-family: var(--mono); font-size: var(--fs-xs); letter-spacing: .04em; color: var(--muted);
 }
 
 /* ---------- campos ---------- */
@@ -918,7 +938,7 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 .campo { display: flex; flex-direction: column; gap: 5px; }
 .campo-head { display: flex; align-items: center; gap: 8px; }
 .campo-lbl {
-  font-family: var(--mono); font-size: 9.5px; letter-spacing: .11em;
+  font-family: var(--mono); font-size: var(--fs-xs); letter-spacing: .11em;
   text-transform: uppercase; color: var(--muted);
   display: flex; flex-direction: column; gap: 5px;
 }
@@ -991,7 +1011,7 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 .combo-opt mark { background: transparent; color: var(--ink); font-weight: 700; }
 .combo-foot {
   position: sticky; bottom: 0;
-  padding: 5px 10px; font-family: var(--mono); font-size: 9px; letter-spacing: .06em;
+  padding: 5px 10px; font-family: var(--mono); font-size: var(--fs-xs); letter-spacing: .06em;
   color: var(--muted); background: var(--surface-2); border-top: 1px solid var(--rule);
 }
 
@@ -1015,32 +1035,31 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 
 .sector-card-head { display: flex; align-items: center; gap: 8px; }
 .sector-card-nombre {
-  flex: 1; min-width: 0; font-size: 13.5px; font-weight: 600; letter-spacing: -.01em;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  flex: 1; min-width: 0; font-size: var(--fs-md); font-weight: 600; letter-spacing: -.01em;
+  overflow-wrap: anywhere;
 }
 
 .sector-card-cuerpo { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .sector-card-objetivo { font-size: 12px; color: var(--ink-2); line-height: 1.4; }
 .sector-card-origen {
-  font-size: 11px; color: var(--muted); line-height: 1.35;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: var(--fs-xs); color: var(--muted); line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .sector-card-meta {
   display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
   padding-top: 8px; border-top: 1px solid var(--rule-soft);
 }
-.sector-cuenta { font-family: var(--mono); font-size: 9.5px; color: var(--muted); }
+.sector-cuenta { font-family: var(--mono); font-size: var(--fs-xs); color: var(--muted); }
 .sector-fila-flecha { color: var(--muted); font-size: 16px; flex: none; line-height: 1; }
 
 /* Un dato que falta se dice, no se deja en blanco: el hueco no distingue "vacío" de "roto". */
 .es-vacio { color: var(--muted); font-style: italic; }
 
 /* Un dato que todavía no llegó del espejo es DISTINTO de uno que se sabe vacío: el primero
-   podría tener valor mañana y negarle énfasis invita a confundirlos. La cursiva del
-   `.es-vacio` se conserva, pero el color baja a `--rule-soft` para que se vea "esperando",
-   no "definitivamente no". */
-.dato-val.es-cargando { color: var(--rule-soft); font-style: italic; }
+   podría tener valor mañana y negarle énfasis invita a confundirlos. Se distingue por el
+   glifo («…» en vez de «—»), no por un color que no pase 4.5:1 (Readable Floor). */
+.dato-val.es-cargando { color: var(--muted); font-style: italic; }
 
 .agregar-sector { margin-top: 8px; }
 
@@ -1048,12 +1067,12 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 
 .reagendar {
   display: flex; flex-direction: column; gap: 11px;
-  border: 1px solid var(--ink); border-radius: 8px; padding: 12px; background: var(--surface-2);
+  border: 1px solid var(--ink); border-radius: var(--r-md); padding: 12px; background: var(--surface-2);
 }
 
 .drawer-head-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.drawer-sub { font-size: 12.5px; color: var(--ink-2); line-height: 1.35; }
-.drawer-cuando { font-size: 11px; color: var(--muted); text-transform: capitalize; }
+.drawer-sub { font-size: var(--fs-sm); color: var(--ink-2); line-height: 1.35; }
+.drawer-cuando { font-size: var(--fs-xs); color: var(--muted); text-transform: capitalize; }
 
 .aviso.es-cancelada {
   display: flex; align-items: center; gap: 8px;
@@ -1091,7 +1110,7 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 
 .act-n {
   background: var(--ink); color: var(--paper);
-  font-family: var(--mono); font-size: 9px; font-weight: 700;
+  font-family: var(--mono); font-size: var(--fs-xs); font-weight: 700;
   width: 17px; height: 17px; flex: none;
   display: grid; place-items: center; border-radius: 50%;
 }
@@ -1099,12 +1118,12 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 
 .act-fila-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .act-fila-titulo {
-  font-size: 12.5px; font-weight: 600; letter-spacing: -.01em;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: var(--fs-sm); font-weight: 600; letter-spacing: -.01em;
+  overflow-wrap: anywhere;
 }
 .act-fila-sub {
-  font-size: 11px; color: var(--muted); line-height: 1.35;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: var(--fs-xs); color: var(--muted); line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 .act-fila-meta { flex: none; display: flex; align-items: center; gap: 5px; }
 
@@ -1113,7 +1132,7 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 
 /* La regla se declara ANTES de que aparezcan los campos: el formulario no cambia por magia. */
 .regla {
-  font-family: var(--mono); font-size: 9px; letter-spacing: .07em;
+  font-family: var(--mono); font-size: var(--fs-xs); letter-spacing: .07em;
   color: var(--muted); background: var(--surface-2);
   border: 1px dashed var(--rule); border-radius: 6px; padding: 5px 8px;
 }
@@ -1172,9 +1191,11 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 .chip-quitable { display: inline-flex; align-items: center; gap: 5px; cursor: default; }
 .chip-quitar {
   border: 0; background: none; color: inherit; cursor: pointer;
-  font-size: 11px; line-height: 1; padding: 0; opacity: .6;
+  font-size: 11px; line-height: 1; padding: 0;
+  min-width: 24px; min-height: 24px; display: inline-grid; place-items: center;
+  border-radius: var(--r-sm);
 }
-.chip-quitar:hover { opacity: 1; }
+.chip-quitar:hover { background: var(--row-hover); }
 
 .separador { border: 0; border-top: 1px solid var(--rule-soft); margin: 14px 0; }
 .tabla-jerarquia { display: flex; flex-direction: column; }
@@ -1341,7 +1362,7 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 .marca { display: grid; grid-template-columns: 58px 1fr; gap: 2px 10px; align-items: baseline; }
 .marca + .marca { padding-top: 8px; border-top: 1px solid var(--rule); }
 .marca-lbl {
-  font-family: var(--mono); font-size: 9px; letter-spacing: .11em;
+  font-family: var(--mono); font-size: var(--fs-xs); letter-spacing: .11em;
   text-transform: uppercase; color: var(--muted);
 }
 .marca-hora { font-size: 12.5px; font-weight: 600; }
@@ -1361,18 +1382,18 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 }
 .historial-item { padding: 8px 10px; border-top: 1px solid var(--rule); }
 .historial-item p { font-size: 11px; line-height: 1.4; }
-.historial-item .mono { font-size: 10.5px; color: var(--ink); }
+.historial-item .mono { font-size: var(--fs-xs); color: var(--ink); }
 .historial-meta { color: var(--muted); margin-top: 2px; }
 
 /* ---------- estado del sector ---------- */
 
 .sector-estado {
-  font-family: var(--mono); font-size: 8.5px; letter-spacing: .08em; text-transform: uppercase;
+  font-family: var(--mono); font-size: var(--fs-xs); letter-spacing: .08em; text-transform: uppercase;
   border: 1px solid var(--rule); border-radius: 4px; padding: 1px 5px; color: var(--muted);
   white-space: nowrap;
 }
 .sector-estado.es-en-proceso { border-color: var(--ink); color: var(--ink); }
-.sector-estado.es-finalizado { border-color: var(--st-done); color: var(--st-done); background: var(--st-done-bg); }
+.sector-estado.es-finalizado { border-color: var(--st-done); color: color-mix(in srgb, var(--st-done) var(--st-mezcla), var(--ink)); background: var(--st-done-bg); }
 
 /* ---------- datos de solo lectura ---------- */
 
@@ -1385,13 +1406,13 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 }
 .dato { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .dato-lbl {
-  font-family: var(--mono); font-size: 8.5px; letter-spacing: .11em;
+  font-family: var(--mono); font-size: var(--fs-xs); letter-spacing: .11em;
   text-transform: uppercase; color: var(--muted);
 }
-.dato-val { font-size: 12.5px; line-height: 1.35; word-break: break-word; }
+.dato-val { font-size: var(--fs-sm); line-height: 1.35; word-break: break-word; }
 
 .panel-info {
-  border: 1px solid var(--rule); border-radius: 8px;
+  border: 1px solid var(--rule); border-radius: var(--r-md);
   padding: 12px; background: var(--surface-2);
 }
 
@@ -1409,11 +1430,11 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
   border-radius: 6px; padding: 8px 10px;
 }
 .sello.es-guardada {
-  color: var(--st-done); background: var(--st-done-bg);
+  color: color-mix(in srgb, var(--st-done) var(--st-mezcla), var(--ink)); background: var(--st-done-bg);
   border: 1px solid var(--st-done);
 }
 .sello.es-borrador {
-  font-family: var(--mono); font-size: 9px; letter-spacing: .09em;
+  font-family: var(--mono); font-size: var(--fs-xs); letter-spacing: .09em;
   color: var(--muted); background: var(--surface-2);
   border: 1px dashed var(--rule); padding: 5px 9px;
 }
@@ -1447,8 +1468,8 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
   background: var(--surface-2); margin-bottom: 6px;
 }
 .mat-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-.mat-nombre { font-size: 12.5px; font-weight: 600; line-height: 1.3; }
-.mat-meta { font-size: 10px; color: var(--muted); }
+.mat-nombre { font-size: var(--fs-sm); font-weight: 600; line-height: 1.3; }
+.mat-meta { font-size: var(--fs-xs); color: var(--muted); }
 
 .modal {
   position: absolute; inset: 0; z-index: 20;
@@ -1464,7 +1485,7 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 .modal-caja {
   width: min(440px, 100%); max-height: 100%;
   display: flex; flex-direction: column;
-  background: var(--surface); border: 1px solid var(--rule); border-radius: 12px;
+  background: var(--surface); border: 1px solid var(--rule); border-radius: var(--r-lg);
   box-shadow: var(--shadow-lg); overflow: hidden;
 }
 .modal-head {
@@ -1484,8 +1505,8 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
   Lo que falta para poder guardar, junto al botón que lo espera. Un botón deshabilitado sin
   explicación se lee como una app rota; con la lista al lado se lee como una instrucción.
 */
-.pista { font-size: 11px; line-height: 1.35; color: var(--st-miss); min-width: 0; }
-.pista.es-ok { color: var(--st-done); }
+.pista { font-size: var(--fs-xs); line-height: 1.35; color: var(--st-miss); min-width: 0; }
+.pista.es-ok { color: color-mix(in srgb, var(--st-done) var(--st-mezcla), var(--ink)); }
 
 .btn:disabled, .btn-principal:disabled {
   opacity: .4; cursor: not-allowed; filter: none;
@@ -1496,10 +1517,14 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
   background: var(--st-miss-bg); border-radius: var(--r-sm);
 }
 
+/* Pegado al borde inferior de la ventana: las acciones (guardar, finalizar, desarchivar) se ven sin
+   desplazar el contenido. El margen negativo cubre el padding del cuerpo para que no asome texto debajo. */
 .modal-foot {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-  margin-top: 4px; padding-top: 12px; border-top: 1px solid var(--rule);
+  position: sticky; bottom: 0; z-index: 1; background: var(--surface);
+  margin: 4px -14px -14px; padding: 12px 14px 14px; border-top: 1px solid var(--rule);
 }
+.modal-scroll ~ .modal-foot, .modal-caja > .modal-foot { margin: 0; flex: none; }
 
 /*
   Un solo botón principal por ventana, y siempre el que cierra el paso. Si hay dos que se ven
@@ -1541,7 +1566,7 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
   position: absolute; left: 50%; top: 14%; transform: translateX(-50%);
   width: min(560px, calc(100% - 32px)); max-height: 60vh;
   display: flex; flex-direction: column;
-  background: var(--surface); border: 1px solid var(--rule); border-radius: 12px;
+  background: var(--surface); border: 1px solid var(--rule); border-radius: var(--r-lg);
   box-shadow: var(--shadow-lg); overflow: hidden;
   animation: paleta-in .15s var(--ease);
 }
@@ -1551,7 +1576,9 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
   border: 0; border-bottom: 1px solid var(--rule); background: none;
   padding: 14px 16px; font-size: 14.5px; color: var(--ink); font-family: var(--sans);
 }
+/* Sin contorno global (el campo ocupa todo el ancho), pero el foco se ve: línea de tinta. */
 .paleta-inp:focus { outline: none; }
+.paleta-inp:focus-visible { box-shadow: inset 0 -2px 0 var(--ink); border-radius: 0; }
 .paleta-inp::placeholder { color: var(--muted); }
 
 .paleta-lista { overflow-y: auto; padding: 6px; }
@@ -1562,7 +1589,7 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 }
 .paleta-opt:hover, .paleta-opt.is-active { background: var(--surface-2); }
 .paleta-opt .t { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.paleta-opt .m { flex: none; font-size: 10.5px; color: var(--muted); }
+.paleta-opt .m { flex: none; font-size: var(--fs-xs); color: var(--muted); }
 .paleta-vacio { padding: 14px 10px; }
 
 /* ---------- panel de atajos (cuando la paleta está recién abierta) ----------
@@ -1583,7 +1610,7 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
     min-width: 18px; padding: 1px 6px;
     border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 4px;
     background: var(--surface); color: var(--ink);
-    font-size: 10.5px; font-weight: 600; text-align: center;
+    font-size: var(--fs-xs); font-weight: 600; text-align: center;
     line-height: 1.4;
 }
 
@@ -1724,7 +1751,7 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
    necesitar que cada tile sea un botón. */
 .tile:hover { border-color: var(--ink-2); box-shadow: var(--shadow); }
 .tile-lbl {
-  font-family: var(--mono); font-size: 8.5px; letter-spacing: .11em;
+  font-family: var(--mono); font-size: var(--fs-xs); letter-spacing: .11em;
   text-transform: uppercase; color: var(--muted);
 }
 /* El número es lo que se viene a leer: tabular-nums para que no baile al actualizarse. */
@@ -1732,7 +1759,7 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
   font-size: 26px; font-weight: 700; letter-spacing: -.03em; line-height: 1.1;
   font-variant-numeric: tabular-nums;
 }
-.tile-nota { font-size: 10.5px; color: var(--muted); line-height: 1.3; }
+.tile-nota { font-size: var(--fs-xs); color: var(--muted); line-height: 1.3; }
 
 /* Lista de visitas con deuda concreta, debajo de los tiles de "Pendientes": los números
    dicen cuánto falta, esto dice DE CUÁL — para no tener que abrir una por una a adivinar. */
@@ -1801,7 +1828,7 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 .dona-svg { flex: none; }
 .dona-total-n { font-size: 22px; font-weight: 700; fill: var(--ink); font-family: var(--sans); }
 .dona-total-lbl {
-  font-size: 9px; letter-spacing: .1em; text-transform: uppercase; fill: var(--muted);
+  font-size: var(--fs-xs); letter-spacing: .1em; text-transform: uppercase; fill: var(--muted);
   font-family: var(--mono);
 }
 
@@ -1825,7 +1852,7 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 }
 .dona-col { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .dona-subtitulo {
-  font-family: var(--mono); font-size: 9.5px; letter-spacing: .09em; text-transform: uppercase;
+  font-family: var(--mono); font-size: var(--fs-xs); letter-spacing: .09em; text-transform: uppercase;
   color: var(--muted); margin: 0;
 }
 .donas-fila .dona-wrap { gap: 12px; }
@@ -1901,7 +1928,7 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 }
 .coment-meta { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 .coment-autor { font-size: 11.5px; font-weight: 600; }
-.coment-fecha { font-size: 10px; color: var(--muted); }
+.coment-fecha { font-size: var(--fs-xs); color: var(--muted); }
 /* pre-wrap: los saltos de línea que escribió la persona son parte de lo que dijo. */
 .coment-txt {
   font-size: 12.5px; line-height: 1.45; color: var(--ink-2);
@@ -1933,7 +1960,7 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 .hilo-modal-caja {
   width: min(480px, 100%); max-height: min(640px, 90dvh);
   display: flex; flex-direction: column;
-  background: var(--surface); border: 1px solid var(--rule); border-radius: 12px;
+  background: var(--surface); border: 1px solid var(--rule); border-radius: var(--r-lg);
   box-shadow: var(--shadow-lg); overflow: hidden;
 }
 /* El redactor queda fijo abajo; solo la lista de comentarios hace scroll, para no perderlo de
@@ -1962,7 +1989,7 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 .evid-mini img, .evid-mini video { width: 100%; height: 100%; object-fit: cover; display: block; }
 .evid-mini-carga { font-size: 14px; color: var(--muted); }
 .evid-mini-doc {
-  font-family: var(--mono); font-size: 8.5px; letter-spacing: .08em;
+  font-family: var(--mono); font-size: var(--fs-xs); letter-spacing: .08em;
   text-transform: uppercase; color: var(--muted);
 }
 
@@ -1983,8 +2010,8 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
   padding: 10px 14px; border-bottom: 1px solid var(--rule);
 }
 .visor-titulo {
-  flex: 1; min-width: 0; font-size: 13px; font-weight: 600;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  flex: 1; min-width: 0; font-size: var(--fs-md); font-weight: 600;
+  overflow-wrap: anywhere;
 }
 .visor-acciones { display: flex; align-items: center; gap: 8px; flex: none; }
 .visor-cuerpo {
@@ -2002,7 +2029,7 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 /* ---------- administración: usuarios y jerarquía ---------- */
 
 .rol-pill {
-  font-family: var(--mono); font-size: 8.5px; letter-spacing: .08em;
+  font-family: var(--mono); font-size: var(--fs-xs); letter-spacing: .08em;
   text-transform: uppercase; color: var(--muted);
   border: 1px solid var(--rule); border-radius: 4px; padding: 1px 5px;
   white-space: nowrap;
@@ -2022,7 +2049,7 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 
 /* El contador va en la pestaña: es lo que decide por cuál flujo empezar. */
 .tab-badge {
-  font-family: var(--mono); font-size: 9px; font-weight: 700; line-height: 1;
+  font-family: var(--mono); font-size: var(--fs-xs); font-weight: 700; line-height: 1;
   min-width: 16px; padding: 2px 4px; border-radius: 999px;
   background: var(--st-part); color: #fff;
 }
@@ -2091,19 +2118,21 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
   border-bottom: 1px solid var(--rule-soft);
 }
 .tabla th {
-  font-family: var(--mono); font-size: 8.5px; letter-spacing: .09em; text-transform: uppercase;
+  font-family: var(--mono); font-size: var(--fs-xs); letter-spacing: .09em; text-transform: uppercase;
   color: var(--muted); font-weight: 600;
   position: sticky; top: 0; background: var(--surface);
 }
 .tabla td.num, .tabla th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .tabla tbody tr:hover { background: var(--row-hover); }
 .tabla tbody tr.fila-clicable { cursor: pointer; }
+.btn-celda { background: none; border: 0; padding: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.btn-celda:hover { text-decoration: underline; text-underline-offset: 3px; }
 .estrategia-linea { align-items: flex-start; }
 .tabla td:first-child {
-  max-width: 220px; overflow: hidden; text-overflow: ellipsis;
+  max-width: 220px; overflow-wrap: anywhere;
 }
 .tabla td.col-proyecto {
-  max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  max-width: 280px; overflow-wrap: anywhere;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -2142,7 +2171,7 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
     background: transparent;
     color: var(--muted);
     font: inherit;
-    font-size: 10.5px;
+    font-size: var(--fs-xs);
     line-height: 1.2;
     cursor: pointer;
     transition: background .12s, color .12s;
@@ -2186,8 +2215,8 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
     padding: 0 4px;
     border-radius: 8px;
     background: var(--st-part);
-    color: #fff;
-    font-size: 10px;
+    color: var(--on-st);
+    font-size: var(--fs-xs);
     font-weight: 700;
     line-height: 16px;
     text-align: center;
@@ -2205,9 +2234,6 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 @keyframes nave-badge-pulsa {
     0%, 100% { opacity: .55; }
     50%      { opacity: 1; }
-}
-@media (prefers-reduced-motion: reduce) {
-    .nav-badge.is-cargando { animation: none; opacity: .7; }
 }
 
 .vista-host {
@@ -2356,7 +2382,6 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 .esqueleto-fila.es-titulo { height: 22px; width: 40%; }
 .esqueleto-fila:nth-child(3n) { width: 85%; }
 @keyframes esqueleto-brillo { from { background-position: 200% 0; } to { background-position: -200% 0; } }
-@media (prefers-reduced-motion: reduce) { .esqueleto-fila { animation: none; } }
 
 /* Encabezado de vista: título + descripción a la izquierda, acciones a la derecha. */
 .vista-encabezado {
@@ -2390,7 +2415,6 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 }
 .gate-paso[hidden] { display: none; }
 @keyframes gate-giro { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .gate-paso::before { animation: none; } }
 
 /* Bandeja de evidencias */
 .evid-progreso { display: flex; align-items: center; gap: 10px; margin: 8px 0; font-size: 13px; color: var(--muted); }
@@ -2434,8 +2458,8 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 .dialogo-raiz { position: fixed; inset: 0; z-index: 56; }
 .modal-caja.es-fecha { width: min(420px, 100%); }
 .dialogo-aviso {
-  margin: 0; padding: 10px 12px; font-size: 12.5px; line-height: 1.45; color: var(--ink);
-  background: var(--st-miss-bg); border-left: 3px solid var(--st-miss); border-radius: var(--r-sm);
+  margin: 0; padding: 10px 12px; font-size: var(--fs-sm); line-height: 1.45; color: var(--ink);
+  background: var(--st-miss-bg); border: 1px solid var(--st-miss); border-radius: var(--r-sm);
 }
 .evid-fecha-falta.es-alerta {
   flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px 12px; width: 100%;
@@ -2458,7 +2482,7 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
   transition: border-color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
 }
 .tarjeta-cliente:hover { border-color: var(--ink); }
-.tarjeta-cliente:focus-visible { outline: 2px solid var(--st-part); outline-offset: 2px; }
+.tarjeta-cliente:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; box-shadow: 0 0 0 4px var(--focus-halo); }
 .tarjeta-cliente-cab { display: flex; flex-direction: column; gap: 2px; }
 .tarjeta-cliente-cifras { display: flex; flex-wrap: wrap; gap: 6px 14px; color: var(--ink-2); font-size: 13px; }
 .tarjeta-cliente-pie { margin-top: auto; display: flex; justify-content: flex-end; }
@@ -2472,6 +2496,29 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 .confirmar-inline { display: inline-flex; align-items: center; gap: 6px; }
 .fila-clicable { cursor: pointer; }
 .es-archivada { opacity: .55; }
+/* Activas y archivadas: dos bloques con encabezado propio; las archivadas quedan atenuadas y separadas. */
+.grupo-estrategias { display: flex; flex-direction: column; gap: 6px; }
+.grupo-estrategias + .grupo-estrategias { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--rule); }
+.grupo-estrategias-head { display: flex; align-items: center; gap: 8px; }
+/* Una estrategia por fila, sin tabla: el texto se ajusta (nunca se corta ni obliga a scroll lateral)
+   y Finalizar/Cerrar quedan siempre a la vista, en la misma línea que el título. */
+.lista-estrategias { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+.fila-estrategia {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-3);
+  padding: var(--sp-3); border: 1px solid var(--rule); border-radius: var(--r-md); background: var(--surface);
+}
+.fila-estrategia:hover { background: var(--surface-2); }
+.fila-estrategia.es-archivada { opacity: 1; background: var(--surface-2); }
+.fila-estrategia-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-1); }
+.fila-estrategia-titulo, .fila-estrategia-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-2); }
+.fila-estrategia-titulo b { font-size: var(--fs-md); overflow-wrap: anywhere; }
+.fila-estrategia-desc { font-size: var(--fs-sm); color: var(--ink-2); line-height: 1.4; overflow-wrap: anywhere; }
+.fila-estrategia-meta { font-size: var(--fs-xs); color: var(--muted); }
+.fila-estrategia-acciones { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--sp-1); flex: none; }
+@media (max-width: 560px) {
+  .fila-estrategia { flex-direction: column; }
+  .fila-estrategia-acciones { justify-content: flex-start; }
+}
 .pill.es-archivado { text-decoration: line-through; opacity: .6; }
 .filtro-check { display: flex; align-items: center; gap: 6px; }
 .panel-avance { padding: 12px; border: 1px solid var(--rule); border-radius: var(--r-md); background: var(--surface-2); }
@@ -2521,3 +2568,127 @@ button.tarjeta-sector-cab { cursor: pointer; }
   white-space: normal; text-align: left; pointer-events: none; box-shadow: 0 4px 14px rgba(0, 0, 0, .25);
 }
 .linea-tiempo .pill.es-cambio { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+
+/* ---------- Fase 4: cliente siempre visible ---------- */
+/* Fuera del área que se desplaza (junto al encabezado de la ventana): en un formulario largo el
+   cliente no se va de pantalla, y se lee de lejos — número y razón social en grande. */
+.cliente-fijo {
+  flex: none; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px;
+  padding: 10px 14px; background: var(--surface-2);
+  border-bottom: 1px solid var(--rule); border-left: 4px solid var(--ink);
+}
+.cliente-fijo-num { font-family: var(--mono); font-size: 13px; color: var(--muted); letter-spacing: .02em; }
+.cliente-fijo-nombre { font-size: 18px; font-weight: 700; line-height: 1.2; letter-spacing: -.01em; min-width: 0; overflow-wrap: anywhere; }
+.cliente-fijo-meta { flex: 1 1 100%; font-size: 12px; color: var(--muted); }
+
+/* ---------- Fase 4: la selección se distingue ---------- */
+/* Antes lo seleccionado solo cambiaba de color (tinta/papel): con el tema claro y el estilo
+   Apple, o para quien no distingue bien el contraste, un chip "activo" y uno "normal" se
+   parecían. Ahora además lleva una marca (✓) y peso: se reconoce sin depender del color. */
+.chip.on::before { content: "✓ "; font-weight: 700; }
+.chip.on { font-weight: 600; box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--ink); }
+.seg button[aria-pressed="true"],
+.seg[role="tablist"] button[aria-selected="true"] {
+  font-weight: 700; box-shadow: inset 0 -3px 0 var(--paper);
+}
+.seg button[aria-pressed="false"]:not(:hover),
+.seg[role="tablist"] button[aria-selected="false"]:not(:hover) { opacity: .85; }
+
+/* Filtro por periodo */
+.filtro-periodo { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 14px; margin-bottom: 8px; }
+
+/* ---------- Fase 4: móvil y fluidez ---------- */
+/* Listas largas (la cola de revisión, el histórico): el navegador no pinta ni calcula lo que
+   está fuera de pantalla. `contain-intrinsic-size` evita que el scroll salte. */
+.revision-card { content-visibility: auto; contain-intrinsic-size: auto 260px; }
+
+@media (max-width: 720px) {
+  /* Zonas táctiles de al menos 44px en lo que se toca todo el día. */
+  .chip { padding: 9px 14px; font-size: 13px; min-height: 40px; }
+  .seg button { padding-top: 11px; padding-bottom: 11px; min-height: 44px; }
+  .btn-txt, .btn { min-height: 44px; }
+  .revision-botones { display: flex; flex-wrap: wrap; gap: 8px; }
+  .revision-botones > * { flex: 1 1 140px; }
+  .filtro-periodo .chips { flex-wrap: nowrap; overflow-x: auto; max-width: 100%; scrollbar-width: none; padding-bottom: 2px; }
+  .filtro-periodo .chip { flex: none; }
+  .cliente-fijo-nombre { font-size: 17px; }
+  /* Ninguna ventana se sale de la pantalla ni obliga a desplazarse de lado. */
+  .modal-caja { max-width: 100%; }
+  .modal-body, .modal-scroll { overflow-x: hidden; }
+}
+
+/* ---------- Fase 4b: auditoría UI/UX ---------- */
+/* El selector de mes ocupaba todo el ancho de la fila: es un control corto. */
+.filtro-periodo .filtro { flex: 0 0 190px; min-width: 150px; }
+
+/* Revisión: antes cinco bloques apilados (periodo, fechas, pestañas, agrupar, educador) empujaban la
+   primera tarjeta fuera de la pantalla. Los filtros ahora se acomodan en filas compactas. */
+.vista-revision .filtros,
+.vista-revision .filtros-cal { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 14px; padding: 8px 12px; margin-bottom: 8px; }
+.vista-revision .filtros .filtro,
+.vista-revision .filtros-cal .filtro { flex: 0 1 190px; min-width: 140px; }
+.vista-revision .revision-agrupar { margin-bottom: 6px; }
+
+/* «Qué se revisa»: era un fieldset con borde pesado y «Cumple / No cumple» parecía texto suelto.
+   Ahora cada criterio es una fila con dos botones que se ven como botones, y el elegido se llena. */
+.revision-criterios { border: 0; padding: 0; margin: 0; min-width: 0; display: flex; flex-direction: column; }
+.revision-criterios legend { padding: 0; margin-bottom: 4px; }
+.revision-criterio { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; padding: 6px 0; border-bottom: 1px solid var(--rule); }
+.revision-criterio:last-child { border-bottom: 0; }
+.revision-criterio-txt { flex: 1 1 160px; min-width: 0; }
+.revision-criterio button {
+  border: 1px solid var(--rule); border-radius: 999px; background: transparent; color: var(--ink-2);
+  padding: 4px 14px; min-height: 32px; cursor: pointer; font-size: 12.5px;
+  transition: background-color .15s var(--ease), color .15s var(--ease), border-color .15s var(--ease);
+}
+.revision-criterio button:hover { border-color: var(--ink); color: var(--ink); }
+.revision-criterio button[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); font-weight: 600; }
+.revision-criterio button.peligro[aria-pressed="true"] { background: var(--st-miss); border-color: var(--st-miss); color: var(--on-st); }
+@media (max-width: 720px) { .revision-criterio button { min-height: 40px; padding: 6px 16px; } }
+
+/* Tablas que se muestran por tandas */
+.tabla-mas { display: flex; justify-content: center; padding: 12px 0 4px; }
+
+/* Revisión en pantallas anchas: la columna de 860px dejaba la mitad del monitor vacía. Dos columnas
+   de tarjetas aprovechan el espacio y se ven más pendientes sin hacer scroll. No afecta al móvil. */
+@media (min-width: 1200px) {
+  .vista-revision .panel-body { max-width: min(1500px, 100%); }
+  .vista-revision .revision-lista { display: grid; grid-template-columns: repeat(auto-fill, minmax(520px, 1fr)); align-items: start; gap: 14px; }
+}
+
+/* ---------- Administración: barra de guardado y campos ---------- */
+/* Lo enfocado o desplazado al fondo no debe quedar bajo la barra flotante. */
+html { scroll-padding-bottom: 96px; }
+
+/* Sin cambios no hay nada urgente que ofrecer: la barra va en el flujo normal, al final del
+   contenido, sin banda de fondo ni encima de nada. */
+.vista-foot.es-limpio {
+  position: static; background: transparent; border-top: 1px solid var(--rule);
+  padding: 10px 0;
+}
+
+/* Con cambios sí se queda a la vista, pero como una tarjeta flotante alineada con el contenido
+   (antes era una franja negra de borde a borde, visible aun sin cambios, que tapaba lo de abajo). */
+.vista-foot.hay-cambios {
+  position: sticky; bottom: 12px; z-index: 5;
+  max-width: 860px; box-sizing: border-box;
+  padding: 10px 14px; margin-top: 18px;
+  background: var(--surface); border: 1px solid var(--ink); border-radius: 10px;
+  box-shadow: var(--shadow-lg);
+  flex-wrap: wrap;
+}
+
+/* Un campo de texto largo (p. ej. la descripción de un flujo) usa el ancho disponible en vez de
+   quedarse en 320px y cortar el texto. */
+.campo-fila.es-ancha { flex-direction: column; align-items: stretch; gap: 4px; }
+.campo-fila.es-ancha .inp { width: 100%; max-width: none; }
+
+/* Dentro de una ficha de Administración las filas de campos se parten en vez de apretarse:
+   tres cajas de texto + un botón en 390px dejaban cada una con ~80px y el texto cortado. */
+.tipo-cuerpo .admin-fila { flex-wrap: wrap; }
+.tipo-cuerpo .admin-fila .inp { flex: 1 1 140px; min-width: 120px; }
+.tipo-cuerpo .admin-fila .icon-btn { flex: none; }
+@media (max-width: 720px) {
+  .vista-foot.hay-cambios { max-width: none; bottom: 8px; }
+  .vista-foot .btn, .vista-foot .btn-txt { min-height: 44px; }
+}

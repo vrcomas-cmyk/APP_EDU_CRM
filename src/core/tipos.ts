@@ -460,10 +460,41 @@ export interface FlujoRevision {
      * el caso de todos los flujos que ya existen en la base.
      */
     resultados?: ResultadoFlujo[];
+    /** Qué se mira en este flujo. Si falta, se usan los de `CRITERIOS_POR_FLUJO`. */
+    criterios?: CriterioRevision[];
+}
+
+/** Una petición de eliminar una evidencia ya subida; la autoriza el jefe a cargo. */
+export interface SolicitudEliminacion {
+    id: string;
+    id_actividad: string;
+    id_visita?: string;
+    nombre_archivo?: string | null;
+    cliente?: string | null;
+    solicitante_correo: string;
+    solicitante?: string | null;
+    motivo: string;
+    estado: 'pendiente' | 'aprobada' | 'rechazada';
+    resuelto_por?: string | null;
+    nota?: string | null;
+    creado_en: string;
+    resuelto_en?: string | null;
+    /** Le toca decidir a quien la ve (la tiene a cargo, o es administrador; nunca quien la pidió). */
+    puedo_resolver: boolean;
+}
+
+/** Un punto concreto que se juzga en una revisión (Actividad, Evidencia, Puntualidad…). */
+export interface CriterioRevision {
+    clave: string;
+    etiqueta?: string;
+    /** `true` cumple, `false` no cumple. Sin marcar no se guarda. */
+    ok?: boolean;
 }
 
 export interface Revision {
     id: string;
+    /** Lo que el revisor marcó criterio por criterio, si el flujo los tiene. */
+    criterios?: CriterioRevision[];
     flujo: string;
     ambito: 'visita' | 'actividad';
     id_ambito: string;
@@ -833,6 +864,11 @@ export interface FlujoAdmin {
     activo: boolean;
     orden: number;
     resultados: ResultadoFlujo[] | null;
+    /**
+     * Qué se revisa en este flujo (Actividad, Evidencia, Puntualidad…). `null` = los de siempre
+     * (`CRITERIOS_POR_FLUJO`); una lista —incluso vacía— es la que quedó configurada.
+     */
+    criterios: CriterioRevision[] | null;
     /** Cuántas revisiones ya se guardaron con este flujo: si es más de cero, no se borra. */
     revisiones: number;
 }

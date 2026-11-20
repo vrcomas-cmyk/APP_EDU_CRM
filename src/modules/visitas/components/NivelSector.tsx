@@ -15,6 +15,7 @@ import {
 import type { Visita, Sector, Actividad } from '@core/tipos';
 import { Dato } from '@shared/components/Dato';
 import { NodoVanilla } from '@shared/components/NodoVanilla';
+import { Icono } from '@shared/components/Icono';
 
 interface Props {
     visita: Visita;
@@ -40,7 +41,7 @@ export function CabeceraSector({ visita, sector, onVolver, onCerrar }: {
                 <p className="drawer-sub">{visita.hospital || 'Sin hospital'} · {visita.hora_inicio}</p>
                 <span className={`sector-estado es-${estado}`}>{etiquetaSector(estado)}</span>
             </div>
-            <button type="button" className="icon-btn" aria-label="Cerrar" onClick={onCerrar}>✕</button>
+            <button type="button" className="icon-btn" aria-label="Cerrar" onClick={onCerrar}><Icono clave="cerrar" tam={14} /></button>
         </div>
     );
 }

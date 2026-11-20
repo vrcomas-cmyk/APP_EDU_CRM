@@ -7,6 +7,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { CabeceraCliente } from './CabeceraCliente';
 import {
     estaGuardada, sesionActual, describirDispositivo, registrar, TIPOS_EVENTO, type Avisar
 } from '@core/puente';
@@ -17,6 +18,7 @@ import { FormularioActividad } from './FormularioActividad';
 import { ActividadSellada } from './ActividadSellada';
 import * as repo from '@modules/visitas/repository/visitasRepo';
 import type { Actividad, Visita, Sector } from '@core/tipos';
+import { Icono } from '@shared/components/Icono';
 
 export interface PropsVentana {
     visitaId: string;
@@ -42,6 +44,8 @@ export function VentanaActividad({
     // foco del campo que se está escribiendo.
     const [, setVersion] = useState(0);
     const [errores, setErrores] = useState<Record<string, string>>({});
+    // Descartar pide un segundo toque en línea: `confirm()` no se muestra en la app instalada.
+    const [confirmandoDescarte, setConfirmandoDescarte] = useState(false);
     const cajaRef = useRef<HTMLDivElement>(null);
 
     const leer = useCallback(() => {
@@ -162,8 +166,10 @@ export function VentanaActividad({
 
     function descartar() {
         const { actividad: act } = leer();
-        if (act && !estaVacia(act)
-            && !confirm('¿Descartar esta actividad? Lo capturado se pierde.')) return;
+        if (act && !estaVacia(act) && !confirmandoDescarte) {
+            setConfirmandoDescarte(true);
+            return;
+        }
 
         eliminar();
         onCerrar();
@@ -187,8 +193,10 @@ export function VentanaActividad({
                         <h3>{sellada ? 'Actividad registrada' : 'Registrar actividad'}</h3>
                         <span className="eyebrow">{sector.nombre}</span>
                     </div>
-                    <button type="button" className="icon-btn" aria-label="Cerrar" onClick={cerrar}>✕</button>
+                    <button type="button" className="icon-btn" aria-label="Cerrar" onClick={cerrar}><Icono clave="cerrar" tam={14} /></button>
                 </div>
+
+                <CabeceraCliente visita={visita} sector={sector.nombre} />
 
                 {sellada ? (
                     <ActividadSellada
@@ -222,8 +230,13 @@ export function VentanaActividad({
                         <div className="modal-foot">
                             <span className="sello es-borrador">BORRADOR · sin guardar</span>
                             <span style={{ flex: 1 }} />
+                            {confirmandoDescarte && (
+                                <button type="button" className="btn-txt" onClick={() => setConfirmandoDescarte(false)}>
+                                    Conservar
+                                </button>
+                            )}
                             <button type="button" className="btn-txt peligro" onClick={descartar}>
-                                Descartar
+                                {confirmandoDescarte ? 'Sí, descartar (se pierde lo capturado)' : 'Descartar'}
                             </button>
                             <button type="button" className="btn btn-principal" onClick={intentarGuardar}>
                                 Guardar actividad

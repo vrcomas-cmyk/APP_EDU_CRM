@@ -8,7 +8,7 @@
 import {
     comentariosDeVisita, historialDe, miniaturaEvidencia, minutosDeRetraso, fechaCorta
 } from '@core/puente';
-import type { FlujoRevision, PendienteRevision } from '@core/tipos';
+import type { CriterioRevision, FlujoRevision, PendienteRevision } from '@core/tipos';
 import { Dato } from '@shared/components/Dato';
 import { NodoVanilla } from '@shared/components/NodoVanilla';
 
@@ -20,7 +20,7 @@ import { ComentariosDeVisita, HistorialRevisiones } from './LoYaDicho';
 interface Props {
     flujo: FlujoRevision;
     item: PendienteRevision;
-    onEnviar: (resultado: string, observaciones: string) => string | null;
+    onEnviar: (resultado: string, observaciones: string, criterios?: CriterioRevision[]) => string | null;
 }
 
 export function TarjetaPendiente({ flujo, item, onEnviar }: Props) {
@@ -69,7 +69,7 @@ export function TarjetaPendiente({ flujo, item, onEnviar }: Props) {
  * una visita, cuánto duró y cuánto abarcó. Mostrar los seis campos siempre dejaría la mitad
  * vacíos, y una tarjeta medio vacía se lee peor que una corta.
  */
-function Contexto({ flujo, item }: { flujo: FlujoRevision; item: PendienteRevision }) {
+export function Contexto({ flujo, item }: { flujo: FlujoRevision; item: PendienteRevision }) {
     const v = item.visita;
 
     return (

@@ -315,12 +315,46 @@ describe('la pantalla', () => {
 
         assert.ok(screen.getByText('Hay cambios sin guardar.'));
 
+        // Se confirma en la propia barra (no con `confirm()`, que no se muestra en la app instalada).
         await act(async () => { fireEvent.click(screen.getByText('Descartar')); });
+        assert.ok(screen.getByText('¿Descartar los cambios sin guardar?'));
+        await act(async () => { fireEvent.click(screen.getByText('Sí, descartar')); });
 
         assert.ok(screen.getByText('Sin cambios.'));
         assert.equal(
             (document.querySelector('.admin-fila input[type="text"]') as HTMLInputElement).value,
             'Ana López');
+    });
+
+    test('«Conservar» cancela el descarte y deja los cambios', async () => {
+        guardarCatalogo(catalogoSano());
+        pintar();
+        fireEvent.click(screen.getByText('Equipo'));
+
+        const nombre = document.querySelector('.admin-fila input[type="text"]') as HTMLInputElement;
+        await act(async () => { fireEvent.change(nombre, { target: { value: 'Ana Cambiada' } }); });
+
+        await act(async () => { fireEvent.click(screen.getByText('Descartar')); });
+        await act(async () => { fireEvent.click(screen.getByText('Conservar')); });
+
+        assert.ok(screen.getByText('Hay cambios sin guardar.'), 'sigue habiendo cambios');
+        assert.equal(
+            (document.querySelector('.admin-fila input[type="text"]') as HTMLInputElement).value,
+            'Ana Cambiada');
+    });
+
+    test('la barra solo es flotante cuando hay cambios', async () => {
+        guardarCatalogo(catalogoSano());
+        pintar();
+        fireEvent.click(screen.getByText('Equipo'));
+
+        assert.ok(document.querySelector('.vista-foot.es-limpio'), 'sin cambios: en el flujo normal');
+        assert.equal(document.querySelector('.vista-foot.hay-cambios'), null);
+
+        const nombre = document.querySelector('.admin-fila input[type="text"]') as HTMLInputElement;
+        await act(async () => { fireEvent.change(nombre, { target: { value: 'Ana Cambiada' } }); });
+
+        assert.ok(document.querySelector('.vista-foot.hay-cambios'), 'con cambios: flotante');
     });
 
     test('agregar a una lista con Enter, y quitar con la ✕', async () => {

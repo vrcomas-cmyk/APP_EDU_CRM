@@ -39,6 +39,7 @@ import { faltaEnEstrategia } from '../validators/requisitos';
 import { rotuloEn, esVisibleEn } from '@shared/services/campos';
 import { Esqueleto } from '@shared/components/Esqueleto';
 import { EstadoVacio } from '@shared/components/EstadoVacio';
+import { Icono } from '@shared/components/Icono';
 
 export function Estrategias({ avisar }: { avisar?: Avisar }) {
     const [version, setVersion] = useState(0);
@@ -394,6 +395,7 @@ export function Estrategias({ avisar }: { avisar?: Avisar }) {
                     estrategias={estrategias.filter(e => e.cliente === detalleCliente)}
                     visitas={visitas}
                     avancePorEstrategia={avancePorEstrategia}
+                    verArchivadasInicial={fArchivadas}
                     onCerrar={() => setDetalleCliente(null)}
                     onAbrirEstrategia={(id) => setDetalleEstrategia(id)}
                     onGenerarVisita={() => setGenerando(detalleCliente)}
@@ -424,35 +426,6 @@ export function Estrategias({ avisar }: { avisar?: Avisar }) {
                 />
             )}
         </div>
-    );
-}
-
-/** Pide confirmación en línea (sin `confirm()` del navegador, que bloquea la página). */
-function BotonConfirmar({ etiqueta, pregunta, onConfirmar, clase = 'btn-txt' }: {
-    etiqueta: string;
-    pregunta: string;
-    onConfirmar: () => void;
-    clase?: string;
-}) {
-    const [pidiendo, setPidiendo] = useState(false);
-    if (!pidiendo) {
-        return (
-            <button
-                type="button" className={clase}
-                onClick={(ev) => { ev.stopPropagation(); setPidiendo(true); }}
-            >
-                {etiqueta}
-            </button>
-        );
-    }
-    return (
-        <span className="confirmar-inline" onClick={(ev) => ev.stopPropagation()}>
-            <span className="ayuda">{pregunta}</span>
-            <button type="button" className="btn-txt peligro" onClick={() => { setPidiendo(false); onConfirmar(); }}>
-                Sí
-            </button>
-            <button type="button" className="btn-txt" onClick={() => setPidiendo(false)}>No</button>
-        </span>
     );
 }
 
@@ -504,8 +477,9 @@ function TarjetaCliente({ cliente, visibles, todas, visitas, onAbrir, onGenerarV
             </div>
             <div className="tarjeta-cliente-cifras">
                 <span><b className="mono">{sectoresN}</b> sector{sectoresN === 1 ? '' : 'es'}</span>
-                <span><b className="mono">{todas.length - archivadas}</b> estrategia{todas.length - archivadas === 1 ? '' : 's'}</span>
+                <span><b className="mono">{todas.length - archivadas}</b> vigente{todas.length - archivadas === 1 ? '' : 's'}</span>
                 {archivadas > 0 && <span><b className="mono">{archivadas}</b> archivada{archivadas === 1 ? '' : 's'}</span>}
+                {archivadas > 0 && archivadas === todas.length && <span className="pill neutro">Todas archivadas</span>}
                 <span title="Suma de todas sus estrategias, archivadas o no">
                     <b className="mono">{totalActividades}</b> actividad{totalActividades === 1 ? '' : 'es'}
                 </span>
@@ -529,10 +503,12 @@ function TarjetaCliente({ cliente, visibles, todas, visitas, onAbrir, onGenerarV
 
 /** Desglose completo de un cliente: sectores, estrategias, actividades y visitas. */
 function DetalleCliente({
-    cliente, estrategias, visitas, avancePorEstrategia,
+    cliente, estrategias, visitas, avancePorEstrategia, verArchivadasInicial,
     onCerrar, onAbrirEstrategia, onGenerarVisita, onArchivar, onTerminar
 }: {
     cliente: string;
+    /** Parte del interruptor "Mostrar archivadas" de la pantalla principal. */
+    verArchivadasInicial: boolean;
     estrategias: Estrategia[];
     visitas: Visita[];
     avancePorEstrategia: Map<string, { visitas: number; ultima: string }>;
@@ -552,14 +528,17 @@ function DetalleCliente({
         poner(c);
     };
 
+    // Por defecto solo lo activo; las archivadas (finalizadas/cerradas) se piden con el interruptor.
+    const [verArchivadas, setVerArchivadas] = useState(verArchivadasInicial);
     const sectoresDelCliente = useMemo(() => {
         const mapa = new Map<string, Estrategia[]>();
         for (const e of estrategias) {
+            if (e.archivada && !verArchivadas) continue;
             const clave = e.sector || 'Sin sector';
             mapa.set(clave, [...(mapa.get(clave) || []), e]);
         }
         return [...mapa.entries()];
-    }, [estrategias]);
+    }, [estrategias, verArchivadas]);
 
     const totalActividades = useMemo(
         () => actividadesDelCliente(visitas, cliente, estrategias), [visitas, cliente, estrategias]
@@ -596,7 +575,7 @@ function DetalleCliente({
                             {totalActividades} actividad{totalActividades === 1 ? '' : 'es'} · {visitasVinculadas.length} visita{visitasVinculadas.length === 1 ? '' : 's'}
                         </span>
                     </div>
-                    <button type="button" className="icon-btn" aria-label="Cerrar" onClick={onCerrar}>✕</button>
+                    <button type="button" className="icon-btn" aria-label="Cerrar" onClick={onCerrar}><Icono clave="cerrar" tam={14} /></button>
                 </div>
 
                 <div className="modal-body">
@@ -611,6 +590,14 @@ function DetalleCliente({
                     <div className="acciones-detalle">
                         <button type="button" className="btn" onClick={onGenerarVisita}>Generar visita</button>
                         <span style={{ flex: 1 }} />
+                        {estrategias.length > activas.length && (
+                            <label className="filtro-check">
+                                <input type="checkbox" checked={verArchivadas} onChange={(ev) => setVerArchivadas(ev.target.checked)} />
+                                <span className="campo-lbl">
+                                    Mostrar archivadas ({estrategias.length - activas.length})
+                                </span>
+                            </label>
+                        )}
                         {activas.length === 0 && estrategias.length > 0 && (
                             <button type="button" className="btn-txt" onClick={() => onArchivar(estrategias.map(e => e.id), false)}>
                                 Desarchivar cliente
@@ -618,10 +605,30 @@ function DetalleCliente({
                         )}
                     </div>
 
-                    {sectoresDelCliente.map(([sector, filas]) => {
+                    {/* Dos bloques de arriba abajo: primero TODO lo vigente (de todos los sectores), después
+                        TODO lo archivado. Un sector con ambas cosas aparece en los dos, solo con lo suyo. */}
+                    {(['activas', 'archivadas'] as const).map(modo => {
+                    const delModo = (e: Estrategia) => (modo === 'archivadas') === !!e.archivada;
+                    const sectoresModo = sectoresDelCliente.filter(([, f]) => f.some(delModo));
+                    if (sectoresModo.length === 0) return null;
+                    const cuentaModo = sectoresModo.reduce((n, [, f]) => n + f.filter(delModo).length, 0);
+                    return (
+                    <div className={'grupo-estrategias es-' + modo} key={modo}>
+                    <div className="grupo-estrategias-head">
+                        <span className="campo-lbl">{modo === 'activas' ? 'Vigentes' : 'Archivadas'}</span>
+                        <span className="pill neutro">{cuentaModo}</span>
+                        <span className="ayuda">
+                            {modo === 'activas' ? 'En seguimiento' : 'Finalizadas, cerradas o archivadas'}
+                        </span>
+                    </div>
+                    {sectoresModo.map(([sector, filas]) => {
                         const actividades = actividadesDeSector(visitas, cliente, sector, filas);
                         const abiertoSector = sectoresAbiertos.has(sector);
                         const activasSector = filas.filter(e => !e.archivada);
+                        const archivadasSector = filas.filter(e => e.archivada);
+                        // Actividades y visitas del sector se muestran una sola vez: en Vigentes, o en
+                        // Archivadas si el sector ya no tiene nada vigente.
+                        const completo = modo === 'activas' || activasSector.length === 0;
                         const idsSector = new Set(filas.map(e => e.id));
                         const visitasSector = visitasVinculadas.filter(v =>
                             idsEstrategiasDe(v).some(id => idsSector.has(id)) &&
@@ -630,17 +637,24 @@ function DetalleCliente({
                         return (
                             <section className="ficha-sector" key={sector}>
                                 <div className="admin-fila">
-                                    <button
-                                        type="button" className="btn-txt campo-lbl" aria-expanded={abiertoSector}
-                                        onClick={() => alternar(sectoresAbiertos, setSectoresAbiertos, sector)}
-                                    >
-                                        {abiertoSector ? '▾' : '▸'} {sector} · {filas.length}{' '}
-                                        <span className="pill neutro" title="Actividades ejecutadas en este sector (incluye archivadas)">
-                                            {actividades.length} actividad{actividades.length === 1 ? '' : 'es'}
-                                        </span>
-                                    </button>
+                                    {completo ? (
+                                        <button
+                                            type="button" className="btn-txt campo-lbl" aria-expanded={abiertoSector}
+                                            onClick={() => alternar(sectoresAbiertos, setSectoresAbiertos, sector)}
+                                        >
+                                            {abiertoSector ? '▾' : '▸'} {sector} · {filas.filter(delModo).length}{' '}
+                                            <span className="pill neutro" title="Actividades ejecutadas en este sector (incluye archivadas)">
+                                                {actividades.length} actividad{actividades.length === 1 ? '' : 'es'}
+                                            </span>
+                                        </button>
+                                    ) : (
+                                        <span className="campo-lbl">{sector} · {filas.filter(delModo).length}</span>
+                                    )}
                                     <span style={{ flex: 1 }} />
-                                    {activasSector.length > 0 && (
+                                    {/* Con grupo de artículo o material, Finalizar/Cerrar va por estrategia (en su fila):
+                                        el botón del sector se confundiría con el de una fila concreta. */}
+                                    {modo === 'activas' && activasSector.length > 0 &&
+                                        !activasSector.some(e => e.grupo_articulo || (e.productos || []).length > 0) && (
                                         <BotonesDesenlace
                                             onElegir={(d) => setTerminando({
                                                 ids: activasSector.map(e => e.id), desenlace: d,
@@ -649,84 +663,71 @@ function DetalleCliente({
                                         />
                                     )}
                                 </div>
-                                {abiertoSector && (
+                                {completo && abiertoSector && (
                                     <ListaActividades
                                         actividades={actividades}
                                         abiertas={actividadesAbiertas}
                                         onAlternar={(id) => alternar(actividadesAbiertas, setActividadesAbiertas, id)}
                                     />
                                 )}
-                                <div className="tabla-scroll">
-                                    <table className="tabla">
-                                        <thead>
-                                            <tr>
-                                                <th>Grupo de artículo</th>
-                                                <th>Estrategia</th>
-                                                <th>Descripción</th>
-                                                <th>Etapa</th>
-                                                <th>Estatus</th>
-                                                <th>Visitas</th>
-                                                <th></th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {filas.map(e => {
-                                                const avance = avancePorEstrategia.get(e.id);
-                                                return (
-                                                    <tr
-                                                        key={e.id}
-                                                        className={'fila-clicable' + (e.archivada ? ' es-archivada' : '')}
-                                                        onClick={() => onAbrirEstrategia(e.id)}
-                                                    >
-                                                        <td>
-                                                            {e.grupo_articulo || '—'}
-                                                            {e.archivada && (
-                                                                <span
-                                                                    className="pill neutro" title={e.desenlace_comentario || undefined}
-                                                                >
-                                                                    {' '}{e.desenlace ? DESENLACES[e.desenlace].participio : 'Archivada'}
-                                                                </span>
-                                                            )}
-                                                        </td>
-                                                        <td>{e.tipo_estrategia || '—'}</td>
-                                                        <td className="col-descripcion">
-                                                            {e.descripcion
-                                                                || (e.tipo_estrategia && (
-                                                                    <span className="ayuda">{descripcionTipoEstrategia(e.tipo_estrategia)}</span>
-                                                                ))
-                                                                || '—'}
-                                                        </td>
-                                                        <td>{e.etapa ? <span className="pill neutro">{e.etapa}</span> : '—'}</td>
-                                                        <td>{e.estatus || '—'}</td>
-                                                        <td className="mono">
+                                {filas.length === 0 && <p className="ayuda">Sin estrategias.</p>}
+                                <ul className="lista-estrategias">
+                                    {filas.filter(delModo).map(e => {
+                                        const avance = avancePorEstrategia.get(e.id);
+                                        const ayudaTipo = e.tipo_estrategia ? descripcionTipoEstrategia(e.tipo_estrategia) : '';
+                                        return (
+                                            <li
+                                                key={e.id}
+                                                className={'fila-estrategia fila-clicable' + (e.archivada ? ' es-archivada' : '')}
+                                                onClick={() => onAbrirEstrategia(e.id)}
+                                            >
+                                                <div className="fila-estrategia-info">
+                                                    <div className="fila-estrategia-titulo">
+                                                        <b>{e.grupo_articulo || 'Sin grupo de artículo'}</b>
+                                                        {e.tipo_estrategia && <span className="pill neutro">{e.tipo_estrategia}</span>}
+                                                        {!e.archivada && verArchivadas && <span className="pill neutro">Vigente</span>}
+                                                        {e.archivada && (
+                                                            <span className="pill neutro" title={e.desenlace_comentario || undefined}>
+                                                                {e.desenlace ? DESENLACES[e.desenlace].participio : 'Archivada'}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    {(e.descripcion || ayudaTipo) && (
+                                                        <p className="fila-estrategia-desc">{e.descripcion || ayudaTipo}</p>
+                                                    )}
+                                                    <div className="fila-estrategia-meta">
+                                                        {e.etapa && <span className="pill neutro">{e.etapa}</span>}
+                                                        {e.estatus && <span>Estatus: {e.estatus}</span>}
+                                                        <span className="mono">
                                                             {avance
-                                                                ? `${avance.visitas}${avance.ultima ? ` · última ${fechaCorta(avance.ultima)}` : ''}`
-                                                                : 'Ninguna aún'}
-                                                        </td>
-                                                        <td>
-                                                            {e.archivada ? (
-                                                                <button
-                                                                    type="button" className="btn-txt"
-                                                                    onClick={(ev) => { ev.stopPropagation(); onArchivar([e.id], false); }}
-                                                                >
-                                                                    Desarchivar
-                                                                </button>
-                                                            ) : (
-                                                                <BotonesDesenlace
-                                                                    onElegir={(d) => setTerminando({
-                                                                        ids: [e.id], desenlace: d,
-                                                                        titulo: [e.tipo_estrategia, e.sector, e.grupo_articulo].filter(Boolean).join(' · ') || cliente
-                                                                    })}
-                                                                />
-                                                            )}
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
-                                </div>
+                                                                ? `${avance.visitas} visita${avance.visitas === 1 ? '' : 's'}${avance.ultima ? ` · última ${fechaCorta(avance.ultima)}` : ''}`
+                                                                : 'Sin visitas aún'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div className="fila-estrategia-acciones">
+                                                    {e.archivada ? (
+                                                        <button
+                                                            type="button" className="btn-txt"
+                                                            onClick={(ev) => { ev.stopPropagation(); onArchivar([e.id], false); }}
+                                                        >
+                                                            Desarchivar
+                                                        </button>
+                                                    ) : (
+                                                        <BotonesDesenlace
+                                                            onElegir={(d) => setTerminando({
+                                                                ids: [e.id], desenlace: d,
+                                                                titulo: [e.tipo_estrategia, e.sector, e.grupo_articulo].filter(Boolean).join(' · ') || cliente
+                                                            })}
+                                                        />
+                                                    )}
+                                                </div>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
                                 {/* Colapsada de inicio; con más de 5 visitas la lista se recorre con scroll. */}
+                                {completo && (
                                 <details className="visitas-sector">
                                     <summary className="campo-lbl">Visitas vinculadas · {visitasSector.length}</summary>
                                     {visitasSector.length === 0 ? (
@@ -746,8 +747,12 @@ function DetalleCliente({
                                         </ul>
                                     )}
                                 </details>
+                                )}
                             </section>
                         );
+                    })}
+                    </div>
+                    );
                     })}
                 </div>
             </div>
@@ -806,10 +811,17 @@ function DetalleEstrategia({ estrategia: e, visitasVinculadas, onCerrar, onAvanz
     const [confirmandoValor, setConfirmandoValor] = useState(false);
     const puedeEditarValor = useMemo(() => esAdministrador(), []);
     const catalogoEtapas = useMemo(() => etapasEstrategia(), []);
-    const catalogoEstatus = useMemo(() => estatusEstrategia(), []);
+    // El catálogo excluye los desenlaces; aquí "Finalizado" sí se ofrece y archiva la estrategia.
+    const catalogoEstatus = useMemo(() => {
+        const base = estatusEstrategia().filter(o => o !== 'Finalizado');
+        if (!base.includes('Pendiente')) base.unshift('Pendiente');
+        return [...base, 'Finalizado'];
+    }, []);
     const [etapa, setEtapa] = useState(e.etapa || '');
     const [estatus, setEstatus] = useState(e.estatus || 'Pendiente');
     const [nota, setNota] = useState('');
+    // Finalizado elegido desde "Registrar avance": pide comentario y luego archiva.
+    const [desdeAvance, setDesdeAvance] = useState(false);
 
     // Tras registrar un avance la estrategia cambia: el panel parte de lo nuevo.
     useEffect(() => { setEtapa(e.etapa || ''); setEstatus(e.estatus || 'Pendiente'); setNota(''); }, [e.etapa, e.estatus]);
@@ -829,7 +841,7 @@ function DetalleEstrategia({ estrategia: e, visitasVinculadas, onCerrar, onAvanz
                         </h3>
                         <span className="eyebrow">{e.cliente} · Solo lectura</span>
                     </div>
-                    <button type="button" className="icon-btn" aria-label="Cerrar" onClick={onCerrar}>✕</button>
+                    <button type="button" className="icon-btn" aria-label="Cerrar" onClick={onCerrar}><Icono clave="cerrar" tam={14} /></button>
                 </div>
 
                 <div className="modal-body">
@@ -901,7 +913,7 @@ function DetalleEstrategia({ estrategia: e, visitasVinculadas, onCerrar, onAvanz
                                                 title={arch ? 'Desarchivar' : 'Archivar este producto'}
                                                 onClick={() => onArchivarProducto(p, !arch)}
                                             >
-                                                {arch ? '↺' : '🗄'}
+                                                {arch ? <Icono clave="restaurar" tam={13} /> : <Icono clave="archivar" tam={13} />}
                                             </button>
                                         </span>
                                     );
@@ -938,7 +950,10 @@ function DetalleEstrategia({ estrategia: e, visitasVinculadas, onCerrar, onAvanz
                                 <div>
                                     <button
                                         type="button" className="btn btn-principal" disabled={!hayCambio}
-                                        onClick={() => onAvanzar({ etapa, estatus, nota })}
+                                        onClick={() => {
+                                            if (estatus === 'Finalizado') { setDesdeAvance(true); setTerminando('finalizado'); }
+                                            else onAvanzar({ etapa, estatus, nota });
+                                        }}
                                     >
                                         Registrar avance
                                     </button>
@@ -951,10 +966,8 @@ function DetalleEstrategia({ estrategia: e, visitasVinculadas, onCerrar, onAvanz
 
                     <div className="modal-foot">
                         <span style={{ flex: 1 }} />
-                        {e.archivada ? (
+                        {e.archivada && (
                             <button type="button" className="btn-txt" onClick={() => onArchivar(false)}>Desarchivar</button>
-                        ) : (
-                            <BotonesDesenlace clase="btn" onElegir={setTerminando} />
                         )}
                     </div>
                 </div>
@@ -964,8 +977,13 @@ function DetalleEstrategia({ estrategia: e, visitasVinculadas, onCerrar, onAvanz
                 <ModalDesenlace
                     desenlace={terminando}
                     titulo={[e.tipo_estrategia, e.sector, e.grupo_articulo].filter(Boolean).join(' · ') || e.cliente}
-                    onCancelar={() => setTerminando(null)}
-                    onConfirmar={(comentario) => { onTerminar(terminando, comentario); setTerminando(null); }}
+                    onCancelar={() => { setTerminando(null); setDesdeAvance(false); }}
+                    onConfirmar={(comentario) => {
+                        if (desdeAvance && (nota || etapa !== (e.etapa || ''))) onAvanzar({ etapa, estatus: e.estatus || 'Pendiente', nota });
+                        onTerminar(terminando, comentario);
+                        setTerminando(null);
+                        setDesdeAvance(false);
+                    }}
                 />
             )}
 
@@ -1120,7 +1138,7 @@ function GenerarVisita({ cliente, estrategias, onCerrar, onGenerada }: {
                         <h3>Generar visita</h3>
                         <span className="eyebrow">{cliente}</span>
                     </div>
-                    <button type="button" className="icon-btn" aria-label="Cerrar" onClick={onCerrar}>✕</button>
+                    <button type="button" className="icon-btn" aria-label="Cerrar" onClick={onCerrar}><Icono clave="cerrar" tam={14} /></button>
                 </div>
 
                 <div className="modal-body">
@@ -1158,7 +1176,7 @@ function GenerarVisita({ cliente, estrategias, onCerrar, onGenerada }: {
                                 >
                                     <span>{abierta ? '▾' : '▸'} {sector}</span>
                                     <span className={'pill ' + (completa ? 'st-completa' : 'neutro')}>
-                                        {completa ? '✓ Completo' : 'Falta captura'}
+                                        {completa ? <><Icono clave="ok" tam={13} /> Completo</> : 'Falta captura'}
                                     </span>
                                 </button>
 
@@ -1330,7 +1348,7 @@ function FormularioEstrategia({ estrategia, sectores, clientes, onGuardar, onCer
                         <h3>Nueva estrategia</h3>
                         <span className="eyebrow">Una vez guardada es de solo lectura: solo avanzan la etapa y el estatus</span>
                     </div>
-                    <button type="button" className="icon-btn" aria-label="Cerrar" onClick={onCerrar}>✕</button>
+                    <button type="button" className="icon-btn" aria-label="Cerrar" onClick={onCerrar}><Icono clave="cerrar" tam={14} /></button>
                 </div>
 
                 <div className="modal-body">
@@ -1466,7 +1484,7 @@ function FormularioEstrategia({ estrategia, sectores, clientes, onGuardar, onCer
                     <label className="campo">
                         <span className="campo-lbl">Valor mensual de la estrategia ($)</span>
                         <input
-                            type="text" inputMode="decimal" className="inp" placeholder="Opcional — $0.00"
+                            type="text" inputMode="decimal" className="inp" placeholder="$0.00"
                             value={valorMensual} onChange={(e) => setValorMensual(e.target.value)}
                             onBlur={() => {
                                 const n = aNumeroMoneda(valorMensual);

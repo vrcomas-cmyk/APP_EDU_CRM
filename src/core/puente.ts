@@ -23,7 +23,7 @@ import * as _eventos from '../../js/eventos.js';
 import type {
     Visita, Sector, Actividad, Marca, Sesion, SaludVisita, EstadoSector, ModoCampo,
     IndicadoresEducador, Revision, ResultadoRevision, FlujoRevision, Perfil,
-    PendienteRevision, Comentario, CampoConfigurable, Catalogo, BorradorCatalogo,
+    PendienteRevision, CriterioRevision, SolicitudEliminacion, Comentario, CampoConfigurable, Catalogo, BorradorCatalogo,
     ResultadoFlujo, RolAdmin, CapacidadAdmin, UsuarioAdmin, FlujoAdmin, Estrategia, CatalogoFicha,
     Pendiente, GerenteSector, ReporteActividades, FiltroReporteActividades,
     FilaHistoricoActividad, FilaHistoricoPlanTrabajo, TemaPersonalizado,
@@ -48,6 +48,7 @@ export const estadoSector = _estado.estadoSector as (v: Visita, s: Sector) => Es
 export const actividadesDeSector = _estado.actividadesDeSector as (v: Visita, s: Sector) => Actividad[];
 export const etiquetaSector = _estado.etiquetaSector as (e: string) => string;
 export const esVisitaCliente = _estado.esVisitaCliente as (v: Visita) => boolean;
+export const esVisitaAdministrativa = _estado.esVisitaAdministrativa as (v: Visita) => boolean;
 export const etiquetaTipoVisita = _estado.etiquetaTipoVisita as (v: Visita) => string | null;
 export const etiquetaVisita = _estado.etiquetaVisita as (v: Visita) => string;
 /** Lo que falta respaldar con evidencia, de toda la app: [{ visita, sector, actividad }]. */
@@ -489,6 +490,20 @@ export const revisar = _revisiones.revisar as (datos: {
     idVisita: string;
     resultado: ResultadoRevision;
     observaciones?: string;
+    criterios?: CriterioRevision[];
+}) => { ok: boolean; error?: string; revision?: Revision };
+
+/** Qué se mira en un flujo (Actividad, Evidencia, Puntualidad…). */
+export const criteriosDe = _revisiones.criteriosDe as (flujo: FlujoRevision | string) => CriterioRevision[];
+/** Los criterios de siempre de un flujo, para sembrar la edición en Administración. */
+export const criteriosPorDefecto = _revisiones.criteriosPorDefecto as (claveFlujo: string) => CriterioRevision[];
+/** Lo ya cerrado de un flujo: el histórico de quién resolvió qué. */
+export const cerradosDe = _revisiones.cerradosDe as (
+    flujo: FlujoRevision, visitas?: Visita[]
+) => PendienteRevision[];
+/** Reactiva un elemento cerrado (agrega un veredicto «reabierto»; no borra nada). */
+export const reabrir = _revisiones.reabrir as (datos: {
+    flujo: string; ambito: string; idAmbito: string; idVisita: string; motivo: string;
 }) => { ok: boolean; error?: string; revision?: Revision };
 
 import * as _comentarios from '../../js/comentarios.js';
@@ -669,3 +684,12 @@ export interface OpcionesAviso {
 }
 
 export type Avisar = (mensaje: string, opciones?: OpcionesAviso) => void;
+
+// ---------- eliminación de evidencias (solicita el educador, autoriza su jefe) ----------
+
+import * as _eliminacion from '../../js/eliminacionEvidencia.js';
+export const solicitudesPorResolver = _eliminacion.solicitudesPorResolver as () => SolicitudEliminacion[];
+export const descargarSolicitudes = _eliminacion.descargarSolicitudes as () => Promise<boolean>;
+export const resolverEliminacion = _eliminacion.resolverEliminacion as (
+    id: string, aprobar: boolean, nota?: string
+) => Promise<void>;

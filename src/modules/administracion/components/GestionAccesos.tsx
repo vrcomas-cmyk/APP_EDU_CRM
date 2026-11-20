@@ -16,6 +16,7 @@ import { PanelUsuarios } from './PanelUsuarios';
 import { PanelSimular } from './PanelSimular';
 import { PanelSectoresGerente } from './PanelSectoresGerente';
 import { Esqueleto } from '@shared/components/Esqueleto';
+import { EstadoError } from '@shared/components/EstadoError';
 
 const SUBPESTANAS = [
     { id: 'roles', etiqueta: 'Roles' },
@@ -48,12 +49,7 @@ export function GestionAccesos({ estado, confirmar, avisar }: Props) {
 
     if (error && borrador.roles.length === 0) {
         return (
-            <div className="campo es-error">
-                <p className="ayuda">No se pudo cargar: {error}</p>
-                <button type="button" className="btn-txt" onClick={() => { void estado.recargar(); }}>
-                    Reintentar
-                </button>
-            </div>
+            <EstadoError queCargaba="los accesos" detalle={error} onReintentar={() => { void estado.recargar(); }} />
         );
     }
 
