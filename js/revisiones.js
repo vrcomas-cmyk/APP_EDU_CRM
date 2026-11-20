@@ -25,7 +25,7 @@ import { nuevoId } from './storage.js';
 import { sesionActual } from './auth.js';
 import { puede } from './permisos.js';
 import { consultarVisitas } from './datos.js';
-import { estadoDe, ESTADOS, tieneCheckIn, actividadesGuardadasDe, esVisitaAdministrativa } from './estado.js';
+import { estadoDe, ESTADOS, tieneCheckIn, actividadesGuardadasDe, exigeCheck, exigeEvidencia } from './estado.js';
 import { requiereEvidencia } from './catalogos.js';
 import { clave } from './entorno.js';
 import { fechaCorta } from './fechas.js';
@@ -285,7 +285,7 @@ function candidatosDe(flujo, visitas) {
 
         if (flujo.ambito === 'visita') {
             // Solo lo que ya pasó. Una visita programada no tiene nada que revisar todavía.
-            if (!tieneCheckIn(v) && !esVisitaAdministrativa(v)) continue;
+            if (!tieneCheckIn(v) && exigeCheck(v)) continue;
             if (flujo.clave === 'cumplimiento' && actividadesGuardadasDe(v).length === 0) continue;
             salida.push(elemento(flujo, v, v.id, tituloVisita(v), resumenVisita(v)));
             continue;
@@ -300,7 +300,7 @@ function candidatosDe(flujo, visitas) {
                     // Sin archivo cargado no hay nada que mirar; el pendiente de SUBIRLA es
                     // deuda del educador, no trabajo del revisor.
                     if (a.evidencia?.estado !== 'subida') continue;
-                    if (!requiereEvidencia(a) || esVisitaAdministrativa(v)) continue;
+                    if (!requiereEvidencia(a) || !exigeEvidencia(v)) continue;
                 }
 
                 salida.push(elemento(

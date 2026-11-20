@@ -1,0 +1,342 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-13T00:00:00Z",
+  "title": "Design System: APP_EDU_CRM — Gestor de Visitas",
+  "extensions": {
+    "colorMeta": {
+      "ink": {
+        "role": "primary",
+        "displayName": "Tinta Grafito",
+        "canonical": "#101617",
+        "tonalRamp": [
+          "#101617",
+          "#2A3436",
+          "#3D4A48",
+          "#5C6762",
+          "#8A9691",
+          "#B4C0BC",
+          "#DCE3E1",
+          "#F5F8F7"
+        ]
+      },
+      "st-miss": {
+        "role": "secondary",
+        "displayName": "Rojo Faltante",
+        "canonical": "#C81E3A",
+        "tonalRamp": [
+          "#5A0D19",
+          "#8C1428",
+          "#C81E3A",
+          "#E86176",
+          "#F2A0AD",
+          "#F8CBD2",
+          "#FBEEF0",
+          "#FFF8F9"
+        ]
+      },
+      "st-part": {
+        "role": "secondary",
+        "displayName": "Azul Parcial",
+        "canonical": "#0B72B9",
+        "tonalRamp": [
+          "#052F4D",
+          "#08558A",
+          "#0B72B9",
+          "#5AA8DC",
+          "#9CCBEA",
+          "#C7E0F2",
+          "#EAF2F8",
+          "#F6FAFD"
+        ]
+      },
+      "st-done": {
+        "role": "secondary",
+        "displayName": "Verde Hecho",
+        "canonical": "#1F8A54",
+        "tonalRamp": [
+          "#0C3A23",
+          "#14663C",
+          "#1F8A54",
+          "#5CB98A",
+          "#97D3B3",
+          "#C4E6D4",
+          "#EAF4EE",
+          "#F6FBF8"
+        ]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Gasa",
+        "canonical": "#F5F8F7",
+        "tonalRamp": [
+          "#0D1112",
+          "#141A1B",
+          "#1B2223",
+          "#3D4A48",
+          "#5C6762",
+          "#DCE3E1",
+          "#EDF2F0",
+          "#F5F8F7"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Cifras grandes."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Eyebrows, LED de guardado y marca, en mono."
+      }
+    },
+    "shadows": [
+      {
+        "name": "shadow",
+        "value": "0 1px 2px rgba(16,22,23,.04), 0 8px 24px -12px rgba(16,22,23,.18)",
+        "purpose": "Respuesta de hover en tiles y botones."
+      },
+      {
+        "name": "shadow-lg",
+        "value": "0 24px 60px -20px rgba(16,22,23,.4)",
+        "purpose": "Drawers y modales."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease",
+        "value": "cubic-bezier(.2, 0, 0, 1)",
+        "purpose": "Aparecer, mover y cerrar."
+      },
+      {
+        "name": "ease-press",
+        "value": "cubic-bezier(.34, 1.56, .64, 1)",
+        "purpose": "Respuesta táctil al presionar."
+      },
+      {
+        "name": "dur-fast",
+        "value": "120ms",
+        "purpose": "Estados de control."
+      },
+      {
+        "name": "dur-base",
+        "value": "200ms",
+        "purpose": "Transiciones de superficie."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "movil-chico",
+        "value": "420px"
+      },
+      {
+        "name": "movil",
+        "value": "720px"
+      },
+      {
+        "name": "escritorio-amplio",
+        "value": "1200px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Botón primario",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Acción principal; tinta sólida.",
+      "html": "<button class=\"ds-btn\">Guardar</button>",
+      "css": ".ds-btn{border:1px solid #101617;background:#101617;color:#F5F8F7;border-radius:6px;padding:7px 14px;font-size:13px;font-weight:600;letter-spacing:-.01em;cursor:pointer;transition:opacity .12s,transform .12s,box-shadow .12s}.ds-btn:hover{opacity:.88;box-shadow:0 8px 24px -12px rgba(16,22,23,.18);transform:translateY(-1px)}.ds-btn:active{transform:scale(.98)}.ds-btn:focus-visible{outline:none;box-shadow:0 0 0 4px rgba(16,22,23,.18)}"
+    },
+    {
+      "name": "Botón de texto",
+      "kind": "button",
+      "refersTo": "button-text",
+      "description": "Acción secundaria sin fondo.",
+      "html": "<button class=\"ds-btn-txt\">Cancelar</button>",
+      "css": ".ds-btn-txt{background:none;border:0;padding:6px 8px;border-radius:6px;font-size:12.5px;font-weight:600;color:#3D4A48;cursor:pointer;transition:background-color .12s}.ds-btn-txt:hover{background:#EDF2F0}.ds-btn-txt:focus-visible{outline:none;box-shadow:0 0 0 4px rgba(16,22,23,.18)}"
+    },
+    {
+      "name": "Chip",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Filtro o valor seleccionable.",
+      "html": "<button class=\"ds-chip\">Sector</button> <button class=\"ds-chip ds-on\">Activo</button>",
+      "css": ".ds-chip{font-size:11.5px;border:1px solid #DCE3E1;border-radius:999px;padding:4px 10px;background:#EDF2F0;color:#3D4A48;cursor:pointer;transition:all .15s}.ds-chip:hover{border-color:#101617;color:#101617}.ds-chip.ds-on{background:#101617;color:#F5F8F7;border-color:#101617}.ds-chip.ds-on{font-weight:600;box-shadow:0 0 0 2px #fff,0 0 0 3.5px #101617}.ds-chip.ds-on::before{content:'✓ ';font-weight:700}"
+    },
+    {
+      "name": "Pastilla de estado",
+      "kind": "custom",
+      "refersTo": "st-done",
+      "description": "Estado con color y texto.",
+      "html": "<span class=\"ds-pill\">Hecha</span> <span class=\"ds-pill ds-n\">Neutra</span>",
+      "css": ".ds-pill{display:inline-block;font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.07em;text-transform:uppercase;padding:1px 5px;border-radius:4px;background:#EAF4EE;color:#1F8A54}.ds-pill.ds-n{background:#EDF2F0;color:#5C6762}"
+    },
+    {
+      "name": "Tile",
+      "kind": "card",
+      "refersTo": "tile",
+      "description": "Indicador con etiqueta y valor.",
+      "html": "<div class=\"ds-tile\"><div class=\"ds-lbl\">VISITAS</div><div class=\"ds-val\">24</div></div>",
+      "css": ".ds-tile{background:#fff;border:1px solid #DCE3E1;border-radius:9px;padding:11px 12px;transition:border-color .15s,box-shadow .15s}.ds-tile:hover{border-color:#3D4A48;box-shadow:0 8px 24px -12px rgba(16,22,23,.18)}.ds-lbl{font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:#5C6762}.ds-val{font-size:26px;font-weight:700;letter-spacing:-.02em;color:#101617}"
+    },
+    {
+      "name": "Campo de texto",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Etiqueta mono sobre control hundido; foco a superficie con halo de tinta.",
+      "html": "<label class=\"ds-campo\"><span class=\"ds-lbl2\">Cliente</span><input class=\"ds-inp\" placeholder=\"Buscar cliente\"></label><div class=\"ds-ayuda\">Texto de ayuda.</div>",
+      "css": ".ds-campo{display:flex;flex-direction:column;gap:5px}.ds-lbl2{font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:#5C6762}.ds-inp{width:100%;border:1px solid #DCE3E1;border-radius:7px;background:#EDF2F0;padding:8px 10px;font-size:13.5px;color:#101617;font-family:inherit;transition:border-color .15s,background-color .15s,box-shadow .15s}.ds-inp::placeholder{color:#5C6762}.ds-inp:focus{outline:none;background:#fff;border-color:#101617;box-shadow:0 0 0 3px rgba(16,22,23,.12)}.ds-ayuda{font-size:11.5px;color:#5C6762;line-height:1.4;margin-top:5px}"
+    },
+    {
+      "name": "Campo con error",
+      "kind": "input",
+      "refersTo": "input-error",
+      "description": "El error vive pegado al campo; borde y etiqueta en rojo faltante.",
+      "html": "<label class=\"ds-campo ds-err\"><span class=\"ds-lbl2\">Hora de inicio</span><input class=\"ds-inp\"></label><div class=\"ds-msg\">Indica la hora de inicio.</div>",
+      "css": ".ds-campo{display:flex;flex-direction:column;gap:5px}.ds-lbl2{font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:#5C6762}.ds-inp{width:100%;border:1px solid #DCE3E1;border-radius:7px;background:#EDF2F0;padding:8px 10px;font-size:13.5px;color:#101617;font-family:inherit;transition:border-color .15s,background-color .15s,box-shadow .15s}.ds-inp::placeholder{color:#5C6762}.ds-inp:focus{outline:none;background:#fff;border-color:#101617;box-shadow:0 0 0 3px rgba(16,22,23,.12)}.ds-err .ds-inp{border-color:#C81E3A}.ds-err .ds-lbl2{color:#C81E3A}.ds-msg{font-size:11px;line-height:1.35;color:#C81E3A;margin-top:4px}"
+    },
+    {
+      "name": "Botón deshabilitado",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Opacidad al 40% y cursor not-allowed.",
+      "html": "<button class=\"ds-btn-d\" disabled>Guardar visita</button>",
+      "css": ".ds-btn-d{border:1px solid #101617;background:#101617;color:#F5F8F7;border-radius:6px;padding:7px 14px;font-size:13px;font-weight:600}.ds-btn-d:disabled{opacity:.4;cursor:not-allowed}"
+    },
+    {
+      "name": "Control segmentado",
+      "kind": "nav",
+      "refersTo": "segmented",
+      "description": "Filtros y solapas; activo en tinta sólida, nunca recorta texto.",
+      "html": "<div class=\"ds-seg\"><button aria-pressed=\"true\">Semana</button><button aria-pressed=\"false\">Mes</button><button aria-pressed=\"false\">Agenda <span class=\"ds-badge\">3</span></button></div>",
+      "css": ".ds-seg{display:inline-flex;border:1px solid #DCE3E1;border-radius:7px;overflow-x:auto;max-width:100%}.ds-seg button{font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.09em;text-transform:uppercase;padding:5px 11px;border:0;border-right:1px solid #DCE3E1;background:transparent;color:#5C6762;cursor:pointer;white-space:nowrap;transition:background-color .15s,color .15s}.ds-seg button:last-child{border-right:0}.ds-seg button:hover{color:#101617}.ds-seg button[aria-pressed=true]{background:#101617;color:#F5F8F7;font-weight:700;box-shadow:inset 0 -3px 0 #F5F8F7}.ds-seg button:focus-visible{outline:none;box-shadow:inset 0 0 0 2px rgba(16,22,23,.4)}.ds-badge{font-size:11px;font-weight:700;min-width:16px;padding:2px 4px;border-radius:999px;background:#0B72B9;color:#fff}"
+    },
+    {
+      "name": "Evento de visita",
+      "kind": "custom",
+      "refersTo": "evento",
+      "description": "Bloque de calendario con borde izquierdo del color de estado.",
+      "html": "<div class=\"ds-ev\"><span class=\"ds-t\">09:00 – 10:00</span><span class=\"ds-c\">Hospital Ángeles</span><span class=\"ds-h\">Cardiología</span></div><div class=\"ds-ev ds-ext\"><span class=\"ds-c\" style=\"color:#69746F\">Compromiso externo</span></div>",
+      "css": ".ds-ev{display:flex;flex-direction:column;gap:1px;width:200px;margin-bottom:8px;padding:5px 7px;background:#fff;border:1px solid #DCE3E1;border-left:3px solid #0B72B9;border-radius:3px 6px 6px 3px;cursor:pointer;transition:box-shadow .12s,transform .12s,border-left-width .12s}.ds-ev:hover{box-shadow:0 8px 24px -12px rgba(16,22,23,.18);transform:translateY(-1px);border-left-width:4px}.ds-t{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#5C6762}.ds-c{font-size:11.5px;font-weight:600;letter-spacing:-.01em}.ds-h{font-size:11px;color:#5C6762}.ds-ext{background:repeating-linear-gradient(135deg,#EDF2F0,#EDF2F0 6px,#E8EDEB 6px,#E8EDEB 12px);border:1px dashed #DCE3E1;opacity:.85}"
+    },
+    {
+      "name": "Toast",
+      "kind": "custom",
+      "refersTo": "toast",
+      "description": "Aviso breve con borde izquierdo del color del mensaje.",
+      "html": "<div class=\"ds-toast\"><span class=\"ds-tx\">Visita guardada</span><button class=\"ds-u\">Deshacer</button></div>",
+      "css": ".ds-toast{display:flex;align-items:center;gap:9px;font-size:12.5px;width:320px;border:1px solid #DCE3E1;border-left:3px solid #1F8A54;border-radius:8px;padding:10px 12px;background:#fff;box-shadow:0 24px 60px -20px rgba(16,22,23,.4)}.ds-tx{flex:1}.ds-u{background:none;border:0;font-size:11.5px;font-weight:600;text-decoration:underline;cursor:pointer;color:#101617}"
+    },
+    {
+      "name": "Estado vacío",
+      "kind": "custom",
+      "refersTo": "estado-vacio",
+      "description": "Caja discontinua con título, texto y acción opcional.",
+      "html": "<div class=\"ds-vac\"><div class=\"ds-vi\">○</div><div class=\"ds-vt\">Sin visitas hoy</div><p class=\"ds-vp\">Agenda una visita para verla aquí.</p></div>",
+      "css": ".ds-vac{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;padding:32px 16px;border:1px dashed #DCE3E1;border-radius:14px;background:#EDF2F0;color:#5C6762;font-size:14px}.ds-vi{font-size:26px;line-height:1;opacity:.7}.ds-vt{color:#101617;font-size:16px;font-weight:600}.ds-vp{max-width:46ch;margin:0}"
+    },
+    {
+      "name": "Tarjeta de sector",
+      "kind": "card",
+      "refersTo": "tarjeta-sector",
+      "description": "Sector con objetivo, procedencia y estado; toda ella es un botón.",
+      "html": "<button class=\"ds-sec\"><div class=\"ds-sh\"><span class=\"ds-sn\">Cardiología intervencionista</span><span class=\"ds-se\">Pendiente</span><span class=\"ds-fl\">›</span></div><div class=\"ds-so\">Capacitar al equipo en el nuevo set de materiales.</div><div class=\"ds-sg\">Solicitado por: Dirección médica</div><div class=\"ds-sm\"><span class=\"ds-cu\">3 actividades</span><span class=\"ds-cu\">2 materiales</span></div></button>",
+      "css": ".ds-sec{display:flex;flex-direction:column;gap:8px;width:320px;border:1px solid #DCE3E1;border-radius:10px;background:#fff;padding:12px;cursor:pointer;text-align:left;color:inherit;font-family:inherit;transition:border-color .15s,box-shadow .15s,transform .08s}.ds-sec:hover{border-color:#101617;box-shadow:0 8px 24px -12px rgba(16,22,23,.18);transform:translateY(-1px)}.ds-sh{display:flex;align-items:center;gap:8px}.ds-sn{flex:1;min-width:0;font-size:13.5px;font-weight:600;letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ds-se{font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;border:1px solid #DCE3E1;border-radius:4px;padding:1px 5px;color:#5C6762}.ds-se.ds-fin{border-color:#1F8A54;color:#1F8A54;background:#EAF4EE}.ds-fl{color:#5C6762;font-size:16px;line-height:1}.ds-so{font-size:12px;color:#3D4A48;line-height:1.4}.ds-sg{font-size:11px;color:#5C6762;line-height:1.35}.ds-sm{display:flex;gap:6px;padding-top:8px;border-top:1px solid #E8EDEB}.ds-cu{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#5C6762}"
+    },
+    {
+      "name": "Tabla",
+      "kind": "custom",
+      "refersTo": "tabla-celda",
+      "description": "Tabla densa: encabezado mono pegajoso, cifras tabulares, hover de tinta diluida.",
+      "html": "<div class=\"ds-ts\"><table class=\"ds-tb\"><thead><tr><th>Cliente</th><th>Estado</th><th class=\"n\">Visitas</th></tr></thead><tbody><tr><td>Hospital Ángeles</td><td>Hecha</td><td class=\"n\">24</td></tr><tr><td>Clínica Norte</td><td>Parcial</td><td class=\"n\">8</td></tr></tbody></table></div>",
+      "css": ".ds-ts{overflow-x:auto;width:420px}.ds-tb{width:100%;border-collapse:collapse;font-size:12px;color:#101617}.ds-tb th,.ds-tb td{padding:7px 10px;text-align:left;white-space:nowrap;border-bottom:1px solid #E8EDEB}.ds-tb th{font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:#5C6762;font-weight:600;background:#fff}.ds-tb .n{text-align:right;font-variant-numeric:tabular-nums}.ds-tb tbody tr:hover{background:rgba(16,22,23,.05)}"
+    },
+    {
+      "name": "Calendario Mes",
+      "kind": "custom",
+      "refersTo": "calendario-celda-mes",
+      "description": "Cuadrícula mensual; hoy en círculo de tinta, fines de semana hundidos.",
+      "html": "<div class=\"ds-mes\"><div class=\"ds-mh\">Lun</div><div class=\"ds-mh\">Mar</div><div class=\"ds-mh\">Mié</div><div class=\"ds-mh ds-f\">Sáb</div><div class=\"ds-mc\"><span class=\"ds-mn ds-hoy\">12</span><span class=\"ds-me\"><span class=\"ds-mt\">09:00</span><span class=\"ds-mcl\">Hospital Ángeles</span></span><span class=\"ds-mm\">+2</span></div><div class=\"ds-mc\"><span class=\"ds-mn\">13</span></div><div class=\"ds-mc\"><span class=\"ds-mn\">14</span><span class=\"ds-me\"><span class=\"ds-mt\">11:30</span><span class=\"ds-mcl\">Clínica Norte</span></span></div><div class=\"ds-mc ds-fin\"><span class=\"ds-mn\">15</span></div></div>",
+      "css": ".ds-mes{display:grid;grid-template-columns:repeat(4,1fr);width:420px}.ds-mh{font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#5C6762;padding:7px 8px;border-bottom:1px solid #101617;background:#fff}.ds-mc{border-right:1px solid #E8EDEB;border-bottom:1px solid #E8EDEB;min-height:92px;padding:5px 6px;display:flex;flex-direction:column;gap:2px;cursor:pointer}.ds-mc:hover{background:#EDF2F0}.ds-mc.ds-fin{background:#EDF2F0}.ds-mn{font-family:ui-monospace,Menlo,monospace;font-size:11px;font-variant-numeric:tabular-nums;width:18px;height:18px;display:grid;place-items:center;border-radius:50%;color:#3D4A48}.ds-mn.ds-hoy{background:#101617;color:#F5F8F7}.ds-me{display:flex;align-items:center;gap:4px;font-size:11px;white-space:nowrap;overflow:hidden}.ds-mt{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#5C6762}.ds-mcl{overflow:hidden;text-overflow:ellipsis}.ds-mm{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#5C6762;padding-left:10px;margin-top:auto}"
+    },
+    {
+      "name": "Calendario Día/Semana",
+      "kind": "custom",
+      "refersTo": "evento",
+      "description": "Rejilla de horas de 46px con eje mono, columna de hoy hundida y línea de ahora en tinta.",
+      "html": "<div class=\"ds-gr\"><div class=\"ds-ax\"><div class=\"ds-ah\"><span>09:00</span></div><div class=\"ds-ah\"><span>10:00</span></div><div class=\"ds-ah\"><span>11:00</span></div></div><div class=\"ds-co\"><div class=\"ds-ho\"></div><div class=\"ds-ho\"></div><div class=\"ds-ho\"></div><div class=\"ds-nl\"><span class=\"ds-nb\">10:20</span></div><div class=\"ds-gv\"><span class=\"ds-gt\">09:00 – 10:00</span><span class=\"ds-gc\">Hospital Ángeles</span></div></div></div>",
+      "css": ".ds-gr{display:grid;grid-template-columns:52px 1fr;width:260px;border:1px solid #DCE3E1;background:#fff}.ds-ax{border-right:1px solid #DCE3E1;background:#F5F8F7}.ds-ah{height:46px;text-align:right;padding-right:7px;font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#5C6762}.ds-ah span{position:relative;top:-6px}.ds-co{position:relative;background:rgba(237,242,240,.5)}.ds-ho{height:46px;border-bottom:1px solid #E8EDEB}.ds-nl{position:absolute;left:0;right:0;top:64px;border-top:1px solid #101617;z-index:6}.ds-nl::before{content:'';position:absolute;left:-3px;top:-3.5px;width:7px;height:7px;border-radius:50%;background:#101617}.ds-nb{position:absolute;right:3px;top:-8px;font-family:ui-monospace,Menlo,monospace;font-size:11px;background:#101617;color:#F5F8F7;padding:1px 4px;border-radius:3px}.ds-gv{position:absolute;top:0;left:3px;width:calc(100% - 8px);height:43px;display:flex;flex-direction:column;padding:5px 7px;background:#fff;border:1px solid #DCE3E1;border-left:3px solid #0B72B9;border-radius:3px 6px 6px 3px;overflow:hidden}.ds-gt{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#5C6762}.ds-gc{font-size:11.5px;font-weight:600}"
+    },
+    {
+      "name": "Fila de agenda móvil",
+      "kind": "custom",
+      "refersTo": "evento",
+      "description": "Visita en la agenda móvil con borde izquierdo de estado.",
+      "html": "<div class=\"ds-ar\"><div class=\"ds-at\">09:00<br><span class=\"ds-ae\">10:00</span></div><div class=\"ds-ab\"><span class=\"ds-acl\">Hospital Ángeles</span><span class=\"ds-ah2\">Cardiología</span><span class=\"ds-pl\">Hecha</span></div></div>",
+      "css": ".ds-ar{display:grid;grid-template-columns:46px 1fr;gap:10px;width:300px;border:1px solid #DCE3E1;border-left:3px solid #1F8A54;border-radius:8px;padding:10px;background:#fff;cursor:pointer}.ds-ar:active{background:#EDF2F0}.ds-at{font-family:ui-monospace,Menlo,monospace;font-size:11px;line-height:1.45;font-variant-numeric:tabular-nums}.ds-ae{color:#5C6762}.ds-ab{display:flex;flex-direction:column;gap:3px}.ds-acl{font-size:13.5px;font-weight:600;letter-spacing:-.01em}.ds-ah2{font-size:12px;color:#5C6762}.ds-pl{align-self:flex-start;font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.07em;text-transform:uppercase;padding:1px 5px;border-radius:4px;background:#EAF4EE;color:#1F8A54}"
+    }
+  ],
+  "narrative": {
+    "northStar": "El Cuaderno de Campo Estéril",
+    "overview": "Papel clínico y tinta. Neutros de blanco gasa y grafito; el color saturado se reserva para el estado. Densidad calmada, escala de seis pasos, radios chicos, superficies planas con sombra al responder.",
+    "keyCharacteristics": [
+      "El color es estado, nunca decoración.",
+      "--ink gobierna botones, foco y selección.",
+      "Superficies planas en reposo; la sombra aparece al responder.",
+      "Los temas se definen solo con variables."
+    ],
+    "rules": [
+      {
+        "name": "The Color Is State Rule",
+        "body": "El color saturado solo comunica estado.",
+        "section": "colors"
+      },
+      {
+        "name": "The Never Alone Rule",
+        "body": "Un estado nunca va solo con color.",
+        "section": "colors"
+      },
+      {
+        "name": "The Ink Focus Rule",
+        "body": "El halo de foco es siempre tinta.",
+        "section": "colors"
+      },
+      {
+        "name": "The Six Steps Rule",
+        "body": "Todo tamaño sale de la escala --fs-*.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat-At-Rest Rule",
+        "body": "La sombra es una respuesta, no una decoración.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Error Stays Close Rule",
+        "body": "El error vive pegado al campo y desaparece al corregirlo; nunca un toast.",
+        "section": "components"
+      },
+      {
+        "name": "The Readable Floor Rule",
+        "body": "Ningún texto baja de 11px y todo texto pasa 4.5:1 sobre su fondo en cada tema.",
+        "section": "typography"
+      }
+    ],
+    "dos": [
+      "Do derivar translúcidos y tintes con color-mix() desde los tokens.",
+      "Do usar --st-* solo para estado y acompañarlo de texto o punto.",
+      "Do tomar tamaños, radios y espaciado de las escalas.",
+      "Do garantizar 40px de objetivo táctil en pantallas táctiles.",
+      "Do mostrar el error junto al campo, con borde, etiqueta y mensaje en rojo faltante."
+    ],
+    "donts": [
+      "Don't introducir un color de marca para botones o enlaces.",
+      "Don't usar #FFF ni negros sueltos.",
+      "Don't dejar que el foco tome un color de estado.",
+      "Don't añadir sombras a superficies en reposo.",
+      "Don't reportar errores de campo con un toast ni dejar el rojo permanente tras corregir.",
+      "Don't usar glifos de texto ni emojis como icono; usar Icono."
+    ]
+  }
+}

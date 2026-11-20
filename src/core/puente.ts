@@ -49,6 +49,7 @@ export const actividadesDeSector = _estado.actividadesDeSector as (v: Visita, s:
 export const etiquetaSector = _estado.etiquetaSector as (e: string) => string;
 export const esVisitaCliente = _estado.esVisitaCliente as (v: Visita) => boolean;
 export const esVisitaAdministrativa = _estado.esVisitaAdministrativa as (v: Visita) => boolean;
+export const muestraCheck = _estado.muestraCheck as (v: Visita) => boolean;
 export const etiquetaTipoVisita = _estado.etiquetaTipoVisita as (v: Visita) => string | null;
 export const etiquetaVisita = _estado.etiquetaVisita as (v: Visita) => string;
 /** Lo que falta respaldar con evidencia, de toda la app: [{ visita, sector, actividad }]. */
