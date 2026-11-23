@@ -1628,7 +1628,7 @@ function instalarTriggerExport() {
     });
     // Cada minuto: con la cola vacía una corrida es una sola llamada a Supabase, y lo que se
     // captura en la app aparece en Sheets en ~1 min en vez de hasta 15.
-    ScriptApp.newTrigger('exportarASheets').timeBased().everyMinutes(1).create();
+    ScriptApp.newTrigger('exportarASheets').timeBased().everyMinutes(10).create();
 }
 
 /** Minutos entre check-in y check-out. null si falta cualquiera de los dos momentos. */

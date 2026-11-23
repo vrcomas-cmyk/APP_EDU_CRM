@@ -56,7 +56,7 @@ let fallosSeguidos = 0;
 // enseguida por "N en cola", y el fallo (p. ej. una foto que no sube) pasaba sin que nadie lo viera.
 let ultimoCicloFallo = false;
 const ESPERAS_BACKOFF_MS = [15000, 30000, 60000, 120000, 300000]; // 15s .. 5min, tope
-const INTERVALO_NORMAL_MS = 60000;
+const INTERVALO_NORMAL_MS = 5 * 60000;
 // Un ciclo que nunca resuelve (pestaña congelada a media subida, promesa que no cierra) no
 // debe dejar `sincronizando` en `true` para siempre: eso silenciaría todo intento posterior,
 // automático o manual. Pasado este margen sobre el timeout de red, se da por muerto.
@@ -499,7 +499,8 @@ function volverAPrimerPlano() {
  */
 function reanudarAutoSync() {
     if (relojAutoSync) return;
-    relojAutoSync = setInterval(() => sincronizar(), INTERVALO_NORMAL_MS);
+    // Si ya hay un reintento con espera programado, el reloj de fondo no lo adelanta: antes ambos corrían a la vez y cada fallo se atacaba dos veces.
+    relojAutoSync = setInterval(() => { if (!relojReintentoBackoff) sincronizar(); }, INTERVALO_NORMAL_MS);
 }
 
 // `sw.js` solo existe en el build (lo genera `serviceWorkerGenerado()`, vite.config.ts): en
@@ -739,7 +740,8 @@ function cancelarReintentoBackoff() {
 function programarReintentoBackoff() {
     cancelarReintentoBackoff();
     const espera = ESPERAS_BACKOFF_MS[Math.min(fallosSeguidos - 1, ESPERAS_BACKOFF_MS.length - 1)];
-    relojReintentoBackoff = setTimeout(() => sincronizar(), espera);
+    // Jitter (±20 %) para que varios dispositivos no reintenten al mismo tiempo contra un servidor ya saturado.
+    relojReintentoBackoff = setTimeout(() => sincronizar(), Math.round(espera * (0.8 + Math.random() * 0.4)));
 }
 
 async function sincronizar({ manual = false, reintentoPorConexion = false } = {}) {
@@ -809,11 +811,13 @@ async function sincronizar({ manual = false, reintentoPorConexion = false } = {}
         // lanzaba, la bajada nunca ocurría y ese ciclo dejaba al dispositivo sin ver nada de
         // lo que el equipo hizo mientras tanto — la causa más probable de "lo que capturo en
         // la compu no se ve en el celular".
-        bajarDelEspejo();
+        // Si el ciclo falló, el servidor probablemente está mal: no se suma una bajada completa (varias RPC) a cada intento; la bajada llega con el reintento con espera.
+        if (!ultimoCicloFallo) bajarDelEspejo();
 
         // Ver comentario en `alGuardarVisitas`: un guardado que llegó a media subida no se
-        // queda esperando el próximo disparador — se relanza un ciclo nuevo de inmediato.
-        if (cambioPendienteMientrasSincroniza) {
+        // queda esperando el próximo disparador — se relanza un ciclo nuevo de inmediato
+        // (salvo que el ciclo haya fallado: entonces lo hará el reintento con espera, no una ráfaga).
+        if (cambioPendienteMientrasSincroniza && !ultimoCicloFallo) {
             cambioPendienteMientrasSincroniza = false;
             sincronizar();
         }
