@@ -229,7 +229,7 @@ function refrescarPerfil() {
         if (!appIniciada) { mostrarApp(); iniciarApp(); return; }
 
         pintarAccesos();
-        repintarSiCambio(Promise.all([cargarEquipo(), cargarRevisiones()]));
+        bajarDelEspejoSiHaceFalta();
     });
 }
 
@@ -351,8 +351,19 @@ function bajarDelEspejo() {
     if (bajadaEnVuelo) return bajadaEnVuelo;
     bajadaEnVuelo = repintarSiCambio(
         Promise.all([cargarEquipo(), cargarRevisiones(), cargarAvisos(), descargarCatalogoSiSePuede()])
-    ).finally(() => { bajadaEnVuelo = null; });
+    ).finally(() => { bajadaEnVuelo = null; ultimaBajadaFin = Date.now(); });
     return bajadaEnVuelo;
+}
+
+/** Fin de la última bajada del espejo. */
+let ultimaBajadaFin = 0;
+/** Una bajada completa son 4+ peticiones. Perfil, reconexión del canal y arranque la pedían casi a la vez (3-4 veces en el primer segundo):
+ * si ya hubo una hace poco (o está en camino), se reutiliza en vez de repetirla. */
+const REUSO_BAJADA_MS = 15 * 1000;
+function bajarDelEspejoSiHaceFalta() {
+    if (bajadaEnVuelo) return bajadaEnVuelo;
+    if (Date.now() - ultimaBajadaFin < REUSO_BAJADA_MS) return Promise.resolve();
+    return bajarDelEspejo();
 }
 
 /**
@@ -466,8 +477,8 @@ function conectarRealtime() {
         console.log(conectado ? '[realtime] canal conectado' : '[realtime] canal no conectó — usando solo el poll de 60s');
         if (!conectado) return;
         // Al reconectar (recuperar señal, volver de segundo plano) puede haber pasado algo
-        // mientras el canal estaba caído; una bajada de más no hace daño y cierra ese hueco.
-        bajarDelEspejo();
+        // mientras el canal estaba caído; se baja salvo que ya haya una reciente (el arranque ya acaba de bajar).
+        bajarDelEspejoSiHaceFalta();
     });
 }
 
