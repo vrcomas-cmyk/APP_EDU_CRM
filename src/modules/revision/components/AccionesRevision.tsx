@@ -11,13 +11,14 @@
  */
 
 import { useState } from 'react';
-import { resultadosDe } from '@core/puente';
-import type { FlujoRevision, PendienteRevision, ResultadoFlujo } from '@core/tipos';
+import { resultadosDe, criteriosDe } from '@core/puente';
+import type { CriterioRevision, FlujoRevision, PendienteRevision, ResultadoFlujo } from '@core/tipos';
+import { Icono } from '@shared/components/Icono';
 
 interface Props {
     flujo: FlujoRevision;
     item: PendienteRevision;
-    onEnviar: (resultado: string, observaciones: string) => string | null;
+    onEnviar: (resultado: string, observaciones: string, criterios?: CriterioRevision[]) => string | null;
 }
 
 const CLASES: Record<string, string> = {
@@ -35,6 +36,13 @@ export function AccionesRevision({ flujo, item, onEnviar }: Props) {
     // pero el educador veía "te revisaron dos veces" sin que hubiera pasado nada raro.
     const [enviando, setEnviando] = useState(false);
 
+    // Qué se mira en este flujo. Cada criterio se marca ✓ (cumple) o ✗ (no cumple); sin marcar
+    // no afirma nada. Así el revisor no decide a ojo y el educador ve QUÉ falló.
+    const criterios = criteriosDe(flujo);
+    const [marcas, setMarcas] = useState<Record<string, boolean | undefined>>({});
+    const marcar = (clave: string, ok: boolean) =>
+        setMarcas(m => ({ ...m, [clave]: m[clave] === ok ? undefined : ok }));
+
     const resultados = resultadosDe(flujo);
 
     // Cada tarjeta necesita su propio id: hay muchas en la página y un `htmlFor` repetido
@@ -49,7 +57,7 @@ export function AccionesRevision({ flujo, item, onEnviar }: Props) {
         if (enviando) return;
         setEnviando(true);
 
-        const error = onEnviar(r.valor, obs);
+        const error = onEnviar(r.valor, obs, criterios.map(c => ({ ...c, ok: marcas[c.clave] })));
 
         if (error) {
             setEnviando(false);
@@ -64,6 +72,25 @@ export function AccionesRevision({ flujo, item, onEnviar }: Props) {
 
     return (
         <div className="revision-acciones">
+            {criterios.length > 0 && (
+                <fieldset className="revision-criterios" aria-label="Qué se revisa">
+                    <legend className="eyebrow">Qué se revisa</legend>
+                    {criterios.map(c => (
+                        <div className="revision-criterio" key={c.clave}>
+                            <span className="revision-criterio-txt">{c.etiqueta || c.clave}</span>
+                            <button type="button" className="btn-txt" aria-pressed={marcas[c.clave] === true}
+                                    onClick={() => marcar(c.clave, true)}>
+                                {marcas[c.clave] === true ? <><Icono clave="ok" tam={13} /> Cumple</> : 'Cumple'}
+                            </button>
+                            <button type="button" className="btn-txt peligro" aria-pressed={marcas[c.clave] === false}
+                                    onClick={() => marcar(c.clave, false)}>
+                                {marcas[c.clave] === false ? <><Icono clave="no" tam={13} /> No cumple</> : 'No cumple'}
+                            </button>
+                        </div>
+                    ))}
+                </fieldset>
+            )}
+
             <label className="sr-only" htmlFor={idObs}>
                 Observaciones para {item.titulo}
             </label>

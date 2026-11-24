@@ -61,10 +61,11 @@ export function FormularioVisita({ visita, editar, avisar }: Props) {
                     <span className="campo-lbl">{rotuloEn('visita', 'notas', 'Notas')}</span>
                     <textarea
                         className="inp notas-area" rows={2}
-                        placeholder="Nota de planeación (no es un comentario)"
+                        placeholder="Escribe una nota"
                         value={visita.notas || ''}
                         onChange={(e) => editar(v => { v.notas = e.target.value; })}
                     />
+                    <span className="ayuda">Nota de planeación, no es un comentario.</span>
                 </label>
             )}
         </>
@@ -451,10 +452,11 @@ export function PanelInformacion({ visita, editar }: { visita: Visita; editar?: 
                     <span className="campo-lbl">Notas</span>
                     <textarea
                         className="inp notas-area" rows={2}
-                        placeholder="Nota de planeación (no es un comentario)"
+                        placeholder="Escribe una nota"
                         value={visita.notas || ''}
                         onChange={(e) => editar(v => { v.notas = e.target.value; })}
                     />
+                    <span className="ayuda">Nota de planeación, no es un comentario.</span>
                 </label>
             )}
         </div>

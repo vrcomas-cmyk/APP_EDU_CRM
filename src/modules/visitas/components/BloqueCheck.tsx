@@ -10,7 +10,7 @@ import { useMemo, useState } from 'react';
 import {
     tieneCheckIn, tieneCheckOut, puedeIniciar, iniciarVisita, finalizarVisita,
     permanenciaTexto, duracionTexto, describirUbicacion, precisionDudosa,
-    reactivarVisita, minutosDeRetraso, esVisitaCliente, consultarVisitas, visitaAbiertaDe,
+    reactivarVisita, minutosDeRetraso, esVisitaCliente, muestraCheck, consultarVisitas, visitaAbiertaDe,
     upsertPendiente, sincronizarPendientes, nuevoId, sesionActual, fechaHoraCorta,
     type Resultado, type Avisar
 } from '@core/puente';
@@ -87,6 +87,9 @@ export function BloqueCheck({ visita, avisar, alTerminar, soloLectura, abrirOtra
 
         alTerminar();
     }
+
+    // Administrativo/Evento: el check-in solo se oculta si Administración lo oculta.
+    if (!muestraCheck(visita)) return null;
 
     if (actualizarEstrategias) {
         return (

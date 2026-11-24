@@ -16,7 +16,9 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../config';
 import { rpc } from './rpc';
 
 /** Agrupa ráfagas de avisos (varios cambios seguidos) en una sola bajada. */
-const DEBOUNCE_MS = 500;
+const DEBOUNCE_MS = 5000;
+/** Desfase aleatorio extra: evita que todos los gerentes de un mismo guardado bajen datos a la vez. */
+const JITTER_MS = 5000;
 
 let cliente: SupabaseClient | null = null;
 
@@ -55,7 +57,7 @@ export async function conectarCanal(
         temporizador = setTimeout(() => {
             temporizador = null;
             alCambio();
-        }, DEBOUNCE_MS);
+        }, DEBOUNCE_MS + Math.random() * JITTER_MS);
     }
 
     let topic: string | null = null;

@@ -15,7 +15,7 @@
  *             cancelada → apagada y tachada; no gasta color, no pasó nada que reportar.
  */
 
-import { requiereEvidencia } from './catalogos.js';
+import { requiereEvidencia, modoEnFormulario, MODOS } from './catalogos.js';
 import { leerVisitas, todasLasActividades } from './storage.js';
 
 // ---------- ciclo de vida ----------
@@ -51,6 +51,39 @@ export function tieneCheckOut(visita) { return !!visita.check_out; }
 /** `tipo` ausente equivale a 'cliente': las visitas de siempre no cambian de significado. */
 export function esVisitaCliente(visita) {
     return !visita.tipo || visita.tipo === 'cliente';
+}
+
+/**
+ * Tiempo administrativo: no hay un lugar al que llegar ni un cliente al que probarle nada, así
+ * que ni pide check-in/check-out ni genera deuda de evidencia. Único punto de esta regla.
+ */
+export function esVisitaAdministrativa(visita) {
+    return visita?.tipo === 'administrativo';
+}
+
+/**
+ * Qué pide un tipo NO-cliente (administrativo/evento), según Administración. Por defecto
+ * ambos son opcionales: ni check-in ni evidencia son obligatorios.
+ */
+function modoNoCliente(visita, que) {
+    if (esVisitaCliente(visita)) return MODOS.OBLIGATORIO;
+    const tipo = visita.tipo === 'evento' ? 'evento' : 'administrativo';
+    return modoEnFormulario('visita', `${que}_${tipo}`);
+}
+
+/** ¿Se exige el check-in para registrar? Las visitas a cliente siempre. */
+export function exigeCheck(visita) {
+    return modoNoCliente(visita, 'checkin') === MODOS.OBLIGATORIO;
+}
+
+/** ¿Se muestra el bloque de check-in/out? Solo se oculta si Administración lo oculta. */
+export function muestraCheck(visita) {
+    return modoNoCliente(visita, 'checkin') !== MODOS.OCULTO;
+}
+
+/** ¿La evidencia de este tipo es deuda? Solo si Administración la marca obligatoria. */
+export function exigeEvidencia(visita) {
+    return modoNoCliente(visita, 'evidencia') === MODOS.OBLIGATORIO;
 }
 
 const ETIQUETAS_TIPO = { administrativo: 'Administrativo', evento: 'Evento' };
@@ -90,7 +123,7 @@ export const SALUD = {
  */
 export function saludDe(visita) {
     if (estadoDe(visita) === ESTADOS.CANCELADA) return SALUD.CANCELADA;
-    if (!tieneCheckIn(visita)) return SALUD.NEUTRA;
+    if (!tieneCheckIn(visita) && exigeCheck(visita)) return SALUD.NEUTRA;
 
     // Solo lo guardado cuenta: un borrador a medio escribir no es trabajo registrado, y
     // pintar la visita de verde por él afirmaría algo que todavía no ocurrió.
@@ -109,7 +142,7 @@ export function detalleEstado(visita) {
     if (estado === ESTADOS.CANCELADA) {
         return visita.motivo_cancelacion ? `Cancelada · ${visita.motivo_cancelacion}` : 'Cancelada';
     }
-    if (!tieneCheckIn(visita)) return 'Programada';
+    if (!tieneCheckIn(visita) && exigeCheck(visita)) return 'Programada';
 
     const actividades = actividadesGuardadasDe(visita);
     const faltan = evidenciasPendientesDe(visita).length;
@@ -153,6 +186,7 @@ export function actividadesGuardadasDe(visita) {
  * de cosas que no se pueden cerrar se deja de mirar.
  */
 export function evidenciasPendientesDe(visita) {
+    if (!exigeEvidencia(visita)) return [];
     return actividadesGuardadasDe(visita)
         .filter(a => requiereEvidencia(a) && a.evidencia?.estado !== 'subida');
 }
@@ -163,7 +197,8 @@ export function evidenciasPendientesDe(visita) {
  * nadie va a conseguir la foto de una visita que no ocurrió.
  */
 export function deudaGlobal(visitas = leerVisitas()) {
-    const vivas = visitas.filter(v => estadoDe(v) !== ESTADOS.CANCELADA && tieneCheckIn(v));
+    const vivas = visitas.filter(v => estadoDe(v) !== ESTADOS.CANCELADA
+        && (tieneCheckIn(v) || !exigeCheck(v)) && exigeEvidencia(v));
     return todasLasActividades(vivas)
         .filter(({ actividad }) => estaGuardada(actividad)
             && requiereEvidencia(actividad) && actividad.evidencia?.estado !== 'subida');

@@ -9,7 +9,7 @@
  * de que eso pase, en vez de subir cada tecla suelta.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { puede, type Avisar } from '@core/puente';
 import { useAdmin } from '../hooks/useAdmin';
 import { useRBAC } from '../hooks/useRBAC';
@@ -27,6 +27,7 @@ import { PanelTerritorios } from './PanelTerritorios';
 import { PanelTemas } from './PanelTemas';
 import { PanelCatalogoFicha } from './PanelCatalogoFicha';
 import { Esqueleto } from '@shared/components/Esqueleto';
+import { EstadoError } from '@shared/components/EstadoError';
 
 const PESTANAS = [
     { id: 'tipos', etiqueta: 'Tipos y campos' },
@@ -81,6 +82,9 @@ export function Administracion({ avisar, confirmar, onGuardado }: Props) {
     const [pestanaEstrategia, setPestanaEstrategia] = useState<PestanaEstrategia>('tipos');
     const [abiertoEstrategia, setAbiertoEstrategia] = useState<string | null>(null);
     const preguntar = confirmar ?? ((m: string) => window.confirm(m));
+    // «Descartar» se confirma en la propia barra. `confirm()` no se muestra en la app instalada
+    // (devuelve false sin preguntar), y el botón quedaba sin hacer nada.
+    const [confirmandoDescarte, setConfirmandoDescarte] = useState(false);
 
     const catalogos = useAdmin({ avisar, confirmar: preguntar, onGuardado });
     // La carga es perezosa (`activo`): mientras el administrador no entra a esa área, no vale
@@ -97,6 +101,9 @@ export function Administracion({ avisar, confirmar, onGuardado }: Props) {
         : area === 'flujos' ? flujos
         : area === 'estrategia_admin' ? catalogosEstrategia
         : territorios;
+
+    // Sin cambios (o en otra pestaña) no hay nada que confirmar descartar.
+    useEffect(() => { if (!activo.sucio) setConfirmandoDescarte(false); }, [activo.sucio]);
 
     const descripciones: Record<Area, string> = {
         catalogos: 'Catálogos compartidos por todos los educadores.',
@@ -171,12 +178,7 @@ export function Administracion({ avisar, confirmar, onGuardado }: Props) {
                     {flujos.cargando && flujos.borrador.flujos.length === 0 ? (
                         <Esqueleto etiqueta="Cargando flujos de revisión" />
                     ) : flujos.error && flujos.borrador.flujos.length === 0 ? (
-                        <div className="campo es-error">
-                            <p className="ayuda">No se pudo cargar: {flujos.error}</p>
-                            <button type="button" className="btn-txt" onClick={() => { void flujos.recargar(); }}>
-                                Reintentar
-                            </button>
-                        </div>
+                        <EstadoError queCargaba="los flujos de revisión" detalle={flujos.error} onReintentar={() => { void flujos.recargar(); }} />
                     ) : (
                         <PanelFlujos borrador={flujos.borrador} cambiar={flujos.cambiar} confirmar={preguntar} />
                     )}
@@ -203,12 +205,7 @@ export function Administracion({ avisar, confirmar, onGuardado }: Props) {
                             && catalogosEstrategia.borrador.etapas.length === 0 ? (
                             <Esqueleto etiqueta="Cargando catálogos de Estrategia" />
                         ) : catalogosEstrategia.error && catalogosEstrategia.borrador.tipos.length === 0 ? (
-                            <div className="campo es-error">
-                                <p className="ayuda">No se pudo cargar: {catalogosEstrategia.error}</p>
-                                <button type="button" className="btn-txt" onClick={() => { void catalogosEstrategia.recargar(); }}>
-                                    Reintentar
-                                </button>
-                            </div>
+                            <EstadoError queCargaba="los catálogos de estrategia" detalle={catalogosEstrategia.error} onReintentar={() => { void catalogosEstrategia.recargar(); }} />
                         ) : pestanaEstrategia === 'tipos' ? (
                             <PanelCatalogoFicha
                                 titulo="Tipos de estrategia"
@@ -242,12 +239,7 @@ export function Administracion({ avisar, confirmar, onGuardado }: Props) {
                         && territorios.borrador.coberturas.length === 0 ? (
                         <Esqueleto etiqueta="Cargando territorios" />
                     ) : territorios.error && territorios.borrador.titulares.length === 0 ? (
-                        <div className="campo es-error">
-                            <p className="ayuda">No se pudo cargar: {territorios.error}</p>
-                            <button type="button" className="btn-txt" onClick={() => { void territorios.recargar(); }}>
-                                Reintentar
-                            </button>
-                        </div>
+                        <EstadoError queCargaba="los territorios" detalle={territorios.error} onReintentar={() => { void territorios.recargar(); }} />
                     ) : (
                         <PanelTerritorios
                             borrador={territorios.borrador}
@@ -263,38 +255,59 @@ export function Administracion({ avisar, confirmar, onGuardado }: Props) {
               mucho más que la pantalla, y un botón al final del documento obliga a bajar hasta
               el fondo para confirmar algo que se cambió arriba.
             */}
-            <div className="vista-foot">
-                {/*
-                  Sustituye al «Cancelar» del modal. Como vista ya no hay nada que cerrar, y sin
-                  esto la única forma de deshacer sería irse a otro módulo —que descarta igual,
-                  pero de callado y sin que parezca esa la intención—.
-                */}
-                <button
-                    type="button"
-                    className="btn-txt"
-                    disabled={!activo.sucio || activo.guardando}
-                    onClick={() => {
-                        if (preguntar('¿Descartar los cambios sin guardar?')) activo.descartar();
-                    }}
-                >
-                    Descartar
-                </button>
+            <div
+                className={'vista-foot ' + (activo.sucio ? 'hay-cambios' : 'es-limpio')}
+                role="region"
+                aria-label="Guardar o descartar cambios"
+            >
+                {confirmandoDescarte && activo.sucio ? (
+                    <>
+                        <span className="ayuda">¿Descartar los cambios sin guardar?</span>
+                        <span style={{ flex: 1 }} />
+                        <button type="button" className="btn-txt" onClick={() => setConfirmandoDescarte(false)}>
+                            Conservar
+                        </button>
+                        <button
+                            type="button"
+                            className="btn-txt peligro"
+                            onClick={() => { activo.descartar(); setConfirmandoDescarte(false); }}
+                        >
+                            Sí, descartar
+                        </button>
+                    </>
+                ) : (
+                    <>
+                        {/*
+                          Sustituye al «Cancelar» del modal. Como vista ya no hay nada que cerrar, y sin
+                          esto la única forma de deshacer sería irse a otro módulo —que descarta igual,
+                          pero de callado y sin que parezca esa la intención—.
+                        */}
+                        <button
+                            type="button"
+                            className="btn-txt"
+                            disabled={!activo.sucio || activo.guardando}
+                            onClick={() => setConfirmandoDescarte(true)}
+                        >
+                            Descartar
+                        </button>
 
-                <span className="ayuda">
-                    {'cargando' in activo && activo.cargando
-                        ? 'Cargando…'
-                        : activo.sucio ? 'Hay cambios sin guardar.' : 'Sin cambios.'}
-                </span>
-                <span style={{ flex: 1 }} />
-                <button
-                    type="button"
-                    className="btn"
-                    // No se deshabilita sin cambios: un botón apagado no explica por qué.
-                    disabled={activo.guardando || ('cargando' in activo && activo.cargando && area !== 'catalogos')}
-                    onClick={() => { void activo.guardar(); }}
-                >
-                    {activo.guardando ? 'Guardando…' : 'Guardar cambios'}
-                </button>
+                        <span className="ayuda">
+                            {'cargando' in activo && activo.cargando
+                                ? 'Cargando…'
+                                : activo.sucio ? 'Hay cambios sin guardar.' : 'Sin cambios.'}
+                        </span>
+                        <span style={{ flex: 1 }} />
+                        <button
+                            type="button"
+                            className="btn"
+                            // No se deshabilita sin cambios: un botón apagado no explica por qué.
+                            disabled={activo.guardando || ('cargando' in activo && activo.cargando && area !== 'catalogos')}
+                            onClick={() => { void activo.guardar(); }}
+                        >
+                            {activo.guardando ? 'Guardando…' : 'Guardar cambios'}
+                        </button>
+                    </>
+                )}
             </div>
         </div>
     );

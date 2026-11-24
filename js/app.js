@@ -12,7 +12,7 @@ import {
 import { eventosPendientes } from './eventos.js';
 import { fechaDocumentoFaltante } from './catalogos.js';
 import {
-    descargarCatalogo, catalogoEsFresco, sincronizarTodo, descargarVisitasEquipo, descargarRevisiones,
+    descargarCatalogo, catalogoEsFresco, sincronizarTodo, descargarVisitasEquipo, descargarRevisiones, descargarComentarios,
     progresoSubidaEvidencias, evidenciasSinArchivoLocal, descargarAvisos
 } from './sync.js';
 import { ponerAvisos, olvidarAvisos } from './avisos.js';
@@ -20,7 +20,7 @@ import { deudaGlobal } from './estado.js';
 import {
     initVistas, refrescarVistas as refrescarCalendario, irAHoy, setModo, irADia, mostrarModulo
 } from '../src/app/montarVistas';
-import { initDrawer, abrirNuevaVisita, abrirVisita, hayDrawerAbierto } from '../src/modules/visitas/montarDrawer';
+import { initDrawer, abrirNuevaVisita, abrirVisita, hayDrawerAbierto, borradoresPropios } from '../src/modules/visitas/montarDrawer';
 import { initPaleta, abrirPaleta, hayPaletaAbierta } from '../src/modules/paleta/montarPaleta';
 import { configurarToken } from '../src/services/google/appsScript';
 import {
@@ -28,7 +28,8 @@ import {
     accesoBloqueado, aceptarInvitacion,
     enSimulacion, detalleSimulacion, salirSimulacion
 } from './permisos.js';
-import { ponerVisitasEquipo, olvidarVisitasEquipo, hayEquipoCargado } from './datos.js';
+import { ponerVisitasEquipo, olvidarVisitasEquipo, hayEquipoCargado, consultarVisitas } from './datos.js';
+import { descargarSolicitudes } from './eliminacionEvidencia.js';
 import { guardarCache, leerCache, borrarCache } from './cacheLocal.js';
 import { ponerFlujos, ponerRevisiones, olvidarRevisiones, hayRevisionesCargadas } from './revisiones.js';
 import { initAuth, sesionActual, pintarBotonEntrada, cerrarSesion } from './auth.js';
@@ -56,7 +57,9 @@ let fallosSeguidos = 0;
 // enseguida por "N en cola", y el fallo (p. ej. una foto que no sube) pasaba sin que nadie lo viera.
 let ultimoCicloFallo = false;
 const ESPERAS_BACKOFF_MS = [15000, 30000, 60000, 120000, 300000]; // 15s .. 5min, tope
-const INTERVALO_NORMAL_MS = 60000;
+// Realtime ya avisa de los cambios del equipo; este poll es solo la red de seguridad. A 60 s cada
+// cliente abierto leía Supabase 1 vez por minuto y agotó el presupuesto de Disk IO.
+const INTERVALO_NORMAL_MS = 5 * 60000;
 // Un ciclo que nunca resuelve (pestaña congelada a media subida, promesa que no cierra) no
 // debe dejar `sincronizando` en `true` para siempre: eso silenciaría todo intento posterior,
 // automático o manual. Pasado este margen sobre el timeout de red, se da por muerto.
@@ -79,6 +82,8 @@ document.addEventListener('DOMContentLoaded', () => {
         sync: document.getElementById('btn-sync'),
         syncTxt: document.getElementById('sync-txt'),
         deuda: document.getElementById('btn-deuda'),
+        borradores: document.getElementById('btn-borradores'),
+        borradoresN: document.getElementById('borradores-n'),
         buscar: document.getElementById('btn-buscar'),
         deudaN: document.getElementById('deuda-n'),
         sesion: document.getElementById('btn-sesion'),
@@ -229,7 +234,7 @@ function refrescarPerfil() {
         if (!appIniciada) { mostrarApp(); iniciarApp(); return; }
 
         pintarAccesos();
-        repintarSiCambio(Promise.all([cargarEquipo(), cargarRevisiones()]));
+        repintarSiCambio(Promise.all([cargarEquipoYComentarios(), cargarRevisiones()]));
     });
 }
 
@@ -273,6 +278,26 @@ function cargarEquipo() {
         guardarCache(sesionActual()?.correo, 'visitas', visitas);
         if (!enSimulacion()) adoptarVisitasPropias(visitas, sesionActual()?.correo);
         return true;
+    });
+}
+
+/**
+ * Comentarios de las visitas que esta persona ve (propias y de su equipo), con los que escribieron
+ * otros. Va DESPUÉS de cargar el equipo: necesita saber qué visitas hay. Nunca lanza.
+ */
+function cargarComentarios() {
+    let ids = [];
+    try { ids = consultarVisitas().map(v => v.id).filter(Boolean); } catch { /* sin visitas aún */ }
+    return descargarComentarios(ids).catch(() => false);
+}
+
+/** Equipo y, ya con sus visitas, los comentarios. Devuelve true si cualquiera trajo algo. */
+function cargarEquipoYComentarios() {
+    return cargarEquipo().then(async (cambio) => {
+        const comentarios = await cargarComentarios();
+        // Solicitudes de eliminar evidencia: también restablecen aquí lo que el jefe ya aprobó.
+        const solicitudes = await descargarSolicitudes().catch(() => false);
+        return comentarios || solicitudes || cambio;
     });
 }
 
@@ -350,7 +375,7 @@ let bajadaEnVuelo = null;
 function bajarDelEspejo() {
     if (bajadaEnVuelo) return bajadaEnVuelo;
     bajadaEnVuelo = repintarSiCambio(
-        Promise.all([cargarEquipo(), cargarRevisiones(), cargarAvisos(), descargarCatalogoSiSePuede()])
+        Promise.all([cargarEquipoYComentarios(), cargarRevisiones(), cargarAvisos(), descargarCatalogoSiSePuede()])
     ).finally(() => { bajadaEnVuelo = null; });
     return bajadaEnVuelo;
 }
@@ -413,6 +438,11 @@ function iniciarApp() {
     el.fab.addEventListener('click', () => abrirNuevaVisita());
     el.sync.addEventListener('click', () => sincronizar({ manual: true }));
     el.deuda.addEventListener('click', () => mostrarModulo('evidencias'));
+    // Retoma el borrador más reciente; al guardarlo/descartarlo el contador baja solo.
+    el.borradores.addEventListener('click', () => {
+        const [primero] = borradoresPropios();
+        if (primero) abrirVisita(primero.id);
+    });
     // Único disparador táctil de la paleta: sin esto, Ctrl+K la deja inalcanzable en el celular.
     el.buscar.addEventListener('click', () => abrirPaleta());
 
@@ -476,6 +506,7 @@ let ultimaVueltaAPrimerPlano = 0;
 // Cambiar de pestaña y volver varias veces seguidas no debe lanzar una ronda completa cada vez:
 // cada ronda son 4 peticiones al servidor, y el rol anónimo corta cualquiera que pase de 3 s.
 const ENFRIAMIENTO_PRIMER_PLANO_MS = 20 * 1000;
+const ESPERA_ALEATORIA_PRIMER_PLANO_MS = 2500;
 
 /** Baja lo del equipo de inmediato y dispara la subida propia — ver comentario en el listener. */
 function volverAPrimerPlano() {
@@ -483,8 +514,12 @@ function volverAPrimerPlano() {
     if (Date.now() - ultimaVueltaAPrimerPlano < ENFRIAMIENTO_PRIMER_PLANO_MS) return;
     ultimaVueltaAPrimerPlano = Date.now();
     volviendoAPrimerPlano = true;
-    bajarDelEspejo().finally(() => { volviendoAPrimerPlano = false; });
-    sincronizar();
+    // Con varias personas, todas abren la app a la misma hora y volverían juntas a pedir lo mismo
+    // en el mismo segundo. Una espera aleatoria corta reparte esas peticiones sin que se note.
+    setTimeout(() => {
+        bajarDelEspejo().finally(() => { volviendoAPrimerPlano = false; });
+        sincronizar();
+    }, Math.random() * ESPERA_ALEATORIA_PRIMER_PLANO_MS);
 }
 
 /**
@@ -499,7 +534,16 @@ function volverAPrimerPlano() {
  */
 function reanudarAutoSync() {
     if (relojAutoSync) return;
-    relojAutoSync = setInterval(() => sincronizar(), INTERVALO_NORMAL_MS);
+    // Cada ciclo se agenda con ±20 % de variación en vez de un `setInterval` fijo: dos equipos que
+    // arrancaron a la vez no se quedan sincronizados el uno con el otro y pidiendo juntos cada 5 min.
+    const agendar = () => {
+        const variacion = 0.8 + Math.random() * 0.4;
+        relojAutoSync = setTimeout(() => {
+            sincronizar();
+            agendar();
+        }, INTERVALO_NORMAL_MS * variacion);
+    };
+    agendar();
 }
 
 // `sw.js` solo existe en el build (lo genera `serviceWorkerGenerado()`, vite.config.ts): en
@@ -550,6 +594,13 @@ export function refrescarTodo() {
     // El riel se repinta con esto: su contador de pendientes lo calcula el propio módulo.
     refrescarCalendario();
     actualizarDeuda();
+    actualizarBorradores();
+}
+
+function actualizarBorradores() {
+    const n = borradoresPropios().length;
+    el.borradoresN.textContent = n;
+    el.borradores.hidden = n === 0;
 }
 
 function actualizarDeuda() {

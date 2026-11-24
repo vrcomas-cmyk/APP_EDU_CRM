@@ -11,6 +11,7 @@ import { consultarVisitas, opcionesDeFiltro, etiquetaEstado, tieneEquipo, type F
 import { ComboFiltro } from '@shared/components/ComboFiltro';
 import type { Visita } from '@core/tipos';
 import { CampoFecha } from '@shared/components/CampoFecha';
+import { FiltroPeriodo } from '@shared/components/FiltroPeriodo';
 
 interface Props {
     filtro: Filtro;
@@ -31,6 +32,9 @@ export function BarraFiltros({ filtro, visitas, onCambiar, onLimpiar }: Props) {
     const activos = Object.values(filtro).filter(Boolean).length;
 
     return (
+        <>
+        <FiltroPeriodo desde={filtro.desde} hasta={filtro.hasta}
+                       onCambiar={(desde, hasta) => { onCambiar('desde', desde); onCambiar('hasta', hasta); }} />
         <div className="filtros">
             {/* El filtro por educador solo tiene sentido para quien ve a más de una persona.
                 Con buscador y no un `<select>` plano: un equipo de cientos de personas no se
@@ -69,6 +73,7 @@ export function BarraFiltros({ filtro, visitas, onCambiar, onLimpiar }: Props) {
                 )}
             </div>
         </div>
+        </>
     );
 }
 

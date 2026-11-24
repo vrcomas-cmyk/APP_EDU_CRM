@@ -8,6 +8,7 @@
  */
 
 import type { CompromisoCalendar } from '@core/puente';
+import { Icono } from '@shared/components/Icono';
 
 function horaCorta(iso: string): string {
     const d = new Date(iso);
@@ -32,11 +33,11 @@ export function ResumenCompromiso({ compromiso, onCerrar }: {
                         <h3>{compromiso.titulo}</h3>
                         <span className="eyebrow">Google Calendar · {rango}</span>
                     </div>
-                    <button type="button" className="icon-btn" aria-label="Cerrar" onClick={onCerrar}>✕</button>
+                    <button type="button" className="icon-btn" aria-label="Cerrar" onClick={onCerrar}><Icono clave="cerrar" tam={14} /></button>
                 </div>
 
                 <div className="modal-body">
-                    {compromiso.ubicacion && <p className="ayuda">📍 {compromiso.ubicacion}</p>}
+                    {compromiso.ubicacion && <p className="ayuda"><Icono clave="ubicacion" tam={13} /> {compromiso.ubicacion}</p>}
 
                     {compromiso.descripcion && (
                         <p className="notas-area" style={{ whiteSpace: 'pre-wrap' }}>{compromiso.descripcion}</p>

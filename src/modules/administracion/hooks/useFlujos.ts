@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { guardarFlujosAdmin, leerFlujosAdmin, type Avisar } from '@core/puente';
 import type { BorradorFlujos } from '@core/tipos';
-import { VACIO_FLUJOS, flujosParaGuardar, problemasDeFlujos } from '../services/borradorFlujos';
+import { VACIO_FLUJOS, flujosParaGuardar, normalizarFlujos, problemasDeFlujos } from '../services/borradorFlujos';
 
 interface Opciones {
     /** Se difiere la primera carga hasta que esto sea `true`. */
@@ -42,7 +42,7 @@ export function useFlujos({ activo, avisar, confirmar, onGuardado }: Opciones): 
         setError(null);
         try {
             const datos = await leerFlujosAdmin();
-            const b: BorradorFlujos = { flujos: datos.flujos };
+            const b: BorradorFlujos = { flujos: normalizarFlujos(datos.flujos) };
             setInicial(JSON.stringify(b));
             setBorrador(b);
         } catch (err) {
@@ -84,7 +84,7 @@ export function useFlujos({ activo, avisar, confirmar, onGuardado }: Opciones): 
             // manda el estado completo, no un diff. Se compara contra un vistazo fresco antes de
             // escribir; los cambios locales no se tocan, solo se avisa.
             const fresco = await leerFlujosAdmin();
-            const enServidor = JSON.stringify({ flujos: fresco.flujos });
+            const enServidor = JSON.stringify({ flujos: normalizarFlujos(fresco.flujos) });
             if (enServidor !== inicial) {
                 setInicial(enServidor);
                 avisar?.(

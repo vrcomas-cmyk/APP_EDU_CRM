@@ -128,6 +128,8 @@ function TarjetaFaltante({ dato, avisar, onCambio }: { dato: DatoFaltante; avisa
 
 function TarjetaAviso({ aviso, onResolver }: { aviso: AvisoRevision; onResolver: () => void }) {
     const rechazo = aviso.resultado === 'rechazado';
+    // Un comentario suelto de un jefe no es una corrección pendiente: se lee y se da por visto.
+    const esComentario = aviso.tipo === 'comentario';
     const donde = [aviso.cliente, aviso.hospital, aviso.dia_visita ? fechaCorta(aviso.dia_visita) : '']
         .filter(Boolean).join(' · ');
 
@@ -159,7 +161,7 @@ function TarjetaAviso({ aviso, onResolver }: { aviso: AvisoRevision; onResolver:
                     </button>
                 )}
                 <button type="button" className="btn-txt" onClick={onResolver}>
-                    Ya lo corregí
+                    {esComentario ? 'Ya lo leí' : 'Ya lo corregí'}
                 </button>
             </div>
         </article>

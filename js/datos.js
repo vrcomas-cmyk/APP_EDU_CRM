@@ -422,14 +422,19 @@ export function urlEvidencia(actividad) {
     // Subida a Supabase Storage (`storage:<ruta>`): no hay una URL permanente, se pide una
     // firmada al abrirla. La resuelve `vistaprevia.js`.
     if (ev.estado === 'subida' && String(ev.url || '').startsWith('storage:')) {
-        return { tipo: 'storage', id: actividad.id, mime: ev.mime || mimePorNombre(ev.nombre) };
+        // El espejo del equipo no manda `nombre` ni `mime`, pero la ruta de Storage conserva la
+        // extensión (`<id_actividad>.<ext>`): de ahí se deduce el tipo para poder previsualizar.
+        return {
+            tipo: 'storage', id: actividad.id,
+            mime: ev.mime || mimePorNombre(ev.nombre) || mimePorNombre(ev.url)
+        };
     }
     if (ev.estado === 'subida' && ev.url) {
         const id = idDeDrive(ev.url);
         return {
             tipo: 'remota',
             url: ev.url,
-            mime: ev.mime || '',
+            mime: ev.mime || mimePorNombre(ev.nombre),
             urlMiniatura: id ? `https://drive.google.com/thumbnail?id=${id}&sz=w800` : ev.url,
             urlVisor: id ? `https://drive.google.com/file/d/${id}/preview` : ev.url
         };

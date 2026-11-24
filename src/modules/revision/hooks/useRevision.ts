@@ -8,11 +8,11 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import {
-    flujosDisponibles, pendientesDe, conteoPendientes, revisar, consultarVisitas,
+    flujosDisponibles, pendientesDe, cerradosDe, conteoPendientes, revisar, reabrir, consultarVisitas,
     resultadoDe,
     type Avisar, type EstadoAviso
 } from '@core/puente';
-import type { FlujoRevision, PendienteRevision } from '@core/tipos';
+import type { CriterioRevision, FlujoRevision, PendienteRevision } from '@core/tipos';
 
 interface Opciones {
     onCambio?: () => void;
@@ -24,10 +24,17 @@ export interface EstadoRevision {
     flujo: FlujoRevision | null;
     elegirFlujo: (clave: string) => void;
     pendientes: PendienteRevision[];
+    /** Lo ya cerrado: el histórico de quién resolvió qué, sobre el que se puede reabrir. */
+    cerrados: PendienteRevision[];
     porFlujo: Record<string, number>;
     total: number;
     /** Devuelve el error a mostrar, o `null` si se registró. */
-    enviar: (item: PendienteRevision, resultado: string, observaciones: string) => string | null;
+    enviar: (
+        item: PendienteRevision, resultado: string, observaciones: string,
+        criterios?: CriterioRevision[]
+    ) => string | null;
+    /** Reactiva un elemento cerrado. Devuelve el error a mostrar, o `null` si se reabrió. */
+    reabrirItem: (item: PendienteRevision, motivo: string) => string | null;
 }
 
 export function useRevision({ onCambio, avisar }: Opciones = {}): EstadoRevision {
@@ -53,10 +60,29 @@ export function useRevision({ onCambio, avisar }: Opciones = {}): EstadoRevision
         [flujo, visitas]
     );
 
+    const cerrados = useMemo(
+        () => (flujo ? cerradosDe(flujo, visitas) : []),
+        [flujo, visitas]
+    );
+
+    const reabrirItem = useCallback((item: PendienteRevision, motivo: string): string | null => {
+        if (!flujo) return 'Ese flujo de revisión ya no está disponible.';
+        const r = reabrir({
+            flujo: flujo.clave, ambito: flujo.ambito,
+            idAmbito: item.id_ambito, idVisita: item.id_visita, motivo
+        });
+        if (!r.ok) return r.error ?? 'No se pudo reabrir.';
+        avisar?.(`Reabierto · ${item.titulo}`, { estado: 'faltan-evidencias' as EstadoAviso });
+        onCambio?.();
+        setVersion(v => v + 1);   // vuelve a la cola de pendientes
+        return null;
+    }, [flujo, onCambio, avisar]);
+
     const enviar = useCallback((
         item: PendienteRevision,
         resultado: string,
-        observaciones: string
+        observaciones: string,
+        criterios?: CriterioRevision[]
     ): string | null => {
         if (!flujo) return 'Ese flujo de revisión ya no está disponible.';
 
@@ -66,7 +92,8 @@ export function useRevision({ onCambio, avisar }: Opciones = {}): EstadoRevision
             idAmbito: item.id_ambito,
             idVisita: item.id_visita,
             resultado,
-            observaciones
+            observaciones,
+            criterios
         });
 
         if (!r.ok) return r.error ?? 'No se pudo registrar la revisión.';
@@ -88,8 +115,10 @@ export function useRevision({ onCambio, avisar }: Opciones = {}): EstadoRevision
         flujo,
         elegirFlujo: setPedido,
         pendientes,
+        cerrados,
         porFlujo,
         total,
-        enviar
+        enviar,
+        reabrirItem
     };
 }

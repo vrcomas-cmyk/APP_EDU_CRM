@@ -9,11 +9,14 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { leerHistoricoActividades, leerHistoricoPlanTrabajo, fechaCorta, compararEs } from '@core/puente';
+import { fechaCorta, compararEs } from '@core/puente';
+import { cargarHistorico } from '../services/cacheHistorico';
 import type { FilaHistoricoActividad, FilaHistoricoPlanTrabajo } from '@core/tipos';
 import { CampoFecha } from '@shared/components/CampoFecha';
+import { FiltroPeriodo } from '@shared/components/FiltroPeriodo';
 import { Esqueleto } from '@shared/components/Esqueleto';
 import { EstadoVacio } from '@shared/components/EstadoVacio';
+import { EstadoError } from '@shared/components/EstadoError';
 
 type Pagina = 'actividades' | 'plan-trabajo';
 
@@ -33,12 +36,14 @@ export function Historico() {
 
     // Se pide una sola vez, las dos tablas juntas — no hay filtro de servidor que las achique
     // (el volumen es de miles, no millones) y así cambiar de pestaña no vuelve a pedir nada.
+    // `cargarHistorico` además recuerda el resultado entre visitas a esta pantalla y comparte la
+    // petición en curso (ver `cacheHistorico.ts`).
     useEffect(() => {
         let cancelado = false;
         setCargando(true);
         setError(null);
 
-        Promise.all([leerHistoricoActividades(), leerHistoricoPlanTrabajo()])
+        cargarHistorico()
             .then(([ra, rp]) => {
                 if (cancelado) return;
                 if (ra.status === 'error') { setError(ra.message || 'No se pudo cargar Registro Actividades.'); return; }
@@ -71,7 +76,7 @@ export function Historico() {
                 ))}
             </div>
 
-            {error && <p className="ayuda es-error">No se pudo cargar: {error}</p>}
+            {error && <EstadoError queCargaba="el histórico" detalle={error} />}
 
             {cargando && !cargado ? (
                 <Esqueleto />
@@ -96,6 +101,19 @@ function Select({ etiqueta, valor, opciones, onCambiar }: {
             </select>
         </label>
     );
+}
+
+/**
+ * Las tablas pueden traer miles de filas; pintarlas todas de golpe llenaba la página de decenas de
+ * miles de nodos y la volvía lenta. Se muestran por tandas y se piden más con un botón; al cambiar
+ * los filtros vuelve a la primera tanda.
+ */
+const PASO_FILAS = 100;
+
+function useLimiteDeFilas(filas: unknown): [number, () => void] {
+    const [limite, setLimite] = useState(PASO_FILAS);
+    useEffect(() => { setLimite(PASO_FILAS); }, [filas]);
+    return [limite, () => setLimite(l => l + PASO_FILAS)];
 }
 
 interface FiltroComun {
@@ -128,9 +146,14 @@ function TablaActividades({ filas }: { filas: FilaHistoricoActividad[] }) {
     ), [filas, filtro, resultado]);
 
     const activos = [filtro.desde, filtro.hasta, filtro.educador, resultado].filter(Boolean).length;
+    const [limite, masFilas] = useLimiteDeFilas(filtradas);
+    const visibles = filtradas.slice(0, limite);
+    const restantes = filtradas.length - visibles.length;
 
     return (
         <>
+            <FiltroPeriodo desde={filtro.desde} hasta={filtro.hasta}
+                           onCambiar={(desde, hasta) => setFiltro(f => ({ ...f, desde, hasta }))} />
             <div className="filtros">
                 <label className="filtro">
                     <span className="campo-lbl">Desde</span>
@@ -179,7 +202,7 @@ function TablaActividades({ filas }: { filas: FilaHistoricoActividad[] }) {
                             </tr>
                         </thead>
                         <tbody>
-                            {filtradas.map((f, i) => (
+                            {visibles.map((f, i) => (
                                 <tr key={i}>
                                     <td className="mono">{fechaCorta(f.fecha_documento) || '–'}</td>
                                     <td>{f.educador_nombre || '–'}</td>
@@ -194,6 +217,13 @@ function TablaActividades({ filas }: { filas: FilaHistoricoActividad[] }) {
                             ))}
                         </tbody>
                     </table>
+                    {restantes > 0 && (
+                        <div className="tabla-mas">
+                            <button type="button" className="btn-txt" onClick={masFilas}>
+                                Mostrar {Math.min(PASO_FILAS, restantes)} más · quedan {restantes}
+                            </button>
+                        </div>
+                    )}
                 </div>
             )}
         </>
@@ -216,9 +246,14 @@ function TablaPlanTrabajo({ filas }: { filas: FilaHistoricoPlanTrabajo[] }) {
     ), [filas, filtro]);
 
     const activos = [filtro.desde, filtro.hasta, filtro.educador].filter(Boolean).length;
+    const [limite, masFilas] = useLimiteDeFilas(filtradas);
+    const visibles = filtradas.slice(0, limite);
+    const restantes = filtradas.length - visibles.length;
 
     return (
         <>
+            <FiltroPeriodo desde={filtro.desde} hasta={filtro.hasta}
+                           onCambiar={(desde, hasta) => setFiltro(f => ({ ...f, desde, hasta }))} />
             <div className="filtros">
                 <label className="filtro">
                     <span className="campo-lbl">Desde</span>
@@ -265,7 +300,7 @@ function TablaPlanTrabajo({ filas }: { filas: FilaHistoricoPlanTrabajo[] }) {
                             </tr>
                         </thead>
                         <tbody>
-                            {filtradas.map((f, i) => (
+                            {visibles.map((f, i) => (
                                 <tr key={i}>
                                     <td className="mono">{fechaCorta(f.fecha) || '–'}</td>
                                     <td>{f.educador_nombre || '–'}</td>
@@ -280,6 +315,13 @@ function TablaPlanTrabajo({ filas }: { filas: FilaHistoricoPlanTrabajo[] }) {
                             ))}
                         </tbody>
                     </table>
+                    {restantes > 0 && (
+                        <div className="tabla-mas">
+                            <button type="button" className="btn-txt" onClick={masFilas}>
+                                Mostrar {Math.min(PASO_FILAS, restantes)} más · quedan {restantes}
+                            </button>
+                        </div>
+                    )}
                 </div>
             )}
         </>

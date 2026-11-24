@@ -28,6 +28,39 @@ export function ExpedienteVisita({ visita }: { visita: Visita }) {
     );
 }
 
+/**
+ * Las evidencias de la visita a la vista, sin abrir el expediente: quien califica la calidad de
+ * una visita (ámbito VISITA) no tiene una actividad concreta y antes solo las veía plegadas.
+ * Cada miniatura abre el visor; debajo va a qué actividad y sector pertenece.
+ */
+export function MiniaturasDeVisita({ visita }: { visita: Visita }) {
+    const evidencias = (visita.sectores || []).flatMap(s =>
+        (s.actividades || []).filter(a => urlEvidencia(a)).map(a => ({ sector: s.nombre, actividad: a }))
+    );
+    const sinEvidencia = (visita.sectores || []).reduce(
+        (n, s) => n + (s.actividades || []).filter(a => !urlEvidencia(a)).length, 0
+    );
+
+    if (evidencias.length === 0 && sinEvidencia === 0) return null;
+
+    return (
+        <div className="campo">
+            <span className="campo-lbl">
+                Evidencias · {evidencias.length}
+                {sinEvidencia > 0 ? ` (${sinEvidencia} actividad${sinEvidencia === 1 ? '' : 'es'} sin evidencia)` : ''}
+            </span>
+            <div className="revision-miniaturas">
+                {evidencias.map(({ sector, actividad }) => (
+                    <figure className="revision-miniatura" key={actividad.id}>
+                        <NodoVanilla clave={actividad.id} construir={() => miniaturaEvidencia(actividad)} />
+                        <figcaption>{[actividad.tipo, sector].filter(Boolean).join(' · ')}</figcaption>
+                    </figure>
+                ))}
+            </div>
+        </div>
+    );
+}
+
 function BloqueSector({ sector }: { sector: Sector }) {
     const actividades = sector.actividades || [];
 

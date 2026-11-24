@@ -18,7 +18,7 @@ import { normalizarZona, fechaDocumentoFaltante } from './catalogos.js';
 import { ordenarEs } from './orden.js';
 import { eventosPendientes, marcarSincronizados } from './eventos.js';
 import {
-    comentariosPendientes, marcarSincronizados as marcarComentarios
+    comentariosPendientes, marcarSincronizados as marcarComentarios, fusionarComentariosRemotos
 } from './comentarios.js';
 import {
     pendientesDeSubir as revisionesPendientes, marcarSincronizadas as marcarRevisiones
@@ -793,6 +793,23 @@ export async function sincronizarComentarios() {
     });
     marcarComentarios(pendientes.map(c => c.id));
     return { enviados: pendientes.length, espejo: true };
+}
+
+/**
+ * Baja los comentarios de las visitas indicadas (los de otras personas incluidos) y los fusiona
+ * con los locales. `rpc`, no `rpcEstricto`: que no lleguen no debe romper la pantalla. Devuelve
+ * true si trajo algo nuevo, para que quien llama repinte.
+ */
+export async function descargarComentarios(idsVisita) {
+    if (!navigator.onLine || !Array.isArray(idsVisita) || idsVisita.length === 0) return false;
+    const token = sesionActual()?.sesion_token;
+    if (!token) return false;
+
+    const remotos = await rpc('pdt_comentarios_de_visitas_sesion', {
+        p_sesion_token: token,
+        p_ids_visita: [...new Set(idsVisita)].slice(0, 1000)
+    });
+    return fusionarComentariosRemotos(remotos);
 }
 
 /**

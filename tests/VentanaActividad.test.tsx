@@ -180,8 +180,16 @@ describe('borrador — el formulario sale de la configuración', () => {
 
         const ctx = $('.ctx-auto')!;
         assert.match(ctx.textContent!, /Ana López/);
-        assert.match(ctx.textContent!, /Cliente Uno/);
         assert.match(ctx.textContent!, /GASAS/);
+    });
+
+    test('el cliente está siempre visible, fuera del área que se desplaza', () => {
+        abrir();
+
+        const fijo = $('.cliente-fijo')!;
+        assert.ok(fijo, 'hay un encabezado de cliente fijo');
+        assert.match(fijo.textContent!, /Cliente Uno/);
+        assert.equal(fijo.closest('.modal-body'), null, 'no vive dentro del cuerpo que hace scroll');
     });
 
     test('se autoguarda al escribir, sin sellar', () => {

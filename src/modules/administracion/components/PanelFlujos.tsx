@@ -15,7 +15,8 @@ import { useState } from 'react';
 import type { BorradorFlujos, FlujoAdmin, ResultadoFlujo } from '@core/tipos';
 import { ChipToggle } from '@shared/components/ChipToggle';
 import {
-    conCampo, conNuevoResultado, conResultado, conVeredictosPropios, flujoNuevo, sinResultado
+    conCampo, conCriterio, conCriteriosPropios, conNuevoCriterio, conNuevoResultado, conResultado,
+    conVeredictosPropios, flujoNuevo, sinCriterio, sinResultado
 } from '../services/borradorFlujos';
 
 interface Props {
@@ -26,6 +27,19 @@ interface Props {
 
 const TONOS = ['completa', 'sin-registrar', 'faltan-evidencias', 'programada'] as const;
 const ESTILOS = ['principal', 'txt', 'peligro'] as const;
+
+// Lo que se GUARDA son los valores de arriba; esto es solo cómo se lee en la lista.
+const ETIQUETA_TONO: Record<string, string> = {
+    'completa': 'Verde · completa',
+    'sin-registrar': 'Rojo · sin registrar',
+    'faltan-evidencias': 'Azul · faltan evidencias',
+    'programada': 'Gris · programada'
+};
+const ETIQUETA_ESTILO: Record<string, string> = {
+    principal: 'Botón principal (relleno)',
+    txt: 'Botón de texto',
+    peligro: 'Botón de peligro (rojo)'
+};
 
 export function PanelFlujos({ borrador, cambiar, confirmar }: Props) {
     const [abierto, setAbierto] = useState<string | null>(null);
@@ -93,6 +107,7 @@ interface FichaProps {
 
 function FichaFlujo({ flujo, abierta, onAbrir, onCambiar, onBorrar }: FichaProps) {
     const propios = flujo.resultados !== null;
+    const criteriosPropios = flujo.criterios !== null;
 
     return (
         <details
@@ -144,7 +159,7 @@ function FichaFlujo({ flujo, abierta, onAbrir, onCambiar, onBorrar }: FichaProps
                     </button>
                 </div>
 
-                <div className="campo-fila">
+                <div className="campo-fila es-ancha">
                     <span className="campo-fila-lbl">Descripción</span>
                     <input
                         type="text"
@@ -234,6 +249,59 @@ function FichaFlujo({ flujo, abierta, onAbrir, onCambiar, onBorrar }: FichaProps
                         + Agregar veredicto
                     </button>
                 )}
+
+                <span className="campo-lbl" style={{ marginTop: 14 }}>Qué se revisa</span>
+                <p className="ayuda">
+                    Son las casillas «Cumple / No cumple» que el revisor marca en cada elemento
+                    (por ejemplo Actividad, Evidencia, Puntualidad). Lo que marque queda en el
+                    historial y llega al educador como «No cumple: …».
+                </p>
+                <div className="campo-fila">
+                    <span className="campo-fila-lbl">Criterios propios</span>
+                    <ChipToggle
+                        etiqueta={criteriosPropios ? 'Personalizados' : 'Los de siempre'}
+                        activo={criteriosPropios}
+                        onCambiar={(v) => onCambiar(f => conCriteriosPropios(f, v))}
+                    />
+                </div>
+                {!criteriosPropios && (
+                    <p className="ayuda">
+                        Se usan los criterios predeterminados de este flujo. Activa «Personalizados»
+                        para quitar los que sobren, renombrarlos o agregar otros.
+                    </p>
+                )}
+
+                {criteriosPropios && (flujo.criterios || []).length === 0 && (
+                    <p className="ayuda">
+                        Sin criterios: este flujo se revisa sin casillas, solo con el veredicto y
+                        las observaciones.
+                    </p>
+                )}
+                {criteriosPropios && (flujo.criterios || []).map((c, i) => (
+                    <div className="admin-fila" key={c.clave}>
+                        <input
+                            type="text"
+                            className="inp"
+                            placeholder="Qué se revisa (ej. Puntualidad)"
+                            aria-label={`Criterio ${i + 1} del flujo ${flujo.nombre}`}
+                            value={c.etiqueta || ''}
+                            onChange={e => onCambiar(f => conCriterio(f, i, e.target.value))}
+                        />
+                        <button
+                            type="button"
+                            className="icon-btn peligro"
+                            aria-label={`Quitar criterio ${c.etiqueta || i + 1}`}
+                            onClick={() => onCambiar(f => sinCriterio(f, i))}
+                        >
+                            ✕
+                        </button>
+                    </div>
+                ))}
+                {criteriosPropios && (
+                    <button type="button" className="btn-dashed" onClick={() => onCambiar(f => conNuevoCriterio(f))}>
+                        + Agregar criterio
+                    </button>
+                )}
             </div>
         </details>
     );
@@ -283,7 +351,7 @@ function FilaVeredicto({ resultado, onCambiar, onQuitar }: {
                     value={resultado.tono}
                     onChange={e => onCambiar('tono', e.target.value)}
                 >
-                    {TONOS.map(t => <option value={t} key={t}>{t}</option>)}
+                    {TONOS.map(t => <option value={t} key={t}>{ETIQUETA_TONO[t] ?? t}</option>)}
                 </select>
                 <select
                     className="inp"
@@ -291,7 +359,7 @@ function FilaVeredicto({ resultado, onCambiar, onQuitar }: {
                     value={resultado.estilo || 'txt'}
                     onChange={e => onCambiar('estilo', e.target.value)}
                 >
-                    {ESTILOS.map(e => <option value={e} key={e}>{e}</option>)}
+                    {ESTILOS.map(e => <option value={e} key={e}>{ETIQUETA_ESTILO[e] ?? e}</option>)}
                 </select>
             </div>
 

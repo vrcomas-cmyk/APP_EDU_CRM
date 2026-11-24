@@ -125,7 +125,14 @@ export const FORMULARIOS = {
             // decide es si exigir al menos uno para guardar.
             { id: 'sectores',   etiqueta: 'Al menos un sector', defecto: MODOS.OBLIGATORIO, sinOculto: true },
             { id: 'estrategia', etiqueta: 'Estrategias',       defecto: MODOS.OPCIONAL },
-            { id: 'notas',      etiqueta: 'Notas',             defecto: MODOS.OPCIONAL }
+            { id: 'notas',      etiqueta: 'Notas',             defecto: MODOS.OPCIONAL },
+            // Qué pide cada tipo de tiempo no-cliente. Obligatorio = exige check-in antes de
+            // registrar / genera deuda de evidencia; Opcional = se puede usar sin exigirse;
+            // Oculto = no se muestra el check-in (la evidencia deja de ser deuda).
+            { id: 'checkin_administrativo',    etiqueta: 'Administrativa · Check-in / Check-out', defecto: MODOS.OPCIONAL },
+            { id: 'evidencia_administrativo',  etiqueta: 'Administrativa · Evidencia',            defecto: MODOS.OPCIONAL },
+            { id: 'checkin_evento',            etiqueta: 'Evento · Check-in / Check-out',         defecto: MODOS.OPCIONAL },
+            { id: 'evidencia_evento',          etiqueta: 'Evento · Evidencia',                    defecto: MODOS.OPCIONAL }
         ]
     },
     // Reagendar y cancelar piden un motivo: por defecto obligatorio (es lo que deja rastro de por qué

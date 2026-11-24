@@ -26,6 +26,7 @@ import { VistaMes } from './VistaMes';
 import { AgendaMovil } from './AgendaMovil';
 import * as repo from '@modules/visitas/repository/visitasRepo';
 import type { Visita } from '@core/tipos';
+import { Icono } from '@shared/components/Icono';
 
 export interface PropsCalendario {
     /** Cambia cuando algo de fuera modifica las visitas; fuerza releer el almacén. */
@@ -463,7 +464,7 @@ function ModalMotivo({ pregunta, onCancelar, onConfirmar }: {
                         <h3>Motivo del cambio</h3>
                         <span className="eyebrow">{pregunta}</span>
                     </div>
-                    <button type="button" className="icon-btn" aria-label="Cerrar" onClick={onCancelar}>✕</button>
+                    <button type="button" className="icon-btn" aria-label="Cerrar" onClick={onCancelar}><Icono clave="cerrar" tam={14} /></button>
                 </div>
                 <div className="modal-body">
                     <label className="campo">

@@ -26,6 +26,7 @@ import { ReporteActividades } from '@modules/reporteActividades/components/Repor
 import { Historico } from '@modules/historico/components/Historico';
 import { Supervision } from '@modules/supervision/components/Supervision';
 import { LimiteDeError } from '@shared/components/LimiteDeError';
+import { activarAccesibilidadDeDialogos } from '@shared/a11y/dialogos';
 import { enSimulacion, type Avisar } from '@core/puente';
 
 export interface OpcionesVistas {
@@ -45,6 +46,8 @@ let irAModulo: ((c: ClaveModulo) => void) | null = null;
 
 export function initVistas(op: OpcionesVistas = {}): void {
     opciones = op;
+    // Rol, trampa de foco y regreso del foco para todas las ventanas `.modal` (ver el módulo).
+    activarAccesibilidadDeDialogos();
 
     const host = document.getElementById('main');
     if (!host) return;

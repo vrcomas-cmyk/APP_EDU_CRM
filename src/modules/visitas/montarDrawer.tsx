@@ -17,6 +17,8 @@ import { VisitaDrawer } from './components/VisitaDrawer';
 import { LimiteDeError } from '@shared/components/LimiteDeError';
 import { nuevaVisita, type DatosNuevaVisita } from './services/fabricas';
 import * as repo from './repository/visitasRepo';
+import { tieneCapturaPerdible } from './validators/requisitos';
+import type { Visita } from '@core/tipos';
 import { sesionActual, zonaDeCliente, ejecutivoDeZona, type Avisar } from '@core/puente';
 
 import { abrirSector } from '@modules/sectores/montarSector';
@@ -72,6 +74,20 @@ export function initDrawer({ onCambio, onToast }: {
 
 export function hayDrawerAbierto(): boolean {
     return visitaAbierta !== null;
+}
+
+/**
+ * Borradores de visita que conservan algo capturado, del más reciente al más viejo.
+ * Son los que el usuario cerró sin guardar: siguen en este dispositivo y se pueden retomar.
+ * Un borrador vacío no cuenta (es un botón presionado por error).
+ */
+export function borradoresPropios(): Visita[] {
+    const correo = sesionActual()?.correo;
+    // Los ids nacen con marca de tiempo; el último creado va primero.
+    return repo.leerVisitas()
+        .filter(v => v.borrador && tieneCapturaPerdible(v)
+            && (!correo || !v.educador_correo || v.educador_correo === correo))
+        .reverse();
 }
 
 export function abrirVisita(id: string): void {

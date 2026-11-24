@@ -36,6 +36,7 @@ import { PieVisita } from './PieVisita';
 import { rotuloEn } from '@shared/services/campos';
 import { esRequeridoEn } from '@core/puente';
 import type { Visita } from '@core/tipos';
+import { Icono } from '@shared/components/Icono';
 
 export interface PropsDrawer {
     visitaId: string;
@@ -139,25 +140,41 @@ export function VisitaDrawer({
     }, [visita, editar]);
 
     /**
-     * Cerrar sin guardar DESCARTA el borrador.
+     * Cerrar un borrador con algo capturado NO lo pierde sin preguntar: ofrece Seguir editando,
+     * Guardar borrador y salir (queda en este dispositivo y se retoma desde el botón
+     * "borradores" de la barra) o Descartar.
      *
-     * Es lo contrario de lo que hace la actividad, que sí conserva el suyo. La diferencia es
-     * que la actividad cuelga de una visita que ya existe y se ve en su lista; una visita a
-     * medias no colgaría de nada. Guardarla la pondría en el calendario como una cita real que
-     * nadie confirmó, y conservarla sin guardar la volvería invisible: trabajo atrapado en un
-     * registro que ya no aparece por ningún lado.
+     * La pregunta es en línea, no `confirm()`: en la app instalada `confirm()` devuelve false
+     * sin mostrar nada, y el borrador quedaba atorado — ni se podía cerrar ni descartar. Un
+     * borrador vacío (botón presionado por error) sí se descarta solo.
      */
+    const [confirmandoCierre, setConfirmandoCierre] = useState(false);
+
     const cerrar = useCallback(() => {
         const actual = repo.obtenerVisita(visitaId);
 
         if (actual?.borrador) {
-            if (tieneCapturaPerdible(actual)
-                && !confirm('Esta visita no se ha guardado.\n\n¿Descartarla? Lo capturado se pierde.')) {
+            if (tieneCapturaPerdible(actual)) {
+                setConfirmandoCierre(true);
                 return;
             }
             repo.eliminarVisita(actual.id);
         }
 
+        onCerrar();
+        alCambiar();
+    }, [visitaId, onCerrar, alCambiar]);
+
+    /** Conserva el borrador tal cual (ya se autoguarda) y cierra el panel. */
+    const guardarBorradorYSalir = useCallback(() => {
+        setConfirmandoCierre(false);
+        onCerrar();
+        alCambiar();
+    }, [onCerrar, alCambiar]);
+
+    const descartarBorrador = useCallback(() => {
+        repo.eliminarVisita(visitaId);
+        setConfirmandoCierre(false);
         onCerrar();
         alCambiar();
     }, [visitaId, onCerrar, alCambiar]);
@@ -329,6 +346,21 @@ export function VisitaDrawer({
             <div className="scrim" onClick={cerrar} />
 
             <aside className="drawer" role="dialog" aria-modal="true" aria-label="Visita" ref={panelRef}>
+                {confirmandoCierre && (
+                    <div className="aviso" role="alertdialog" aria-label="Visita sin guardar"
+                         style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+                        <strong style={{ flex: '1 1 100%' }}>Esta visita no se ha guardado.</strong>
+                        <button type="button" className="btn-txt" onClick={() => setConfirmandoCierre(false)}>
+                            Seguir editando
+                        </button>
+                        <button type="button" className="btn-txt" onClick={guardarBorradorYSalir}>
+                            Guardar borrador y salir
+                        </button>
+                        <button type="button" className="btn-txt" onClick={descartarBorrador}>
+                            Descartar
+                        </button>
+                    </div>
+                )}
                 {sector ? (
                     <>
                         <CabeceraSector
@@ -518,7 +550,7 @@ function ModalCancelacion({ visita, onCancelar, onConfirmar }: {
                             {etiquetaVisita(visita)} · no se borra, queda en el calendario como registro
                         </span>
                     </div>
-                    <button type="button" className="icon-btn" aria-label="Cerrar" onClick={onCancelar}>✕</button>
+                    <button type="button" className="icon-btn" aria-label="Cerrar" onClick={onCancelar}><Icono clave="cerrar" tam={14} /></button>
                 </div>
                 <div className="modal-body">
                     <label className="campo">
@@ -576,7 +608,7 @@ function CabeceraVisita({ visita, onCerrar }: { visita: Visita; onCerrar: () => 
                 )}
             </div>
 
-            <button type="button" className="icon-btn" aria-label="Cerrar" onClick={onCerrar}>✕</button>
+            <button type="button" className="icon-btn" aria-label="Cerrar" onClick={onCerrar}><Icono clave="cerrar" tam={14} /></button>
         </div>
     );
 }

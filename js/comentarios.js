@@ -154,6 +154,23 @@ export function comentariosPendientes() {
     return leerComentarios().filter(c => !c.sincronizado);
 }
 
+/**
+ * Incorpora los comentarios que el servidor trae de OTRAS personas (y de otros dispositivos
+ * propios). Solo agrega los que no existen aquí, por id: un comentario nunca se edita, así que
+ * no hay nada que reconciliar. Llegan como ya sincronizados. Devuelve true si cambió algo.
+ */
+export function fusionarComentariosRemotos(remotos) {
+    if (!Array.isArray(remotos) || remotos.length === 0) return false;
+    const lista = leerComentarios();
+    const conocidos = new Set(lista.map(c => c.id));
+    const nuevos = remotos
+        .filter(c => c && c.id && !conocidos.has(c.id))
+        .map(c => ({ ...c, id_visita: c.id_visita || '', sincronizado: true }));
+    if (nuevos.length === 0) return false;
+    persistir([...lista, ...nuevos].slice(-MAX_LOCALES - 1000));
+    return true;
+}
+
 export function marcarSincronizados(ids) {
     const set = new Set(ids);
     const lista = leerComentarios();

@@ -58,7 +58,7 @@ describe('visita', () => {
 
 describe('estrategia', () => {
     const base = {
-        cliente: 'Hospital X', sector: 'GASAS', grupo: 'Gasas', tipo: '', etapa: '',
+        cliente: 'Hospital X', sector: 'GASAS', grupo: 'Gasas', tipo: '',
         proyecto: '', productos: [] as string[], observaciones: ''
     };
 
@@ -71,10 +71,10 @@ describe('estrategia', () => {
         );
     });
 
-    test('Administración puede exigir etapa y productos', () => {
+    test('Administración puede exigir productos; la etapa ya no se pide al crear', () => {
         ponerCatalogo({ formularios: { estrategia: { etapa: 'obligatorio', productos: 'obligatorio' } } });
-        assert.deepEqual(faltaEnEstrategia(base), ['Etapa', 'Productos']);
-        assert.deepEqual(faltaEnEstrategia({ ...base, etapa: 'Venta', productos: ['GASA'] }), []);
+        assert.deepEqual(faltaEnEstrategia(base), ['Productos']);
+        assert.deepEqual(faltaEnEstrategia({ ...base, productos: ['GASA'] }), []);
     });
 });
 

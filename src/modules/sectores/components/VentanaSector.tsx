@@ -26,6 +26,7 @@ import * as repo from '@modules/visitas/repository/visitasRepo';
 import type { Sector, Visita } from '@core/tipos';
 import { Dato } from '@shared/components/Dato';
 import { rotuloEn, esVisibleEn } from '@shared/services/campos';
+import { Icono } from '@shared/components/Icono';
 
 export interface PropsVentanaSector {
     visitaId: string;
@@ -108,7 +109,7 @@ export function VentanaSector({
                                 : (visita.hospital || visita.cliente || 'Visita')}
                         </span>
                     </div>
-                    <button type="button" className="icon-btn" aria-label="Cerrar" onClick={cerrar}>✕</button>
+                    <button type="button" className="icon-btn" aria-label="Cerrar" onClick={cerrar}><Icono clave="cerrar" tam={14} /></button>
                 </div>
 
                 {sectorActual ? (

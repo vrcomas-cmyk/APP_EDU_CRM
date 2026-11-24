@@ -22,7 +22,7 @@ export function Dato(
     return (
         <div className={'dato'}>
             <span className="dato-lbl">{etiqueta}</span>
-            <span className={'dato-val ' + clase}>{vacio ? '—' : valor}</span>
+            <span className={'dato-val ' + clase}>{vacio ? (cargando ? '…' : '—') : valor}</span>
         </div>
     );
 }

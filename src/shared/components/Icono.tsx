@@ -18,7 +18,9 @@
 import { type JSX } from 'react';
 import { type ClaveModulo } from '../../app/navegacion/modulos';
 
-export type ClaveIcono = ClaveModulo;
+/** Iconos de acción y estado: los que antes eran glifos de texto (✕ ✓ ✗) o emojis (🗄 📍). */
+export type ClaveUtilidad = 'cerrar' | 'ok' | 'no' | 'archivar' | 'restaurar' | 'ubicacion';
+export type ClaveIcono = ClaveModulo | ClaveUtilidad;
 
 const ICONOS: Record<ClaveIcono, { titulo: string; cuerpo: JSX.Element }> = {
     // Calendario: rejilla con días y un día marcado.
@@ -142,6 +144,37 @@ const ICONOS: Record<ClaveIcono, { titulo: string; cuerpo: JSX.Element }> = {
             <>
                 <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z" />
                 <circle cx="12" cy="12" r="3" />
+            </>
+        )
+    },
+    cerrar: { titulo: 'Cerrar', cuerpo: <path d="M6 6l12 12M18 6L6 18" /> },
+    ok: { titulo: 'Cumple', cuerpo: <path d="M5 12.5l4.5 4.5L19 7.5" /> },
+    no: { titulo: 'No cumple', cuerpo: <path d="M6 6l12 12M18 6L6 18" /> },
+    archivar: {
+        titulo: 'Archivar',
+        cuerpo: (
+            <>
+                <rect x="3" y="4" width="18" height="4" rx="1" />
+                <path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8" />
+                <path d="M10 12.5h4" />
+            </>
+        )
+    },
+    restaurar: {
+        titulo: 'Restaurar',
+        cuerpo: (
+            <>
+                <path d="M4 12a8 8 0 1 0 2.6-5.9" />
+                <path d="M4 4v4.5h4.5" />
+            </>
+        )
+    },
+    ubicacion: {
+        titulo: 'Ubicación',
+        cuerpo: (
+            <>
+                <path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z" />
+                <circle cx="12" cy="9.5" r="2.5" />
             </>
         )
     },

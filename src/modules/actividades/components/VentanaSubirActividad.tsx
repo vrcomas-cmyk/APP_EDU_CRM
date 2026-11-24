@@ -14,6 +14,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { CabeceraCliente } from './CabeceraCliente';
 import {
     sectores as catalogoSectores, sesionActual, describirDispositivo,
     registrar, TIPOS_EVENTO, type Avisar
@@ -25,6 +26,7 @@ import { nuevaActividad, selloDeActividad } from '../services/fabricas';
 import { FormularioActividad } from './FormularioActividad';
 import * as repo from '@modules/visitas/repository/visitasRepo';
 import type { Actividad, Sector, Visita } from '@core/tipos';
+import { Icono } from '@shared/components/Icono';
 
 export interface PropsSubirActividad {
     visitaId: string;
@@ -188,8 +190,10 @@ export function VentanaSubirActividad({
                             Se llena una vez y se aplica a los sectores que elijas
                         </span>
                     </div>
-                    <button type="button" className="icon-btn" aria-label="Cerrar" onClick={cerrar}>✕</button>
+                    <button type="button" className="icon-btn" aria-label="Cerrar" onClick={cerrar}><Icono clave="cerrar" tam={14} /></button>
                 </div>
+
+                <CabeceraCliente visita={visita} />
 
                 {/* Un solo contenedor con scroll: el sector va PRIMERO porque de él depende qué
                     materiales se ofrecen; dos cuerpos hermanos se encogían uno al otro. */}
@@ -322,9 +326,9 @@ function SeccionSectores({
                             <button
                                 key={nombre} type="button" className="chip on"
                                 onClick={() => onQuitarNuevo(nombre)}
-                                title="Quitar"
+                                title="Quitar" aria-label={`Quitar ${nombre}`}
                             >
-                                {nombre} ✕
+                                {nombre} <span aria-hidden="true">✕</span>
                             </button>
                         ))}
                     </div>

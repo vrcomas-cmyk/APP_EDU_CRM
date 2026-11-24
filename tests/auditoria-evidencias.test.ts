@@ -114,7 +114,8 @@ describe('evidencia local pendiente de sincronizar', () => {
 
         const actual = leerVisitas().find((x: any) => x.id === v.id).sectores[0].actividades[0];
         assert.equal(actual.evidencia.estado, 'local');
-        assert.equal(actual.evidencia.nombre, 'informe.pdf');
+        // Con la nomenclatura estándar el nombre ya no es el del archivo original.
+        assert.equal(actual.evidencia.nombre, '2026.07.15. CAP. CLIENTE UNO. GASAS.pdf');
         assert.equal(actual.evidencia.mime, 'application/pdf');
         assert.equal(actual.evidencia.url, '', 'sin URL: todavía no existe en el servidor');
     });
@@ -163,7 +164,7 @@ describe('quitar y volver a subir', () => {
         await adjuntarEvidencia(a.id, archivo('application/pdf', 2048, 'segunda.pdf'));
 
         const actual = leerVisitas().find((x: any) => x.id === v.id).sectores[0].actividades[0];
-        assert.equal(actual.evidencia.nombre, 'segunda.pdf');
+        assert.equal(actual.evidencia.nombre, '2026.07.15. CAP. CLIENTE UNO. GASAS.pdf');
         assert.equal(actual.evidencia.estado, 'local');
     });
 

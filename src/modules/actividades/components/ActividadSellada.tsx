@@ -16,6 +16,7 @@ import { NodoVanilla } from '@shared/components/NodoVanilla';
 import { textoDelSello } from '../services/fabricas';
 import type { Actividad, Sector, Visita, Material } from '@core/tipos';
 import { Dato } from '@shared/components/Dato';
+import { Icono } from '@shared/components/Icono';
 
 export interface PropsSellada {
     visita: Visita;
@@ -41,7 +42,7 @@ export function ActividadSellada({
     return (
         <div className="modal-body">
             <div className="sello es-guardada">
-                <span className="sello-ico">✓</span>
+                <span className="sello-ico"><Icono clave="ok" tam={13} /></span>
                 <span className="sello-txt">{textoDelSello(actividad.guardada)}</span>
             </div>
 
