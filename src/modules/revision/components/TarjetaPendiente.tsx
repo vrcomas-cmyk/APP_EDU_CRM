@@ -13,7 +13,7 @@ import { Dato } from '@shared/components/Dato';
 import { NodoVanilla } from '@shared/components/NodoVanilla';
 
 import { AccionesRevision } from './AccionesRevision';
-import { ExpedienteVisita } from './ExpedienteVisita';
+import { ExpedienteVisita, MiniaturasDeVisita } from './ExpedienteVisita';
 import { pideOrigen, textoMaterial } from '../services/materiales';
 import { ComentariosDeVisita, HistorialRevisiones } from './LoYaDicho';
 
@@ -46,6 +46,9 @@ export function TarjetaPendiente({ flujo, item, onEnviar }: Props) {
             </div>
 
             <Contexto flujo={flujo} item={item} />
+
+            {/* Calidad/cumplimiento revisan la visita entera: sus evidencias van a la vista. */}
+            {!item.actividad && <MiniaturasDeVisita visita={item.visita} />}
 
             {/* Plegado: el registro completo (sectores, actividades, materiales y evidencia)
                 pesa mucho para tenerlo siempre abierto en una cola de veinte elementos, pero

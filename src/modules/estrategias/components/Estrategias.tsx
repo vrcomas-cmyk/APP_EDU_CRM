@@ -80,7 +80,18 @@ export function Estrategias({ avisar }: { avisar?: Avisar }) {
         };
     }, [refrescar]);
     // Se sube en segundo plano: no hacer esperar a quien está planeando por un POST.
-    const subir = useCallback(() => { sincronizarEstrategias().then(refrescar).catch(() => {}); }, [refrescar]);
+    // Un fallo de subida NO es silencioso: el cambio queda en este dispositivo, pero quien lo hizo
+    // tiene que saber que el equipo todavía no lo ve (antes se tragaba el error y parecía guardado).
+    const subir = useCallback(() => {
+        sincronizarEstrategias().then(refrescar).catch((err: unknown) => {
+            console.error('No se pudieron subir las estrategias:', err);
+            if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+            avisar?.(
+                `Se guardó en este dispositivo, pero no se pudo subir al servidor: ${err instanceof Error ? err.message : 'error desconocido'}.`,
+                { estado: 'sin-registrar' }
+            );
+        });
+    }, [refrescar, avisar]);
 
     const guardar = useCallback((datos: Estrategia) => {
         const sesion = sesionActual();
@@ -135,7 +146,25 @@ export function Estrategias({ avisar }: { avisar?: Avisar }) {
 
     const cambiarValor = useCallback((id: string, valor: number | undefined) => {
         const sesion = sesionActual();
-        cambiarValorMensual(id, valor, { correo: sesion?.correo, nombre: sesion?.nombre });
+        try {
+            cambiarValorMensual(id, valor, { correo: sesion?.correo, nombre: sesion?.nombre });
+        } catch (err) {
+            console.error('No se pudo guardar el valor mensual:', err);
+            const motivo = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+            const lleno = err instanceof DOMException && err.name === 'QuotaExceededError';
+            avisar?.(
+                lleno
+                    ? 'No se pudo guardar el valor: el almacenamiento del navegador está lleno. Libera espacio e inténtalo de nuevo.'
+                    : `No se pudo guardar el valor mensual (${motivo}).`,
+                { estado: 'sin-registrar' }
+            );
+            return;
+        }
+        // Se comprueba lo que quedó escrito: si el valor no cambió, no se dice que sí.
+        if (leerEstrategias().find(e => e.id === id)?.valor_mensual !== valor) {
+            avisar?.('El valor mensual no se pudo actualizar. Revisa que sea un número válido.', { estado: 'sin-registrar' });
+            return;
+        }
         refrescar();
         avisar?.('Valor mensual actualizado.', { estado: 'completa' });
         subir();
@@ -1298,16 +1327,12 @@ function FormularioEstrategia({ estrategia, sectores, clientes, onGuardar, onCer
     const [grupo, setGrupo] = useState(estrategia?.grupo_articulo || '');
     const [tipoEstrategia, setTipoEstrategia] = useState(estrategia?.tipo_estrategia || '');
     const [descripcion, setDescripcion] = useState(estrategia?.descripcion || '');
-    const [etapa, setEtapa] = useState(estrategia?.etapa || '');
-    const [estatus, setEstatus] = useState(estrategia?.estatus || 'Pendiente');
     const [proyecto, setProyecto] = useState(estrategia?.proyecto || '');
     const [productos, setProductos] = useState<string[]>(estrategia?.productos || []);
     const [observaciones, setObservaciones] = useState(estrategia?.observaciones || '');
 
     const opcionesCliente = useCallback((q: string) => filtrar(clientes, q), [clientes]);
     const catalogoTipos = useMemo(() => tiposEstrategia(), []);
-    const catalogoEtapas = useMemo(() => etapasEstrategia(), []);
-    const catalogoEstatus = useMemo(() => estatusEstrategia(), []);
     const [valorMensual, setValorMensual] = useState(
         estrategia?.valor_mensual === undefined ? '' : String(estrategia.valor_mensual)
     );
@@ -1334,7 +1359,7 @@ function FormularioEstrategia({ estrategia, sectores, clientes, onGuardar, onCer
     }, [sector, grupo]);
 
     const falta = faltaEnEstrategia({
-        cliente, sector, grupo, tipo: tipoEstrategia, etapa, proyecto, productos, observaciones
+        cliente, sector, grupo, tipo: tipoEstrategia, proyecto, productos, observaciones
     });
     const listo = falta.length === 0;
     const visible = (campo: string) => esVisibleEn('estrategia', campo);
@@ -1346,7 +1371,7 @@ function FormularioEstrategia({ estrategia, sectores, clientes, onGuardar, onCer
                 <div className="modal-head">
                     <div className="drawer-head-txt">
                         <h3>Nueva estrategia</h3>
-                        <span className="eyebrow">Una vez guardada es de solo lectura: solo avanzan la etapa y el estatus</span>
+                        <span className="eyebrow">Una vez guardada es de solo lectura; la etapa y el estatus se registran después, en «Registrar avance»</span>
                     </div>
                     <button type="button" className="icon-btn" aria-label="Cerrar" onClick={onCerrar}><Icono clave="cerrar" tam={14} /></button>
                 </div>
@@ -1419,25 +1444,6 @@ function FormularioEstrategia({ estrategia, sectores, clientes, onGuardar, onCer
                                 </label>
                             )}
                         </div>
-                    )}
-
-                    {visible('etapa') && (
-                        <label className="campo">
-                            <span className="campo-lbl">{rotulo('etapa', 'Etapa')}</span>
-                            <select className="inp" value={etapa} onChange={(e) => setEtapa(e.target.value)}>
-                                <option value="">Sin definir</option>
-                                {catalogoEtapas.map(o => <option key={o} value={o}>{o}</option>)}
-                            </select>
-                        </label>
-                    )}
-
-                    {visible('estatus') && (
-                        <label className="campo">
-                            <span className="campo-lbl">{rotulo('estatus', 'Estatus')}</span>
-                            <select className="inp" value={estatus} onChange={(e) => setEstatus(e.target.value)}>
-                                {catalogoEstatus.map(o => <option key={o} value={o}>{o}</option>)}
-                            </select>
-                        </label>
                     )}
 
                     {estrategia && visible('etapa') && <LineaTiempoEtapas etapas={estrategia.etapas} />}
@@ -1518,8 +1524,9 @@ function FormularioEstrategia({ estrategia, sectores, clientes, onGuardar, onCer
                                 grupo_articulo: grupo || undefined,
                                 tipo_estrategia: tipoEstrategia || undefined,
                                 descripcion: descripcion.trim() || undefined,
-                                etapa: etapa || undefined,
-                                estatus: estatus || undefined,
+                                // Etapa y estatus no se capturan al crear: nace Pendiente y avanza en «Registrar avance».
+                                etapa: estrategia?.etapa,
+                                estatus: estrategia?.estatus || 'Pendiente',
                                 proyecto: proyecto.trim() || undefined,
                                 productos: productos.length > 0 ? productos : undefined,
                                 observaciones: observaciones.trim() || undefined,

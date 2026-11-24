@@ -221,7 +221,7 @@ describe('Estrategias', () => {
         llenarObligatorios();
         await act(async () => { fireEvent.click(screen.getByText('Guardar')); });
         fireEvent.click(screen.getByLabelText(`Ver el detalle de ${cliente}`));
-        fireEvent.click(screen.getByText('Gasas', { selector: 'td' }));
+        fireEvent.click(screen.getByText('Gasas', { selector: '.fila-estrategia-titulo b' }));
     }
 
     test('no existe forma de eliminar una estrategia', async () => {
@@ -255,7 +255,11 @@ describe('Estrategias', () => {
         await crearYAbrir();
         const detalle = within(screen.getByRole('dialog', { name: 'Detalle de la estrategia' }));
 
-        fireEvent.click(detalle.getByText('Finalizar', { exact: false }));
+        // El detalle de la estrategia ya no tiene Finalizar/Cerrar (viven en el detalle del cliente):
+        // se finaliza eligiendo el estatus «Finalizado» en «Registrar avance».
+        assert.equal(detalle.queryByText('Cerrar', { selector: 'button.btn-txt' }), null);
+        fireEvent.change(detalle.getByLabelText('Estatus'), { target: { value: 'Finalizado' } });
+        fireEvent.click(detalle.getByText('Registrar avance', { selector: 'button' }));
         const modalFin = within(screen.getByRole('dialog', { name: 'Finalizar estrategia' }));
         const confirmar = modalFin.getByText('Finalizar', { selector: 'button.btn-principal' }) as HTMLButtonElement;
         assert.equal(confirmar.disabled, true, 'sin comentario no se puede finalizar');
@@ -296,7 +300,7 @@ describe('Estrategias', () => {
         await act(async () => { fireEvent.click(screen.getByText('Guardar')); });
 
         fireEvent.click(screen.getByLabelText('Ver el detalle de Cliente Uno'));
-        fireEvent.click(screen.getByText('Gasas', { selector: 'td' }));
+        fireEvent.click(screen.getByText('Gasas', { selector: '.fila-estrategia-titulo b' }));
         fireEvent.click(screen.getByLabelText('Archivar GASA SIMPLE'));
 
         const e = leerEstrategias()[0] as { archivada?: boolean; productos_archivados?: string[] };

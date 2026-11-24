@@ -292,6 +292,13 @@ describe('Finalizar / Cerrar y valor mensual', () => {
         assert.equal(e.nota_evento, 'Visita del 20/10/2026: se habló con compras');
     });
 
+    test('el valor que viene del servidor como null se trata como "sin valor"', () => {
+        guardarEstrategias([{ id: 'e2', cliente: 'C', valor_mensual: null, etapas: [] }] as never);
+        const e = cambiarValorMensual('e2', 1500, actor) as { valor_mensual?: number; nota_evento?: string };
+        assert.equal(e.valor_mensual, 1500);
+        assert.match(e.nota_evento ?? '', /sin valor/);
+    });
+
     test('cambiar el valor mensual deja valor anterior y nuevo en la bitácora', () => {
         cambiarValorMensual('e1', 1500, actor);
         cambiarValorMensual('e1', 2500, actor);

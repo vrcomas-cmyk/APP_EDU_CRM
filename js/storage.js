@@ -120,11 +120,51 @@ function esErrorDeCuota(err) {
 export function guardarConCuotaSegura(clave, valorSerializado) {
     try {
         localStorage.setItem(clave, valorSerializado);
+        return;
     } catch (err) {
         if (!esErrorDeCuota(err) || clave === CLAVE_CATALOGO) throw err;
-        console.warn('Cuota de localStorage excedida; se libera el catálogo para reintentar.', err);
-        try { localStorage.removeItem(CLAVE_CATALOGO); } catch { /* nada más que intentar aquí */ }
-        localStorage.setItem(clave, valorSerializado); // si esto también falla, se propaga
+        console.warn('Cuota de localStorage excedida; se libera espacio prescindible.', err);
+    }
+
+    // De lo más barato de recuperar a lo más caro: respaldos de migración, bitácora ya subida y,
+    // al final, el catálogo (se vuelve a bajar, pero pesa). Tras cada paso se reintenta: se libera
+    // lo mínimo que haga falta, no todo de golpe.
+    const pasos = [liberarRespaldos, liberarBitacoraSubida, () => localStorage.removeItem(CLAVE_CATALOGO)];
+    for (const paso of pasos) {
+        try { paso(); } catch { /* si un paso falla, se sigue con el siguiente */ }
+        try {
+            localStorage.setItem(clave, valorSerializado);
+            return;
+        } catch (err) {
+            if (!esErrorDeCuota(err)) throw err;
+        }
+    }
+    localStorage.setItem(clave, valorSerializado); // si esto también falla, se propaga
+}
+
+/** Respaldos de migraciones viejas (`visitas_backup_v1…`): una copia entera de las visitas cada uno. */
+function liberarRespaldos() {
+    const claves = [];
+    for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith(CLAVE_BACKUP)) claves.push(k);
+    }
+    claves.forEach(k => localStorage.removeItem(k));
+}
+
+/**
+ * Eventos y comentarios que YA están en el servidor: se queda solo lo reciente. Los pendientes
+ * (`sincronizado` falso) no se tocan nunca: son lo único que no existe en otro lado.
+ */
+function liberarBitacoraSubida() {
+    for (const k of [clave('eventos'), clave('comentarios')]) {
+        const crudo = localStorage.getItem(k);
+        if (!crudo) continue;
+        const lista = JSON.parse(crudo);
+        if (!Array.isArray(lista)) continue;
+        const pendientes = lista.filter(x => !x.sincronizado);
+        const subidos = lista.filter(x => x.sincronizado).slice(-200);
+        localStorage.setItem(k, JSON.stringify([...subidos, ...pendientes]));
     }
 }
 
@@ -382,9 +422,10 @@ export function cambiarValorMensual(id, valor, actor = {}) {
     if (nuevo !== undefined && !Number.isFinite(nuevo)) return null;
 
     return actualizarEstrategia(id, (e) => {
-        const antes = e.valor_mensual;
+        // El servidor manda `null` cuando no hay valor; en el teléfono es `undefined`. Son lo mismo.
+        const antes = e.valor_mensual ?? undefined;
         if (antes === nuevo) return;
-        const mxn = (n) => (n === undefined ? 'sin valor' : n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' }));
+        const mxn = (n) => (n == null ? 'sin valor' : Number(n).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' }));
         const ahora = new Date().toISOString();
         e.valor_mensual = nuevo;
         e.nota_evento = `Valor mensual: ${mxn(antes)} → ${mxn(nuevo)}`;

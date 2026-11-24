@@ -2,7 +2,8 @@
  * Qué exige una estrategia para poder guardarse.
  *
  * Cliente, Sector y Grupo de artículo son fijos: sin ellos la estrategia no dice dónde ni qué
- * se trabaja. Lo demás lo decide Administración (Formularios → Estrategia).
+ * se trabaja. Lo demás lo decide Administración (Formularios → Estrategia). Etapa y estatus no se
+ * piden al crear: solo se registran después, con «Registrar avance».
  */
 
 import { esRequeridoEn } from '@core/puente';
@@ -12,7 +13,6 @@ export interface DatosEstrategia {
     sector: string;
     grupo: string;
     tipo: string;
-    etapa: string;
     proyecto: string;
     productos: string[];
     observaciones: string;
@@ -28,7 +28,6 @@ export function faltaEnEstrategia(d: DatosEstrategia): string[] {
     if (!lleno(d.sector)) falta.push('Sector');
     if (!lleno(d.grupo)) falta.push('Grupo de artículo');
     if (esRequeridoEn('estrategia', 'tipo') && !lleno(d.tipo)) falta.push('Estrategia');
-    if (esRequeridoEn('estrategia', 'etapa') && !lleno(d.etapa)) falta.push('Etapa');
     if (esRequeridoEn('estrategia', 'proyecto') && !lleno(d.proyecto)) falta.push('Proyecto / objetivo');
     if (esRequeridoEn('estrategia', 'productos') && d.productos.length === 0) falta.push('Productos');
     if (esRequeridoEn('estrategia', 'observaciones') && !lleno(d.observaciones)) falta.push('Observaciones');

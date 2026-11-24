@@ -506,6 +506,7 @@ let ultimaVueltaAPrimerPlano = 0;
 // Cambiar de pestaña y volver varias veces seguidas no debe lanzar una ronda completa cada vez:
 // cada ronda son 4 peticiones al servidor, y el rol anónimo corta cualquiera que pase de 3 s.
 const ENFRIAMIENTO_PRIMER_PLANO_MS = 20 * 1000;
+const ESPERA_ALEATORIA_PRIMER_PLANO_MS = 2500;
 
 /** Baja lo del equipo de inmediato y dispara la subida propia — ver comentario en el listener. */
 function volverAPrimerPlano() {
@@ -513,8 +514,12 @@ function volverAPrimerPlano() {
     if (Date.now() - ultimaVueltaAPrimerPlano < ENFRIAMIENTO_PRIMER_PLANO_MS) return;
     ultimaVueltaAPrimerPlano = Date.now();
     volviendoAPrimerPlano = true;
-    bajarDelEspejo().finally(() => { volviendoAPrimerPlano = false; });
-    sincronizar();
+    // Con varias personas, todas abren la app a la misma hora y volverían juntas a pedir lo mismo
+    // en el mismo segundo. Una espera aleatoria corta reparte esas peticiones sin que se note.
+    setTimeout(() => {
+        bajarDelEspejo().finally(() => { volviendoAPrimerPlano = false; });
+        sincronizar();
+    }, Math.random() * ESPERA_ALEATORIA_PRIMER_PLANO_MS);
 }
 
 /**
@@ -529,7 +534,16 @@ function volverAPrimerPlano() {
  */
 function reanudarAutoSync() {
     if (relojAutoSync) return;
-    relojAutoSync = setInterval(() => sincronizar(), INTERVALO_NORMAL_MS);
+    // Cada ciclo se agenda con ±20 % de variación en vez de un `setInterval` fijo: dos equipos que
+    // arrancaron a la vez no se quedan sincronizados el uno con el otro y pidiendo juntos cada 5 min.
+    const agendar = () => {
+        const variacion = 0.8 + Math.random() * 0.4;
+        relojAutoSync = setTimeout(() => {
+            sincronizar();
+            agendar();
+        }, INTERVALO_NORMAL_MS * variacion);
+    };
+    agendar();
 }
 
 // `sw.js` solo existe en el build (lo genera `serviceWorkerGenerado()`, vite.config.ts): en

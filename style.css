@@ -1159,6 +1159,7 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
+.evid-previa { display: flex; align-items: center; gap: var(--sp-2); width: 100%; }
 .evid { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 
 .btn-archivo {
@@ -2091,6 +2092,9 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 /* Mismo look que `.historial` (plegable con <details>) pero con su propia clase: no es
    historial de veredictos, es el árbol completo de la visita, y compartir la clase confundía
    a las pruebas que buscan "el" `.historial` de la tarjeta. */
+.revision-miniaturas { display: flex; flex-wrap: wrap; gap: var(--sp-3); }
+.revision-miniatura { margin: 0; display: flex; flex-direction: column; gap: var(--sp-1); max-width: 96px; }
+.revision-miniatura figcaption { font-size: var(--fs-xs); color: var(--muted); line-height: 1.3; overflow-wrap: anywhere; }
 .expediente-plegable {
   border: 1px solid var(--rule); border-radius: 8px; background: var(--surface-2);
 }

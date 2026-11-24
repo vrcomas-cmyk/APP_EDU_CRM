@@ -19,6 +19,7 @@ import { configuracionCampos, fechaDocumentoEnEvidencia, fechaDocumentoFaltante,
 import { campoFechaDD, cabeceraModal, cerrarConEscape } from './campos.js';
 import { fechaCorta } from './fechas.js';
 import { solicitudAbiertaDe, solicitarEliminacion } from './eliminacionEvidencia.js';
+import { miniaturaEvidencia } from './vistaprevia.js';
 
 const LADO_MAX = 1600;
 const CALIDAD_JPEG = 0.8;
@@ -281,6 +282,19 @@ export function controlEvidencia(actividad, { alCambiar = () => {}, alToast = ()
             await quitarEvidencia(actividad.id);
             alCambiar();
         });
+
+        // Vista previa ANTES de subir: confirmar que es el archivo correcto. Una vez subida solo se
+        // quita con la autorización del jefe, así que aquí es donde conviene equivocarse.
+        const previa = miniaturaEvidencia(actividad);
+        if (previa) {
+            const bloque = document.createElement('div');
+            bloque.className = 'evid-previa';
+            const leyenda = document.createElement('span');
+            leyenda.className = 'ayuda';
+            leyenda.textContent = 'Revisa que sea el archivo correcto antes de subirlo (toca para ampliar).';
+            bloque.append(previa, leyenda);
+            caja.appendChild(bloque);
+        }
 
         caja.append(listo, subir, quitar);
         agregarFecha();
