@@ -1159,7 +1159,7 @@ button, input, textarea, select { font-family: inherit; font-size: inherit; colo
 
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
-.evid-previa { display: flex; align-items: center; gap: var(--sp-2); width: 100%; }
+.evid-previa { width: 100%; }
 .evid { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 
 .btn-archivo {
