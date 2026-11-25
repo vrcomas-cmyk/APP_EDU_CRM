@@ -78,6 +78,9 @@ export function exigeCheck(visita) {
 
 /** ¿Se muestra el bloque de check-in/out? Solo se oculta si Administración lo oculta. */
 export function muestraCheck(visita) {
+    // Una visita ya iniciada siempre debe poder cerrarse, aunque Administración haya ocultado
+    // el check-in después: si no, queda "abierta" para siempre y bloquea iniciar cualquier otra.
+    if (tieneCheckIn(visita) && !tieneCheckOut(visita)) return true;
     return modoNoCliente(visita, 'checkin') !== MODOS.OCULTO;
 }
 
