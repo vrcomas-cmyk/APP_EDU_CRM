@@ -19,7 +19,6 @@ import { configuracionCampos, fechaDocumentoEnEvidencia, fechaDocumentoFaltante,
 import { campoFechaDD, cabeceraModal, cerrarConEscape } from './campos.js';
 import { fechaCorta } from './fechas.js';
 import { solicitudAbiertaDe, solicitarEliminacion } from './eliminacionEvidencia.js';
-import { miniaturaEvidencia } from './vistaprevia.js';
 
 const LADO_MAX = 1600;
 const CALIDAD_JPEG = 0.8;
@@ -283,20 +282,15 @@ export function controlEvidencia(actividad, { alCambiar = () => {}, alToast = ()
             alCambiar();
         });
 
-        // Vista previa ANTES de subir: confirmar que es el archivo correcto. Una vez subida solo se
-        // quita con la autorización del jefe, así que aquí es donde conviene equivocarse.
-        const previa = miniaturaEvidencia(actividad);
-        if (previa) {
-            const bloque = document.createElement('div');
-            bloque.className = 'evid-previa';
-            const leyenda = document.createElement('span');
-            leyenda.className = 'ayuda';
-            leyenda.textContent = 'Revisa que sea el archivo correcto antes de subirlo (toca para ampliar).';
-            bloque.append(previa, leyenda);
-            caja.appendChild(bloque);
-        }
+        // La vista previa ya la pone quien monta este control (la bandeja y la captura de actividad
+        // dibujan `miniaturaEvidencia` justo antes): aquí solo se avisa para qué sirve. Una vez
+        // subida, la evidencia solo se quita con la autorización del jefe; este es el momento de
+        // equivocarse.
+        const leyenda = document.createElement('span');
+        leyenda.className = 'ayuda evid-previa';
+        leyenda.textContent = 'Revisa en la vista previa que sea el archivo correcto antes de subirlo (toca para ampliar).';
 
-        caja.append(listo, subir, quitar);
+        caja.append(listo, leyenda, subir, quitar);
         agregarFecha();
         return caja;
     }

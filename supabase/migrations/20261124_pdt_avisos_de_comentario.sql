@@ -29,6 +29,9 @@ begin
         return new;
     end if;
 
+    -- Un aviso es secundario: si algo aquí falla, el comentario se guarda igual.
+    begin
+
     select v.educador_correo, v.cliente, v.hospital, v.dia
       into v_visita
       from pdt_visitas v
@@ -72,6 +75,9 @@ begin
         coalesce(new.usuario, v_autor), v_autor
     )
     on conflict (id) do nothing;
+    exception when others then
+        raise warning 'pdt_avisos_de_comentario: %', sqlerrm;
+    end;
 
     return new;
 end;

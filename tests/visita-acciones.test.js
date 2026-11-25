@@ -11,6 +11,7 @@ import assert from 'node:assert/strict';
 
 import { limpiarAlmacen } from './entorno.js';
 import { puedeIniciar, puedeFinalizar, iniciarVisita } from '../js/visita.js';
+import { muestraCheck } from '../js/estado.js';
 import { agregarVisita } from '../js/storage.js';
 import { visita, checkIn } from './ayuda/fixtures.js';
 
@@ -96,5 +97,21 @@ describe('iniciarVisita — blindaje contra dos visitas abiertas a la vez', () =
         const r = await iniciarVisita(nueva.id);
 
         assert.equal(r.ok, true);
+    });
+});
+
+describe('muestraCheck con el check-in oculto por Administración', () => {
+    beforeEach(() => {
+        limpiarAlmacen();
+        localStorage.setItem('datosPWA', JSON.stringify({ formularios: { visita: { checkin_administrativo: 'oculto' } } }));
+    });
+
+    test('una visita administrativa iniciada antes de ocultarlo se puede seguir cerrando', () => {
+        assert.equal(muestraCheck(visita({ tipo: 'administrativo', check_in: checkIn() })), true);
+    });
+
+    test('sin iniciar, o ya cerrada, rige la configuración', () => {
+        assert.equal(muestraCheck(visita({ tipo: 'administrativo' })), false);
+        assert.equal(muestraCheck(visita({ tipo: 'administrativo', check_in: checkIn(), check_out: checkIn() })), false);
     });
 });
